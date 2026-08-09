@@ -42,18 +42,41 @@ function normalizeRecipients(to) {
 
 async function sendMail(to, subject, html, text) {
   try {
-    const t = getTransporter();
-    await t.sendMail({
-      from: `"${process.env.SCHOOL_NAME || 'EduConnect'}" <${process.env.EMAIL_USER}>`,
-      to: normalizeRecipients(to).join(', '),
-      subject,
-      html,
-      text: text || htmlToText(html),
+    const recipients = normalizeRecipients(to);
+
+    if (!recipients.length) {
+      console.error("❌ No email recipient");
+      return false;
+    }
+
+    const response = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${process.env.RESEND_API_KEY}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        from: `${process.env.SCHOOL_NAME || "EduConnect"} <onboarding@resend.dev>`,
+        to: recipients,
+        subject,
+        html,
+        text: text || htmlToText(html)
+      })
     });
-    console.log(`📧 Email sent → ${to}`);
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      console.error("❌ Resend email failed:", data);
+      return false;
+    }
+
+    console.log(`📧 Email sent → ${recipients.join(", ")}`);
+    console.log("Resend ID:", data.id);
+
     return true;
   } catch (err) {
-    console.error(`❌ Email failed → ${to}:`, err.message);
+    console.error("❌ Email failed:", err.message);
     return false;
   }
 }
