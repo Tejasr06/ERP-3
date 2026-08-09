@@ -1033,8 +1033,8 @@ async function submitAttendance() {
   const records = attStudents.map(s=>{ const el=document.getElementById('att_'+s.studentId); return { studentId:s.studentId, subject:'All', date, status:(el?el.value:'Present') }; });
   if (!records.length) { toast('No students to mark','err'); return; }
   try {
-    await req('POST','/api/attendance',{records});
-    toast(`✅ Attendance submitted for ${records.length} students!`,'ok');
+    const data = await req('POST','/api/attendance',{records});
+    toast(`✅ ${data.message}`,'ok');
   } catch(e) { toast(e.message,'err'); }
 }
 

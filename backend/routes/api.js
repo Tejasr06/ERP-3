@@ -46,11 +46,37 @@ router.get('/attendance/:studentId', auth, async (req, res) => {
 router.post('/attendance', auth, adminOnly, async (req, res) => {
   const { records } = req.body;
   if (!Array.isArray(records)) return res.status(400).json({ error: 'records[] required.' });
-  await Attendance.insertMany(records);
-  // Check each student for low attendance
+
+  const operations = records.map(record => {
+    const normalizedRecord = {
+      studentId: record.studentId,
+      date: record.date,
+      subject: record.subject || 'All',
+      status: record.status,
+    };
+
+    return {
+      updateOne: {
+        filter: {
+          studentId: normalizedRecord.studentId,
+          date: normalizedRecord.date,
+          subject: normalizedRecord.subject,
+        },
+        update: {
+          $set: normalizedRecord,
+        },
+        upsert: true,
+      },
+    };
+  });
+
+  if (operations.length) {
+    await Attendance.bulkWrite(operations);
+  }
+
   const studentIds = [...new Set(records.map(r => r.studentId))];
   for (const sid of studentIds) await checkAttendanceAlert(sid);
-  res.json({ message: `${records.length} attendance records saved.` });
+  res.json({ message: `${records.length} attendance records saved or updated.` });
 });
 
 async function checkAttendanceAlert(studentId) {

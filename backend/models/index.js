@@ -36,6 +36,7 @@ const attendanceSchema = new mongoose.Schema({
   subject:   { type: String, default: 'All' },
   status:    { type: String, enum: ['Present','Absent','Late','Holiday'], required: true },
 }, { timestamps: true });
+attendanceSchema.index({ studentId: 1, date: 1, subject: 1 }, { unique: true });
 
 const marksSchema = new mongoose.Schema({
   studentId: { type: String, required: true },
