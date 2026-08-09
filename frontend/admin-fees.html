@@ -1,0 +1,893 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin — Fee Management — EduConnect</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --bg: #060d1a; --surface: #0d1b2e; --surface2: #112236;
+      --border: rgba(255,255,255,0.07); --border2: rgba(255,255,255,0.13);
+      --primary: #00e5b0; --primary-glow: rgba(0,229,176,0.13); --primary-dim: #00b887;
+      --blue: #4fc3f7; --blue-glow: rgba(79,195,247,0.1);
+      --danger: #ff5c5c; --danger-glow: rgba(255,92,92,0.1);
+      --warning: #ffb74d; --warning-glow: rgba(255,183,77,0.1);
+      --purple: #b39ddb; --purple-glow: rgba(179,157,219,0.1);
+      --text: #e2eaf6; --muted: #6b7d94; --card-radius: 14px;
+    }
+    body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh;
+      background-image: radial-gradient(ellipse 60% 40% at 80% 5%, rgba(0,229,176,0.04) 0%, transparent 60%); }
+    /* ── Shell ── */
+    .shell { display: grid; grid-template-columns: 220px 1fr; min-height: 100vh; }
+    /* ── Sidebar ── */
+    .sidebar { background: var(--surface); border-right: 1px solid var(--border); padding: 24px 0; display: flex; flex-direction: column; position: sticky; top: 0; height: 100vh; }
+    .sb-logo { padding: 0 20px 22px; border-bottom: 1px solid var(--border); margin-bottom: 16px; }
+    .sb-logo h2 { font-size: 1.1rem; font-weight: 700; background: linear-gradient(135deg, var(--primary), var(--blue)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+    .sb-logo span { font-size: 0.7rem; color: var(--muted); display: block; margin-top: 2px; }
+    .sb-nav { flex: 1; padding: 0 10px; }
+    .nav-item { display: flex; align-items: center; gap: 10px; padding: 11px 12px; border-radius: 9px; cursor: pointer; color: var(--muted); font-size: 0.875rem; font-weight: 500; transition: all 0.18s; margin-bottom: 3px; }
+    .nav-item:hover { background: var(--surface2); color: var(--text); }
+    .nav-item.active { background: var(--primary-glow); color: var(--primary); }
+    .nav-icon { width: 18px; text-align: center; font-size: 1rem; }
+    .sb-footer { padding: 14px 10px 0; border-top: 1px solid var(--border); }
+    .logout-btn { width: 100%; display: flex; align-items: center; gap: 10px; padding: 11px 12px; border-radius: 9px; border: none; background: transparent; color: var(--muted); cursor: pointer; font-size: 0.875rem; font-family: inherit; font-weight: 500; transition: all 0.18s; }
+    .logout-btn:hover { background: var(--danger-glow); color: var(--danger); }
+    /* ── Main ── */
+    .main { padding: 28px 32px; overflow-y: auto; }
+    .page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 28px; }
+    .page-title h1 { font-size: 1.6rem; font-weight: 700; }
+    .page-title p { color: var(--muted); font-size: 0.85rem; margin-top: 2px; }
+    /* ── Stats ── */
+    .stats-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 14px; margin-bottom: 26px; }
+    .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--card-radius); padding: 16px; position: relative; overflow: hidden; }
+    .stat-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; }
+    .stat-card.c1::before { background: linear-gradient(90deg, var(--primary), transparent); }
+    .stat-card.c2::before { background: linear-gradient(90deg, var(--blue), transparent); }
+    .stat-card.c3::before { background: linear-gradient(90deg, var(--danger), transparent); }
+    .stat-card.c4::before { background: linear-gradient(90deg, var(--warning), transparent); }
+    .stat-card.c5::before { background: linear-gradient(90deg, var(--purple), transparent); }
+    .stat-card.c6::before { background: linear-gradient(90deg, #4caf50, transparent); }
+    .stat-label { font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted); margin-bottom: 8px; }
+    .stat-value { font-size: 1.4rem; font-weight: 700; font-family: 'DM Mono', monospace; }
+    .stat-card.c1 .stat-value { color: var(--primary); }
+    .stat-card.c2 .stat-value { color: var(--blue); }
+    .stat-card.c3 .stat-value { color: var(--danger); }
+    .stat-card.c4 .stat-value { color: var(--warning); }
+    .stat-card.c5 .stat-value { color: var(--purple); }
+    .stat-card.c6 .stat-value { color: #4caf50; }
+    /* ── Tab Bar ── */
+    .tab-bar { display: flex; gap: 3px; background: var(--surface); border: 1px solid var(--border); border-radius: 11px; padding: 5px; margin-bottom: 22px; width: fit-content; }
+    .tab-btn { background: transparent; border: none; padding: 9px 18px; border-radius: 8px; color: var(--muted); font-size: 0.83rem; font-weight: 600; cursor: pointer; font-family: inherit; transition: all 0.18s; white-space: nowrap; }
+    .tab-btn.active { background: var(--primary-glow); color: var(--primary); }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+    /* ── Cards ── */
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--card-radius); padding: 22px; margin-bottom: 20px; }
+    .card-title { font-size: 1rem; font-weight: 700; margin-bottom: 18px; display: flex; align-items: center; gap: 8px; }
+    /* ── Form ── */
+    .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 16px; }
+    .fg { display: flex; flex-direction: column; }
+    label { font-size: 0.75rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 7px; }
+    input, select, textarea { padding: 10px 13px; background: var(--surface2); border: 1px solid var(--border); border-radius: 9px; color: var(--text); font-family: inherit; font-size: 0.88rem; transition: border-color 0.2s; width: 100%; }
+    input:focus, select:focus, textarea:focus { outline: none; border-color: var(--primary); background: rgba(0,229,176,0.04); }
+    select option { background: #0d1b2e; }
+    textarea { resize: vertical; min-height: 70px; }
+    /* ── Buttons ── */
+    .btn { padding: 10px 18px; border-radius: 9px; border: none; font-family: inherit; font-weight: 600; font-size: 0.85rem; cursor: pointer; transition: all 0.18s; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+    .btn-primary { background: var(--primary); color: var(--bg); }
+    .btn-primary:hover { background: var(--primary-dim); transform: translateY(-1px); }
+    .btn-warning { background: var(--warning); color: var(--bg); }
+    .btn-warning:hover { background: #e0a040; transform: translateY(-1px); }
+    .btn-danger { background: var(--danger); color: #fff; }
+    .btn-danger:hover { opacity: 0.85; transform: translateY(-1px); }
+    .btn-ghost { background: var(--surface2); color: var(--muted); border: 1px solid var(--border); }
+    .btn-ghost:hover { color: var(--text); }
+    .btn-blue { background: var(--blue); color: var(--bg); }
+    .btn-blue:hover { opacity: 0.85; }
+    .btn-sm { padding: 7px 13px; font-size: 0.78rem; }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none !important; }
+    .btn-group { display: flex; gap: 10px; flex-wrap: wrap; }
+    /* ── Table ── */
+    .table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: var(--card-radius); overflow: hidden; margin-bottom: 20px; }
+    table { width: 100%; border-collapse: collapse; }
+    thead { background: rgba(0,229,176,0.05); border-bottom: 1px solid rgba(0,229,176,0.15); }
+    th { padding: 13px 16px; text-align: left; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: var(--primary); }
+    td { padding: 13px 16px; font-size: 0.85rem; border-bottom: 1px solid var(--border); }
+    tbody tr:last-child td { border-bottom: none; }
+    tbody tr:hover { background: var(--surface2); }
+    .mono { font-family: 'DM Mono', monospace; font-size: 0.8rem; color: var(--muted); }
+    /* ── Pills ── */
+    .pill { display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 20px; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; }
+    .pill-green { background: var(--primary-glow); color: var(--primary); border: 1px solid rgba(0,229,176,0.2); }
+    .pill-red { background: var(--danger-glow); color: var(--danger); border: 1px solid rgba(255,92,92,0.2); }
+    .pill-yellow { background: var(--warning-glow); color: var(--warning); border: 1px solid rgba(255,183,77,0.2); }
+    .pill-blue { background: var(--blue-glow); color: var(--blue); border: 1px solid rgba(79,195,247,0.2); }
+    .pill-purple { background: var(--purple-glow); color: var(--purple); border: 1px solid rgba(179,157,219,0.2); }
+    /* ── Progress ── */
+    .progress-row { display: flex; align-items: center; gap: 10px; }
+    .progress-bar { flex: 1; height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; }
+    .progress-fill { height: 100%; border-radius: 3px; background: linear-gradient(90deg, var(--primary), var(--blue)); }
+    .progress-pct { font-size: 0.75rem; color: var(--muted); width: 36px; text-align: right; }
+    /* ── Charts ── */
+    .chart-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+    .chart-box { background: var(--surface); border: 1px solid var(--border); border-radius: var(--card-radius); padding: 20px; }
+    .chart-box h3 { font-size: 0.9rem; font-weight: 600; color: var(--muted); margin-bottom: 16px; }
+    .bar-chart { display: flex; flex-direction: column; gap: 10px; }
+    .bar-item label { font-size: 0.78rem; color: var(--text); text-transform: none; letter-spacing: 0; }
+    /* ── Donut ── */
+    .donut-wrap { display: flex; align-items: center; gap: 24px; }
+    .donut-svg { flex-shrink: 0; }
+    .donut-legend { flex: 1; display: flex; flex-direction: column; gap: 8px; }
+    .legend-item { display: flex; align-items: center; gap: 8px; font-size: 0.8rem; }
+    .legend-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+    /* ── Toast ── */
+    .toast-container { position: fixed; top: 20px; right: 20px; z-index: 9999; display: flex; flex-direction: column; gap: 8px; }
+    .toast { background: var(--surface2); border: 1px solid var(--border2); border-radius: 11px; padding: 13px 16px; max-width: 340px; display: flex; gap: 10px; box-shadow: 0 8px 32px rgba(0,0,0,0.4); animation: toastIn 0.28s ease; }
+    @keyframes toastIn { from { transform: translateX(36px); opacity: 0; } to { transform: none; opacity: 1; } }
+    .toast.success { border-left: 3px solid var(--primary); }
+    .toast.error { border-left: 3px solid var(--danger); }
+    .toast.info { border-left: 3px solid var(--blue); }
+    .toast-title { font-weight: 600; font-size: 0.85rem; margin-bottom: 2px; }
+    .toast-msg { font-size: 0.78rem; color: var(--muted); }
+    /* ── Modal ── */
+    .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(4px); z-index: 1000; align-items: center; justify-content: center; }
+    .modal-overlay.open { display: flex; }
+    .modal { background: var(--surface); border: 1px solid var(--border2); border-radius: 18px; padding: 28px; width: 100%; max-width: 520px; max-height: 90vh; overflow-y: auto; position: relative; }
+    .modal-close { position: absolute; top: 14px; right: 14px; background: var(--surface2); border: 1px solid var(--border); border-radius: 7px; color: var(--muted); cursor: pointer; padding: 5px 9px; transition: all 0.18s; }
+    .modal-close:hover { color: var(--text); }
+    .modal-title { font-size: 1.2rem; font-weight: 700; margin-bottom: 6px; }
+    .modal-sub { font-size: 0.83rem; color: var(--muted); margin-bottom: 22px; }
+    /* ── Reminder section ── */
+    .reminder-card { background: linear-gradient(135deg, rgba(255,183,77,0.08), rgba(255,183,77,0.03)); border: 1px solid rgba(255,183,77,0.2); border-radius: var(--card-radius); padding: 20px; }
+    /* ── Search ── */
+    .search-bar { display: flex; gap: 10px; margin-bottom: 16px; }
+    .search-bar input { flex: 1; }
+    /* ── Responsive ── */
+    @media (max-width: 1200px) { .stats-grid { grid-template-columns: repeat(3, 1fr); } }
+    @media (max-width: 900px) { .stats-grid { grid-template-columns: repeat(2, 1fr); } .chart-row { grid-template-columns: 1fr; } }
+    @media (max-width: 768px) { .shell { grid-template-columns: 1fr; } .sidebar { display: none; } .main { padding: 16px; } }
+    /* spinner */
+    .spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.2); border-top-color: currentColor; border-radius: 50%; animation: spin 0.7s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    /* Empty */
+    .empty-row td { text-align: center; padding: 40px !important; color: var(--muted); }
+  </style>
+</head>
+<body>
+
+<div id="toastWrap" class="toast-container"></div>
+
+<div class="shell">
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sb-logo">
+      <h2>EduConnect</h2>
+      <span>Admin Panel</span>
+    </div>
+    <nav class="sb-nav">
+      <div class="nav-item" onclick="location.href='/admin'"><span class="nav-icon">🏠</span> Dashboard</div>
+      <div class="nav-item active"><span class="nav-icon">💳</span> Fee Management</div>
+      <div class="nav-item" onclick="location.href='/admin'"><span class="nav-icon">👥</span> Students</div>
+      <div class="nav-item" onclick="location.href='/admin'"><span class="nav-icon">📋</span> Attendance</div>
+      <div class="nav-item" onclick="location.href='/admin'"><span class="nav-icon">📝</span> Marks</div>
+      <div class="nav-item" onclick="location.href='/admin'"><span class="nav-icon">📧</span> Messages</div>
+    </nav>
+    <div class="sb-footer">
+      <button class="logout-btn" onclick="logout()"><span>🚪</span> Logout</button>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <main class="main">
+    <div class="page-header">
+      <div class="page-title">
+        <h1>Fee Management</h1>
+        <p>Manage fee structures, track payments, and generate reports</p>
+      </div>
+      <div class="btn-group">
+        <button class="btn btn-warning btn-sm" onclick="openReminderModal()">📢 Send Reminders</button>
+        <button class="btn btn-primary btn-sm" onclick="switchTab('structure', null)">+ Fee Structure</button>
+      </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats-grid">
+      <div class="stat-card c1"><div class="stat-label">Total Fees</div><div class="stat-value" id="sTotalFees">—</div></div>
+      <div class="stat-card c2"><div class="stat-label">Paid</div><div class="stat-value" id="sPaid">—</div></div>
+      <div class="stat-card c3"><div class="stat-label">Unpaid</div><div class="stat-value" id="sUnpaid">—</div></div>
+      <div class="stat-card c4"><div class="stat-label">Overdue</div><div class="stat-value" id="sOverdue">—</div></div>
+      <div class="stat-card c5"><div class="stat-label">Collected</div><div class="stat-value">₹<span id="sCollected">—</span></div></div>
+      <div class="stat-card c6"><div class="stat-label">Outstanding</div><div class="stat-value">₹<span id="sDue">—</span></div></div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="tab-bar">
+      <button class="tab-btn active" id="btn-overview" onclick="switchTab('overview', this)">📊 Overview</button>
+      <button class="tab-btn" id="btn-structure" onclick="switchTab('structure', this)">🏗️ Fee Structure</button>
+      <button class="tab-btn" id="btn-tracking" onclick="switchTab('tracking', this)">🔍 Track Payments</button>
+      <button class="tab-btn" id="btn-transactions" onclick="switchTab('transactions', this)">💰 Transactions</button>
+      <button class="tab-btn" id="btn-reports" onclick="switchTab('reports', this)">📈 Reports</button>
+    </div>
+
+    <!-- ── Tab: Overview ── -->
+    <div class="tab-content active" id="tab-overview">
+      <div class="chart-row">
+        <!-- Donut Chart -->
+        <div class="chart-box">
+          <h3>Payment Status Distribution</h3>
+          <div class="donut-wrap">
+            <svg class="donut-svg" width="130" height="130" viewBox="0 0 130 130" id="donutSvg">
+              <circle cx="65" cy="65" r="50" fill="none" stroke="var(--border2)" stroke-width="18"/>
+              <circle id="d-paid" cx="65" cy="65" r="50" fill="none" stroke="var(--primary)" stroke-width="18" stroke-dasharray="0 314" stroke-linecap="round" transform="rotate(-90 65 65)" style="transition:stroke-dasharray 0.8s"/>
+              <circle id="d-partial" cx="65" cy="65" r="50" fill="none" stroke="var(--blue)" stroke-width="18" stroke-dasharray="0 314" stroke-linecap="round" transform="rotate(-90 65 65)" style="transition:stroke-dasharray 0.8s"/>
+              <circle id="d-overdue" cx="65" cy="65" r="50" fill="none" stroke="var(--danger)" stroke-width="18" stroke-dasharray="0 314" stroke-linecap="round" transform="rotate(-90 65 65)" style="transition:stroke-dasharray 0.8s"/>
+              <text x="65" y="60" text-anchor="middle" fill="var(--text)" font-size="18" font-weight="700" font-family="DM Mono" id="donutCenter">—</text>
+              <text x="65" y="76" text-anchor="middle" fill="var(--muted)" font-size="9">total</text>
+            </svg>
+            <div class="donut-legend">
+              <div class="legend-item"><div class="legend-dot" style="background:var(--primary)"></div><span>Paid: <strong id="leg-paid">0</strong></span></div>
+              <div class="legend-item"><div class="legend-dot" style="background:var(--blue)"></div><span>Partial: <strong id="leg-partial">0</strong></span></div>
+              <div class="legend-item"><div class="legend-dot" style="background:var(--warning)"></div><span>Pending: <strong id="leg-pending">0</strong></span></div>
+              <div class="legend-item"><div class="legend-dot" style="background:var(--danger)"></div><span>Overdue: <strong id="leg-overdue">0</strong></span></div>
+            </div>
+          </div>
+        </div>
+        <!-- Collection Bar Chart -->
+        <div class="chart-box">
+          <h3>Collection Overview</h3>
+          <div class="bar-chart" id="collectionChart">
+            <div style="color:var(--muted);font-size:0.82rem;text-align:center;padding:20px 0">Loading...</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Recent Transactions -->
+      <div class="card">
+        <div class="card-title">🕐 Recent Transactions</div>
+        <div class="table-wrap" style="margin:0">
+          <table>
+            <thead><tr><th>TXN ID</th><th>Student</th><th>Amount</th><th>Method</th><th>Date</th><th>Status</th></tr></thead>
+            <tbody id="recentTxnBody"><tr class="empty-row"><td colspan="6">Loading...</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Tab: Fee Structure ── -->
+    <div class="tab-content" id="tab-structure">
+      <div class="card">
+        <div class="card-title">➕ Create New Fee Structure</div>
+        <div class="form-grid">
+          <div class="fg"><label>Class</label><input type="text" id="fClass" placeholder="e.g. 1, 2, 10..."></div>
+          <div class="fg"><label>Section</label><input type="text" id="fSection" placeholder="e.g. A, B, C..."></div>
+          <div class="fg"><label>Term</label>
+            <select id="fTerm">
+              <option>Term 1</option><option>Term 2</option><option>Term 3</option>
+              <option>Half Yearly</option><option>Annual</option><option>Monthly</option>
+            </select>
+          </div>
+          <div class="fg"><label>Fee Type</label>
+            <select id="fFeeType">
+              <option>Tuition Fee</option><option>Sports Fee</option><option>Library Fee</option>
+              <option>Laboratory Fee</option><option>Activity Fee</option><option>Transport Fee</option>
+              <option>Uniform Fee</option><option>Exam Fee</option><option>Other</option>
+            </select>
+          </div>
+          <div class="fg"><label>Amount (₹)</label><input type="number" id="fAmount" placeholder="0.00" step="0.01" min="0"></div>
+          <div class="fg"><label>Due Date</label><input type="date" id="fDueDate"></div>
+        </div>
+        <div class="fg" style="margin-bottom:16px"><label>Description (Optional)</label><textarea id="fDesc" placeholder="Additional notes..."></textarea></div>
+        <div class="btn-group">
+          <button class="btn btn-primary" onclick="createStructure()">✓ Create Fee Structure</button>
+          <button class="btn btn-ghost" onclick="clearStructureForm()">Clear</button>
+        </div>
+      </div>
+
+      <!-- Assign Fees to Students -->
+      <div class="card">
+        <div class="card-title">👥 Bulk Assign Fees to Students</div>
+        <div class="form-grid">
+          <div class="fg"><label>Fee Structure</label><select id="bulkStructure" onchange="prefillBulkFromStructure()"><option value="">— Select —</option></select></div>
+          <div class="fg"><label>Term</label><input type="text" id="bulkTerm" placeholder="Auto-filled from structure"></div>
+          <div class="fg"><label>Amount (₹)</label><input type="number" id="bulkAmount" placeholder="Auto-filled" step="0.01"></div>
+          <div class="fg"><label>Due Date</label><input type="date" id="bulkDueDate"></div>
+        </div>
+        <div class="fg" style="margin-bottom:16px">
+          <label>Student IDs (comma-separated or paste from Excel)</label>
+          <textarea id="bulkStudentIds" placeholder="e.g. STU001, STU002, STU003 ..."></textarea>
+        </div>
+        <button class="btn btn-blue" onclick="bulkAssign()">⚡ Bulk Assign Fees</button>
+      </div>
+
+      <!-- Existing Structures -->
+      <div class="card-title" style="margin-bottom:12px">📋 Active Fee Structures</div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Class</th><th>Section</th><th>Term</th><th>Fee Type</th><th>Amount</th><th>Due Date</th><th>Description</th></tr></thead>
+          <tbody id="structBody"><tr class="empty-row"><td colspan="7">Loading...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── Tab: Track Payments ── -->
+    <div class="tab-content" id="tab-tracking">
+      <div class="card">
+        <div class="card-title">🔍 Filter Students</div>
+        <div class="form-grid">
+          <div class="fg"><label>Term</label>
+            <select id="trackTerm" onchange="loadTracking()">
+              <option value="">All Terms</option>
+              <option>Term 1</option><option>Term 2</option><option>Term 3</option><option>Half Yearly</option><option>Annual</option>
+            </select>
+          </div>
+          <div class="fg"><label>Status</label>
+            <select id="trackStatus" onchange="filterTracking()">
+              <option value="">All Statuses</option>
+              <option value="Paid">Paid</option><option value="Pending">Pending</option>
+              <option value="Overdue">Overdue</option><option value="Partially Paid">Partially Paid</option>
+            </select>
+          </div>
+          <div class="fg"><label>Search Student</label><input type="text" id="trackSearch" placeholder="Student ID or name..." oninput="filterTracking()"></div>
+        </div>
+      </div>
+
+      <!-- Summary bar -->
+      <div class="stats-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:16px">
+        <div class="stat-card c1"><div class="stat-label">Total</div><div class="stat-value" id="trkTotal">—</div></div>
+        <div class="stat-card c2"><div class="stat-label">Paid</div><div class="stat-value" id="trkPaid">—</div></div>
+        <div class="stat-card c3"><div class="stat-label">Pending</div><div class="stat-value" id="trkPending">—</div></div>
+        <div class="stat-card c4"><div class="stat-label">Overdue</div><div class="stat-value" id="trkOverdue">—</div></div>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Student ID</th><th>Term</th><th>Total</th><th>Paid</th><th>Balance</th><th>Progress</th><th>Status</th><th>Due Date</th></tr></thead>
+          <tbody id="trackBody"><tr class="empty-row"><td colspan="8">Loading...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── Tab: Transactions ── -->
+    <div class="tab-content" id="tab-transactions">
+      <div class="search-bar">
+        <input type="text" id="txnSearch" placeholder="🔍  Search by Transaction ID or Student ID..." oninput="filterTxns()">
+        <select id="txnMethodFilter" onchange="filterTxns()">
+          <option value="">All Methods</option>
+          <option>UPI</option><option>Card</option><option>NetBanking</option><option>Wallet</option>
+        </select>
+        <button class="btn btn-ghost btn-sm" onclick="exportTransactionsCSV()">⬇ Export CSV</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>TXN ID</th><th>Student ID</th><th>Razorpay ID</th><th>Amount</th><th>Method</th><th>Date</th><th>Email</th><th>Receipt</th></tr></thead>
+          <tbody id="txnBody"><tr class="empty-row"><td colspan="8">Loading...</td></tr></tbody>
+        </table>
+      </div>
+      <div id="txnPagination" style="display:flex;gap:10px;justify-content:flex-end;margin-top:12px;align-items:center"></div>
+    </div>
+
+    <!-- ── Tab: Reports ── -->
+    <div class="tab-content" id="tab-reports">
+      <div class="card">
+        <div class="card-title">📈 Generate Report</div>
+        <div class="form-grid">
+          <div class="fg"><label>Start Date</label><input type="date" id="rStart"></div>
+          <div class="fg"><label>End Date</label><input type="date" id="rEnd"></div>
+          <div class="fg"><label>Term (Optional)</label>
+            <select id="rTerm"><option value="">All Terms</option><option>Term 1</option><option>Term 2</option><option>Term 3</option><option>Half Yearly</option><option>Annual</option></select>
+          </div>
+        </div>
+        <div class="btn-group">
+          <button class="btn btn-primary" onclick="generateReport()">📊 Generate</button>
+          <button class="btn btn-ghost" onclick="exportReportCSV()">⬇ Export CSV</button>
+        </div>
+      </div>
+
+      <div id="reportOut" style="display:none">
+        <div class="stats-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:20px">
+          <div class="stat-card c1"><div class="stat-label">Total Transactions</div><div class="stat-value" id="rTxns">—</div></div>
+          <div class="stat-card c5"><div class="stat-label">Total Amount</div><div class="stat-value">₹<span id="rAmount">—</span></div></div>
+          <div class="stat-card c2"><div class="stat-label">Avg per Txn</div><div class="stat-value">₹<span id="rAvg">—</span></div></div>
+        </div>
+        <div class="chart-row">
+          <div class="chart-box">
+            <h3>By Payment Method</h3>
+            <div id="rMethodChart" class="bar-chart"></div>
+          </div>
+          <div class="chart-box">
+            <h3>Daily Collections</h3>
+            <div id="rDailyChart" style="min-height:120px;display:flex;align-items:flex-end;gap:4px;"></div>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>TXN ID</th><th>Student</th><th>Amount</th><th>Method</th><th>Date</th><th>Receipt</th></tr></thead>
+            <tbody id="rBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- Reminder Modal -->
+<div class="modal-overlay" id="reminderModal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('reminderModal')">✕</button>
+    <div class="modal-title">📢 Send Fee Reminders</div>
+    <div class="modal-sub">Send email reminders to parents with pending or overdue fees</div>
+    <div class="fg" style="margin-bottom:16px">
+      <label>Term Filter (Optional)</label>
+      <select id="remTerm">
+        <option value="">All Terms — Send to everyone with dues</option>
+        <option>Term 1</option><option>Term 2</option><option>Term 3</option><option>Half Yearly</option><option>Annual</option>
+      </select>
+    </div>
+    <div class="reminder-card" style="margin-bottom:18px">
+      <div style="font-size:0.85rem;color:var(--warning);font-weight:600;margin-bottom:6px">⚠️ What happens when you send reminders?</div>
+      <div style="font-size:0.8rem;color:var(--muted);line-height:1.6">
+        An email will be sent to all parents whose fees are <strong style="color:var(--text)">Pending</strong> or <strong style="color:var(--text)">Overdue</strong>.
+        Fees that already had a reminder sent will be skipped. This action cannot be undone.
+      </div>
+    </div>
+    <div class="btn-group">
+      <button class="btn btn-warning" id="remBtn" onclick="sendReminders()">📧 Send Reminders</button>
+      <button class="btn btn-ghost" onclick="closeModal('reminderModal')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = 'http://localhost:3000/api';
+const token = localStorage.getItem('token');
+if (!token) window.location.href = '/';
+
+let allTrackingRows = [];
+let allTxns = [];
+let reportData = null;
+let txnPage = 1, txnLimit = 20, txnTotal = 0;
+
+/* ─── Init ─────────────── */
+async function init() {
+  await loadStats();
+  await loadRecentTxns();
+}
+
+/* ─── Stats ─────────────── */
+async function loadStats() {
+  try {
+    const r = await fetch(`${API}/fees/statistics`, { headers: { Authorization: `Bearer ${token}` } });
+    if (r.status === 401) { logout(); return; }
+    const s = await r.json();
+    document.getElementById('sTotalFees').textContent = s.totalFees;
+    document.getElementById('sPaid').textContent = s.paidFees;
+    document.getElementById('sUnpaid').textContent = s.unpaidFees;
+    document.getElementById('sOverdue').textContent = s.overdueFees;
+    document.getElementById('sCollected').textContent = fmtNum(s.totalCollected);
+    document.getElementById('sDue').textContent = fmtNum(s.totalDue);
+    updateDonut(s);
+    updateCollectionChart(s);
+  } catch (e) { toast('error', 'Error', 'Could not load statistics'); }
+}
+
+/* ─── Donut ─────────────── */
+function updateDonut(s) {
+  const total = s.totalFees || 1;
+  const circ = 314;
+  const paid = Math.round((s.paidFees / total) * circ);
+  const partial = Math.round(((s.totalFees - s.paidFees - s.unpaidFees - s.overdueFees) / total) * circ);
+  const overdue = Math.round((s.overdueFees / total) * circ);
+
+  document.getElementById('d-paid').style.strokeDasharray = `${paid} ${circ - paid}`;
+  const p2 = document.getElementById('d-partial');
+  p2.style.strokeDasharray = `${partial} ${circ - partial}`;
+  p2.style.strokeDashoffset = -paid;
+  const p3 = document.getElementById('d-overdue');
+  p3.style.strokeDasharray = `${overdue} ${circ - overdue}`;
+  p3.style.strokeDashoffset = -(paid + partial);
+
+  document.getElementById('donutCenter').textContent = s.totalFees;
+  document.getElementById('leg-paid').textContent = s.paidFees;
+  document.getElementById('leg-partial').textContent = Math.max(0, s.totalFees - s.paidFees - s.unpaidFees - s.overdueFees);
+  document.getElementById('leg-pending').textContent = s.unpaidFees;
+  document.getElementById('leg-overdue').textContent = s.overdueFees;
+}
+
+function updateCollectionChart(s) {
+  const collected = s.totalCollected || 0;
+  const due = s.totalDue || 0;
+  const total = collected + due || 1;
+  const pct = c => Math.round((c / total) * 100);
+  document.getElementById('collectionChart').innerHTML = `
+    <div class="bar-item">
+      <label>Collected — ₹${fmtNum(collected)}</label>
+      <div class="progress-row" style="margin-top:6px">
+        <div class="progress-bar"><div class="progress-fill" style="width:${pct(collected)}%;background:var(--primary)"></div></div>
+        <span class="progress-pct">${pct(collected)}%</span>
+      </div>
+    </div>
+    <div class="bar-item" style="margin-top:12px">
+      <label>Outstanding — ₹${fmtNum(due)}</label>
+      <div class="progress-row" style="margin-top:6px">
+        <div class="progress-bar"><div class="progress-fill" style="width:${pct(due)}%;background:var(--danger)"></div></div>
+        <span class="progress-pct">${pct(due)}%</span>
+      </div>
+    </div>
+    <div style="margin-top:16px;font-size:0.78rem;color:var(--muted)">
+      Collection Rate: <strong style="color:var(--primary)">${pct(collected)}%</strong>
+    </div>
+  `;
+}
+
+/* ─── Recent Txns ─────────── */
+async function loadRecentTxns() {
+  try {
+    const r = await fetch(`${API}/fees/transactions?page=1&limit=5`, { headers: { Authorization: `Bearer ${token}` } });
+    const d = await r.json();
+    const tbody = document.getElementById('recentTxnBody');
+    if (!d.transactions?.length) { tbody.innerHTML = '<tr class="empty-row"><td colspan="6">No transactions yet</td></tr>'; return; }
+    tbody.innerHTML = d.transactions.map(t => `
+      <tr>
+        <td class="mono">${t.transactionId || '—'}</td>
+        <td>${t.studentId}</td>
+        <td style="color:var(--primary);font-family:'DM Mono',monospace;font-weight:600">₹${fmtNum(t.amount)}</td>
+        <td><span class="pill pill-blue">${t.paymentMethod}</span></td>
+        <td>${fmtDate(t.paymentDate)}</td>
+        <td><span class="pill pill-green">Success</span></td>
+      </tr>
+    `).join('');
+  } catch (_) {}
+}
+
+/* ─── Fee Structure ─────────── */
+async function createStructure() {
+  const data = {
+    class: document.getElementById('fClass').value.trim(),
+    section: document.getElementById('fSection').value.trim(),
+    term: document.getElementById('fTerm').value,
+    feeType: document.getElementById('fFeeType').value,
+    amount: parseFloat(document.getElementById('fAmount').value),
+    dueDate: document.getElementById('fDueDate').value,
+    description: document.getElementById('fDesc').value.trim()
+  };
+  if (!data.class || !data.section || !data.amount || !data.dueDate) { toast('error', 'Missing Fields', 'Please fill all required fields'); return; }
+  try {
+    const r = await fetch(`${API}/fees/structure`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    if (!r.ok) throw new Error((await r.json()).error);
+    toast('success', 'Created!', 'Fee structure added successfully');
+    clearStructureForm();
+    loadStructures();
+    loadBulkStructures();
+  } catch (e) { toast('error', 'Error', e.message); }
+}
+
+function clearStructureForm() {
+  ['fClass','fSection','fAmount','fDueDate','fDesc'].forEach(id => document.getElementById(id).value = '');
+}
+
+async function loadStructures() {
+  try {
+    const r = await fetch(`${API}/fees/structures`, { headers: { Authorization: `Bearer ${token}` } });
+    const structs = await r.json();
+    const tbody = document.getElementById('structBody');
+    if (!structs.length) { tbody.innerHTML = '<tr class="empty-row"><td colspan="7">No fee structures yet. Create one above.</td></tr>'; return; }
+    tbody.innerHTML = structs.map(s => `
+      <tr>
+        <td><strong>${s.class}</strong></td>
+        <td>${s.section}</td>
+        <td><span class="pill pill-blue">${s.term}</span></td>
+        <td>${s.feeType}</td>
+        <td style="color:var(--primary);font-family:'DM Mono',monospace;font-weight:600">₹${fmtNum(s.amount)}</td>
+        <td>${fmtDate(s.dueDate)}</td>
+        <td style="color:var(--muted);font-size:0.8rem">${s.description || '—'}</td>
+      </tr>
+    `).join('');
+  } catch (_) {}
+}
+
+async function loadBulkStructures() {
+  try {
+    const r = await fetch(`${API}/fees/structures`, { headers: { Authorization: `Bearer ${token}` } });
+    const structs = await r.json();
+    const sel = document.getElementById('bulkStructure');
+    sel.innerHTML = '<option value="">— Select Structure —</option>' + structs.map(s => `<option value="${s._id}" data-term="${s.term}" data-amount="${s.amount}" data-due="${s.dueDate}">${s.class}-${s.section} | ${s.term} | ${s.feeType} | ₹${s.amount}</option>`).join('');
+  } catch (_) {}
+}
+
+function prefillBulkFromStructure() {
+  const sel = document.getElementById('bulkStructure');
+  const opt = sel.options[sel.selectedIndex];
+  if (!opt.dataset.term) return;
+  document.getElementById('bulkTerm').value = opt.dataset.term;
+  document.getElementById('bulkAmount').value = opt.dataset.amount;
+  document.getElementById('bulkDueDate').value = opt.dataset.due?.split('T')[0] || '';
+}
+
+async function bulkAssign() {
+  const raw = document.getElementById('bulkStudentIds').value;
+  const studentIds = raw.split(/[\s,]+/).map(s => s.trim()).filter(Boolean);
+  if (!studentIds.length) { toast('error', 'Missing Data', 'Enter at least one student ID'); return; }
+  const data = {
+    studentIds,
+    feeStructureId: document.getElementById('bulkStructure').value || undefined,
+    term: document.getElementById('bulkTerm').value,
+    amount: parseFloat(document.getElementById('bulkAmount').value),
+    dueDate: document.getElementById('bulkDueDate').value
+  };
+  if (!data.term || !data.amount || !data.dueDate) { toast('error', 'Missing Fields', 'Term, amount, and due date are required'); return; }
+  try {
+    const r = await fetch(`${API}/fees/bulk-create`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    const result = await r.json();
+    if (!r.ok) throw new Error(result.error);
+    toast('success', 'Assigned!', `${result.feesCreated} fees assigned to students`);
+    document.getElementById('bulkStudentIds').value = '';
+  } catch (e) { toast('error', 'Error', e.message); }
+}
+
+/* ─── Tracking ─────────────── */
+async function loadTracking() {
+  const term = document.getElementById('trackTerm').value;
+  const url = term ? `${API}/fees/track-payments?term=${encodeURIComponent(term)}` : `${API}/fees/track-payments`;
+  try {
+    const r = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+    const d = await r.json();
+    allTrackingRows = d.fees || [];
+    document.getElementById('trkTotal').textContent = d.summary?.total || 0;
+    document.getElementById('trkPaid').textContent = d.summary?.paid || 0;
+    document.getElementById('trkPending').textContent = d.summary?.unpaid || 0;
+    document.getElementById('trkOverdue').textContent = d.summary?.overdue || 0;
+    filterTracking();
+  } catch (_) { toast('error', 'Error', 'Failed to load tracking data'); }
+}
+
+function filterTracking() {
+  const statusF = document.getElementById('trackStatus').value;
+  const searchF = document.getElementById('trackSearch').value.toLowerCase();
+  const rows = allTrackingRows.filter(f => {
+    const matchStatus = !statusF || f.status === statusF;
+    const matchSearch = !searchF || f.studentId.toLowerCase().includes(searchF);
+    return matchStatus && matchSearch;
+  });
+  const tbody = document.getElementById('trackBody');
+  if (!rows.length) { tbody.innerHTML = '<tr class="empty-row"><td colspan="8">No records found</td></tr>'; return; }
+  tbody.innerHTML = rows.map(f => {
+    const paid = f.amountPaid || 0;
+    const pct = f.amount ? Math.round((paid / f.amount) * 100) : 0;
+    const pillClass = statusPill(f.status);
+    return `
+      <tr>
+        <td><strong>${f.studentId}</strong></td>
+        <td>${f.term}</td>
+        <td style="font-family:'DM Mono',monospace">₹${fmtNum(f.amount)}</td>
+        <td style="color:var(--primary);font-family:'DM Mono',monospace">₹${fmtNum(paid)}</td>
+        <td style="color:var(--danger);font-family:'DM Mono',monospace">₹${fmtNum(f.balance || 0)}</td>
+        <td style="min-width:130px">
+          <div class="progress-row">
+            <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
+            <span class="progress-pct">${pct}%</span>
+          </div>
+        </td>
+        <td><span class="pill ${pillClass}">${f.status}</span></td>
+        <td>${fmtDate(f.dueDate)}</td>
+      </tr>
+    `;
+  }).join('');
+}
+
+/* ─── Transactions ─────────── */
+async function loadTransactions(page = 1) {
+  txnPage = page;
+  try {
+    const r = await fetch(`${API}/fees/transactions?page=${page}&limit=${txnLimit}`, { headers: { Authorization: `Bearer ${token}` } });
+    const d = await r.json();
+    allTxns = d.transactions || [];
+    txnTotal = d.pagination?.total || 0;
+    renderTxns(allTxns);
+    renderTxnPagination(d.pagination);
+  } catch (_) { toast('error', 'Error', 'Failed to load transactions'); }
+}
+
+function filterTxns() {
+  const search = document.getElementById('txnSearch').value.toLowerCase();
+  const method = document.getElementById('txnMethodFilter').value;
+  const filtered = allTxns.filter(t => {
+    const matchSearch = !search || (t.transactionId || '').toLowerCase().includes(search) || t.studentId.toLowerCase().includes(search);
+    const matchMethod = !method || t.paymentMethod === method;
+    return matchSearch && matchMethod;
+  });
+  renderTxns(filtered);
+}
+
+function renderTxns(txns) {
+  const tbody = document.getElementById('txnBody');
+  if (!txns.length) { tbody.innerHTML = '<tr class="empty-row"><td colspan="8">No transactions found</td></tr>'; return; }
+  tbody.innerHTML = txns.map(t => `
+    <tr>
+      <td class="mono">${t.transactionId || '—'}</td>
+      <td><strong>${t.studentId}</strong></td>
+      <td class="mono">${t.razorpayPaymentId || '—'}</td>
+      <td style="color:var(--primary);font-family:'DM Mono',monospace;font-weight:600">₹${fmtNum(t.amount)}</td>
+      <td><span class="pill pill-blue">${t.paymentMethod}</span></td>
+      <td>${fmtDate(t.paymentDate)}</td>
+      <td style="font-size:0.8rem;color:var(--muted)">${t.email || '—'}</td>
+      <td>${t.receiptUrl ? `<a href="${t.receiptUrl}?v=${Date.now()}" download style="color:var(--blue);font-size:0.8rem;text-decoration:none">📥 PDF</a>` : '<span style="color:var(--muted);font-size:0.8rem">—</span>'}</td>
+    </tr>
+  `).join('');
+}
+
+function renderTxnPagination(p) {
+  if (!p) return;
+  const el = document.getElementById('txnPagination');
+  const pages = p.pages || 1;
+  if (pages <= 1) { el.innerHTML = ''; return; }
+  el.innerHTML = `
+    <span style="font-size:0.8rem;color:var(--muted)">Page ${p.page} of ${p.pages} (${p.total} total)</span>
+    <button class="btn btn-ghost btn-sm" onclick="loadTransactions(${p.page - 1})" ${p.page <= 1 ? 'disabled' : ''}>← Prev</button>
+    <button class="btn btn-ghost btn-sm" onclick="loadTransactions(${p.page + 1})" ${p.page >= p.pages ? 'disabled' : ''}>Next →</button>
+  `;
+}
+
+function exportTransactionsCSV() {
+  if (!allTxns.length) { toast('info', 'No Data', 'No transactions to export'); return; }
+  const rows = [['TXN ID','Student ID','Razorpay ID','Amount','Method','Date','Email']];
+  allTxns.forEach(t => rows.push([t.transactionId, t.studentId, t.razorpayPaymentId, t.amount, t.paymentMethod, fmtDate(t.paymentDate), t.email]));
+  downloadCSV(rows, 'transactions.csv');
+}
+
+/* ─── Reports ─────────────── */
+async function generateReport() {
+  const start = document.getElementById('rStart').value;
+  const end = document.getElementById('rEnd').value;
+  if (!start || !end) { toast('error', 'Missing Dates', 'Select start and end date'); return; }
+  try {
+    const url = `${API}/fees/report?startDate=${start}&endDate=${end}`;
+    const r = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+    const d = await r.json();
+    reportData = d;
+    renderReport(d);
+    document.getElementById('reportOut').style.display = 'block';
+  } catch (e) { toast('error', 'Error', 'Could not generate report'); }
+}
+
+function renderReport(d) {
+  document.getElementById('rTxns').textContent = d.totalTransactions;
+  document.getElementById('rAmount').textContent = fmtNum(d.totalAmount);
+  document.getElementById('rAvg').textContent = d.totalTransactions ? fmtNum(d.totalAmount / d.totalTransactions) : '0.00';
+
+  // Method chart
+  const methods = d.byPaymentMethod || {};
+  const amounts = d.byAmount || {};
+  const maxAmt = Math.max(...Object.values(amounts), 1);
+  document.getElementById('rMethodChart').innerHTML = Object.keys(methods).map(m => `
+    <div class="bar-item">
+      <div style="display:flex;justify-content:space-between;margin-bottom:5px">
+        <label style="text-transform:none;letter-spacing:0">${m} (${methods[m]} txns)</label>
+        <span style="font-size:0.78rem;color:var(--primary);font-family:'DM Mono',monospace">₹${fmtNum(amounts[m])}</span>
+      </div>
+      <div class="progress-bar"><div class="progress-fill" style="width:${Math.round((amounts[m]/maxAmt)*100)}%"></div></div>
+    </div>
+  `).join('') || '<div style="color:var(--muted);font-size:0.82rem">No data</div>';
+
+  // Daily chart (simple)
+  const daily = {};
+  (d.payments || []).forEach(p => {
+    const day = p.paymentDate?.split('T')[0] || 'Unknown';
+    daily[day] = (daily[day] || 0) + p.amount;
+  });
+  const days = Object.keys(daily).sort();
+  const maxDay = Math.max(...Object.values(daily), 1);
+  const chartEl = document.getElementById('rDailyChart');
+  if (days.length) {
+    chartEl.innerHTML = days.map(day => `
+      <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px">
+        <div style="width:100%;background:var(--primary);border-radius:4px 4px 0 0;height:${Math.round((daily[day]/maxDay)*100)}px;min-height:4px;transition:height 0.4s"></div>
+        <div style="font-size:0.62rem;color:var(--muted);writing-mode:vertical-rl;transform:rotate(180deg);height:36px">${day.slice(5)}</div>
+      </div>
+    `).join('');
+  } else { chartEl.innerHTML = '<div style="color:var(--muted);font-size:0.82rem;padding:20px">No daily data</div>'; }
+
+  // Payments table
+  document.getElementById('rBody').innerHTML = (d.payments || []).map(p => `
+    <tr>
+      <td class="mono">${p.transactionId || '—'}</td>
+      <td>${p.studentId}</td>
+      <td style="color:var(--primary);font-family:'DM Mono',monospace;font-weight:600">₹${fmtNum(p.amount)}</td>
+      <td><span class="pill pill-blue">${p.paymentMethod}</span></td>
+      <td>${fmtDate(p.paymentDate)}</td>
+      <td>${p.receiptUrl ? `<a href="${p.receiptUrl}?v=${Date.now()}" download style="color:var(--blue);font-size:0.8rem;text-decoration:none">📥 PDF</a>` : '—'}</td>
+    </tr>
+  `).join('') || '<tr class="empty-row"><td colspan="6">No payments in range</td></tr>';
+}
+
+function exportReportCSV() {
+  if (!reportData?.payments?.length) { toast('info', 'No Data', 'Generate a report first'); return; }
+  const rows = [['TXN ID','Student ID','Amount','Method','Date']];
+  reportData.payments.forEach(p => rows.push([p.transactionId, p.studentId, p.amount, p.paymentMethod, fmtDate(p.paymentDate)]));
+  downloadCSV(rows, `fee-report-${document.getElementById('rStart').value}-to-${document.getElementById('rEnd').value}.csv`);
+}
+
+/* ─── Reminders ─────────────── */
+function openReminderModal() { document.getElementById('reminderModal').classList.add('open'); }
+
+async function sendReminders() {
+  const btn = document.getElementById('remBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<div class="spinner"></div> Sending...';
+  const term = document.getElementById('remTerm').value;
+  try {
+    const r = await fetch(`${API}/fees/send-reminders`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ term: term || undefined })
+    });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error);
+    toast('success', 'Reminders Sent!', `${d.sent} parents notified via email`);
+    closeModal('reminderModal');
+  } catch (e) { toast('error', 'Failed', e.message); }
+  finally { btn.disabled = false; btn.innerHTML = '📧 Send Reminders'; }
+}
+
+/* ─── Tabs ─────────────── */
+function switchTab(name, btn) {
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  if (btn) btn.classList.add('active');
+  else document.getElementById('btn-' + name)?.classList.add('active');
+
+  if (name === 'overview') { loadStats(); loadRecentTxns(); }
+  if (name === 'structure') { loadStructures(); loadBulkStructures(); }
+  if (name === 'tracking') loadTracking();
+  if (name === 'transactions') loadTransactions();
+}
+
+/* ─── Helpers ─────────────── */
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+function statusPill(s) {
+  if (!s) return 'pill-yellow';
+  const m = s.toLowerCase();
+  if (m === 'paid') return 'pill-green';
+  if (m === 'overdue') return 'pill-red';
+  if (m.includes('partial')) return 'pill-blue';
+  return 'pill-yellow';
+}
+
+function fmtNum(n) { return Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+function fmtDate(d) { if (!d) return '—'; return new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }); }
+
+function toast(type, title, msg) {
+  const icons = { success: '✅', error: '❌', info: 'ℹ️' };
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.innerHTML = `<div style="font-size:1.1rem">${icons[type]}</div><div><div class="toast-title">${title}</div><div class="toast-msg">${msg}</div></div>`;
+  document.getElementById('toastWrap').appendChild(el);
+  setTimeout(() => el.remove(), 5000);
+}
+
+function downloadCSV(rows, filename) {
+  const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+  a.download = filename;
+  a.click();
+}
+
+function logout() { localStorage.removeItem('token'); window.location.href = '/'; }
+
+init();
+</script>
+</body>
+</html>

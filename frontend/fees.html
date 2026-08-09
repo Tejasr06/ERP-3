@@ -1,0 +1,1306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fee Management — EduConnect Parent Portal</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --bg: #060d1a;
+      --surface: #0d1b2e;
+      --surface2: #112236;
+      --border: rgba(255,255,255,0.07);
+      --border2: rgba(255,255,255,0.12);
+      --primary: #00e5b0;
+      --primary-glow: rgba(0,229,176,0.15);
+      --primary-dim: #00b887;
+      --blue: #4fc3f7;
+      --blue-glow: rgba(79,195,247,0.1);
+      --danger: #ff5c5c;
+      --danger-glow: rgba(255,92,92,0.1);
+      --warning: #ffb74d;
+      --warning-glow: rgba(255,183,77,0.1);
+      --text: #e2eaf6;
+      --muted: #6b7d94;
+      --card-radius: 16px;
+    }
+
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      background-image:
+        radial-gradient(ellipse 60% 40% at 80% 10%, rgba(0,229,176,0.05) 0%, transparent 60%),
+        radial-gradient(ellipse 50% 30% at 10% 80%, rgba(79,195,247,0.04) 0%, transparent 50%);
+    }
+
+    /* ── Layout ── */
+    .app-shell {
+      display: grid;
+      grid-template-columns: 240px 1fr;
+      min-height: 100vh;
+    }
+
+    /* ── Sidebar ── */
+    .sidebar {
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      padding: 28px 0;
+      display: flex;
+      flex-direction: column;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+    }
+
+    .sidebar-logo {
+      padding: 0 24px 24px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 20px;
+    }
+
+    .sidebar-logo h2 {
+      font-size: 1.2rem;
+      font-weight: 700;
+      background: linear-gradient(135deg, var(--primary), var(--blue));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .sidebar-logo p {
+      font-size: 0.75rem;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+
+    .sidebar-nav { flex: 1; padding: 0 12px; }
+
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 14px;
+      border-radius: 10px;
+      cursor: pointer;
+      color: var(--muted);
+      font-size: 0.9rem;
+      font-weight: 500;
+      transition: all 0.2s;
+      margin-bottom: 4px;
+    }
+
+    .nav-item:hover { background: var(--surface2); color: var(--text); }
+    .nav-item.active { background: var(--primary-glow); color: var(--primary); }
+    .nav-item .nav-icon { font-size: 1.1rem; width: 20px; text-align: center; }
+
+    .sidebar-footer {
+      padding: 16px 12px 0;
+      border-top: 1px solid var(--border);
+      margin-top: auto;
+    }
+
+    .logout-btn {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 14px;
+      border-radius: 10px;
+      border: none;
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 0.9rem;
+      font-family: inherit;
+      font-weight: 500;
+      transition: all 0.2s;
+    }
+
+    .logout-btn:hover { background: var(--danger-glow); color: var(--danger); }
+
+    /* ── Main Content ── */
+    .main {
+      padding: 32px;
+      overflow-y: auto;
+    }
+
+    .page-header {
+      margin-bottom: 32px;
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 20px;
+    }
+
+    .page-title h1 {
+      font-size: 1.8rem;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+
+    .page-title p { color: var(--muted); font-size: 0.9rem; }
+
+    .notification-bell {
+      position: relative;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 16px;
+      cursor: pointer;
+      font-size: 1.3rem;
+      color: var(--text);
+      transition: all 0.2s;
+    }
+
+    .notification-bell:hover { border-color: var(--primary); }
+
+    .notif-badge {
+      position: absolute;
+      top: -6px;
+      right: -6px;
+      background: var(--danger);
+      color: white;
+      font-size: 0.65rem;
+      font-weight: 700;
+      border-radius: 50%;
+      width: 18px;
+      height: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* ── Stats Grid ── */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin-bottom: 28px;
+    }
+
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--card-radius);
+      padding: 20px;
+      position: relative;
+      overflow: hidden;
+      transition: border-color 0.2s;
+    }
+
+    .stat-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 2px;
+    }
+
+    .stat-card.green::before { background: linear-gradient(90deg, var(--primary), transparent); }
+    .stat-card.blue::before { background: linear-gradient(90deg, var(--blue), transparent); }
+    .stat-card.orange::before { background: linear-gradient(90deg, var(--warning), transparent); }
+    .stat-card.red::before { background: linear-gradient(90deg, var(--danger), transparent); }
+
+    .stat-label {
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-bottom: 10px;
+    }
+
+    .stat-value {
+      font-size: 1.7rem;
+      font-weight: 700;
+      font-family: 'DM Mono', monospace;
+    }
+
+    .stat-card.green .stat-value { color: var(--primary); }
+    .stat-card.blue .stat-value { color: var(--blue); }
+    .stat-card.orange .stat-value { color: var(--warning); }
+    .stat-card.red .stat-value { color: var(--danger); }
+
+    .stat-meta { font-size: 0.78rem; color: var(--muted); margin-top: 6px; }
+
+    /* ── Tab System ── */
+    .tab-bar {
+      display: flex;
+      gap: 4px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 5px;
+      margin-bottom: 24px;
+      width: fit-content;
+    }
+
+    .tab-btn {
+      background: transparent;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 8px;
+      color: var(--muted);
+      font-size: 0.88rem;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: inherit;
+      transition: all 0.2s;
+    }
+
+    .tab-btn.active {
+      background: var(--primary-glow);
+      color: var(--primary);
+    }
+
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    /* ── Fee Cards ── */
+    .fees-list { display: flex; flex-direction: column; gap: 14px; }
+
+    .fee-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--card-radius);
+      padding: 22px 24px;
+      display: flex;
+      align-items: center;
+      gap: 24px;
+      transition: all 0.2s;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .fee-card::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 3px;
+      border-radius: 4px 0 0 4px;
+    }
+
+    .fee-card.pending::before { background: var(--warning); }
+    .fee-card.paid::before { background: var(--primary); }
+    .fee-card.overdue::before { background: var(--danger); }
+    .fee-card.partial::before { background: var(--blue); }
+
+    .fee-card:hover { border-color: var(--border2); background: var(--surface2); }
+
+    .fee-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.4rem;
+      flex-shrink: 0;
+    }
+
+    .fee-icon.pending { background: var(--warning-glow); }
+    .fee-icon.paid { background: var(--primary-glow); }
+    .fee-icon.overdue { background: var(--danger-glow); }
+
+    .fee-body { flex: 1; }
+
+    .fee-top {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 8px;
+    }
+
+    .fee-term {
+      font-size: 1rem;
+      font-weight: 600;
+    }
+
+    .status-pill {
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .status-pill.pending { background: var(--warning-glow); color: var(--warning); border: 1px solid rgba(255,183,77,0.25); }
+    .status-pill.paid { background: var(--primary-glow); color: var(--primary); border: 1px solid rgba(0,229,176,0.25); }
+    .status-pill.overdue { background: var(--danger-glow); color: var(--danger); border: 1px solid rgba(255,92,92,0.25); }
+    .status-pill.partial { background: var(--blue-glow); color: var(--blue); border: 1px solid rgba(79,195,247,0.25); }
+
+    .fee-meta {
+      display: flex;
+      gap: 24px;
+      color: var(--muted);
+      font-size: 0.82rem;
+    }
+
+    .fee-meta span { display: flex; align-items: center; gap: 5px; }
+
+    .fee-right {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      flex-shrink: 0;
+    }
+
+    .fee-amounts {
+      text-align: right;
+    }
+
+    .fee-balance {
+      font-size: 1.4rem;
+      font-weight: 700;
+      font-family: 'DM Mono', monospace;
+      color: var(--primary);
+    }
+
+    .fee-total {
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+
+    .progress-bar {
+      width: 100px;
+      height: 6px;
+      background: var(--border);
+      border-radius: 3px;
+      overflow: hidden;
+      margin-top: 4px;
+    }
+
+    .progress-fill {
+      height: 100%;
+      border-radius: 3px;
+      background: linear-gradient(90deg, var(--primary), var(--blue));
+    }
+
+    .fee-actions { display: flex; flex-direction: column; gap: 8px; }
+
+    /* ── Buttons ── */
+    .btn {
+      padding: 10px 18px;
+      border-radius: 9px;
+      border: none;
+      font-family: inherit;
+      font-weight: 600;
+      font-size: 0.85rem;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: var(--bg);
+    }
+
+    .btn-primary:hover { background: var(--primary-dim); transform: translateY(-1px); }
+
+    .btn-outline {
+      background: transparent;
+      color: var(--blue);
+      border: 1px solid rgba(79,195,247,0.3);
+    }
+
+    .btn-outline:hover { background: var(--blue-glow); }
+
+    .btn-ghost {
+      background: var(--surface2);
+      color: var(--muted);
+      border: 1px solid var(--border);
+    }
+
+    .btn-ghost:hover { color: var(--text); }
+
+    .btn-sm { padding: 7px 14px; font-size: 0.8rem; }
+
+    .btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+      transform: none !important;
+    }
+
+    /* ── Table ── */
+    .data-table-wrap {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--card-radius);
+      overflow: hidden;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    thead {
+      background: rgba(255,255,255,0.03);
+      border-bottom: 1px solid var(--border);
+    }
+
+    th {
+      padding: 14px 18px;
+      text-align: left;
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+    }
+
+    td {
+      padding: 15px 18px;
+      font-size: 0.88rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    tbody tr:last-child td { border-bottom: none; }
+
+    tbody tr:hover { background: var(--surface2); }
+
+    .mono { font-family: 'DM Mono', monospace; font-size: 0.82rem; color: var(--muted); }
+
+    /* ── Empty State ── */
+    .empty-state {
+      text-align: center;
+      padding: 64px 40px;
+      color: var(--muted);
+    }
+
+    .empty-icon { font-size: 3rem; margin-bottom: 16px; }
+    .empty-state h3 { font-size: 1.1rem; color: var(--text); margin-bottom: 8px; }
+    .empty-state p { font-size: 0.88rem; }
+
+    /* ── Alert Toast ── */
+    .toast-container {
+      position: fixed;
+      top: 24px;
+      right: 24px;
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .toast {
+      background: var(--surface2);
+      border: 1px solid var(--border2);
+      border-radius: 12px;
+      padding: 14px 18px;
+      max-width: 360px;
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+      animation: slideIn 0.3s ease;
+    }
+
+    @keyframes slideIn {
+      from { transform: translateX(40px); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+
+    .toast.success { border-left: 3px solid var(--primary); }
+    .toast.error { border-left: 3px solid var(--danger); }
+    .toast.info { border-left: 3px solid var(--blue); }
+
+    .toast-icon { font-size: 1.2rem; }
+    .toast-body { flex: 1; }
+    .toast-title { font-weight: 600; font-size: 0.88rem; margin-bottom: 2px; }
+    .toast-msg { font-size: 0.82rem; color: var(--muted); }
+
+    /* ── Modal ── */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      backdrop-filter: blur(4px);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal-overlay.open { display: flex; }
+
+    .modal {
+      background: var(--surface);
+      border: 1px solid var(--border2);
+      border-radius: 20px;
+      padding: 32px;
+      width: 100%;
+      max-width: 500px;
+      max-height: 90vh;
+      overflow-y: auto;
+      position: relative;
+    }
+
+    .modal-close {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--muted);
+      font-size: 1rem;
+      cursor: pointer;
+      padding: 6px 10px;
+      transition: all 0.2s;
+    }
+
+    .modal-close:hover { color: var(--text); }
+
+    .modal-title {
+      font-size: 1.3rem;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    .modal-sub { font-size: 0.85rem; color: var(--muted); margin-bottom: 24px; }
+
+    .form-group { margin-bottom: 18px; }
+
+    label {
+      display: block;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 8px;
+    }
+
+    input, select {
+      width: 100%;
+      padding: 12px 14px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      color: var(--text);
+      font-family: inherit;
+      font-size: 0.9rem;
+      transition: border-color 0.2s;
+    }
+
+    input:focus, select:focus {
+      outline: none;
+      border-color: var(--primary);
+      background: rgba(0,229,176,0.04);
+    }
+
+    input:read-only {
+      opacity: 0.7;
+      cursor: default;
+    }
+
+    /* ── Payment Methods ── */
+    .payment-methods {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 6px;
+    }
+
+    .pay-method {
+      background: var(--surface2);
+      border: 1.5px solid var(--border);
+      border-radius: 10px;
+      padding: 14px;
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.2s;
+    }
+
+    .pay-method:hover { border-color: var(--border2); }
+
+    .pay-method.active {
+      border-color: var(--primary);
+      background: var(--primary-glow);
+    }
+
+    .pay-method .pm-icon { font-size: 1.5rem; margin-bottom: 6px; }
+    .pay-method .pm-label { font-size: 0.82rem; font-weight: 600; }
+    .pay-method.active .pm-label { color: var(--primary); }
+
+    /* ── Amount Display ── */
+    .pay-amount-display {
+      background: linear-gradient(135deg, var(--primary-glow), rgba(79,195,247,0.08));
+      border: 1px solid rgba(0,229,176,0.2);
+      border-radius: 12px;
+      padding: 20px;
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    .pay-amount-display .amount-big {
+      font-size: 2.2rem;
+      font-weight: 700;
+      font-family: 'DM Mono', monospace;
+      color: var(--primary);
+    }
+
+    .pay-amount-display .amount-label {
+      font-size: 0.78rem;
+      color: var(--muted);
+      margin-top: 4px;
+    }
+
+    /* ── Spinner ── */
+    .spinner {
+      display: inline-block;
+      width: 18px;
+      height: 18px;
+      border: 2px solid rgba(255,255,255,0.2);
+      border-top-color: currentColor;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Notification Panel ── */
+    .notif-panel {
+      position: fixed;
+      top: 70px;
+      right: 24px;
+      width: 340px;
+      background: var(--surface);
+      border: 1px solid var(--border2);
+      border-radius: 16px;
+      box-shadow: 0 16px 48px rgba(0,0,0,0.5);
+      z-index: 500;
+      overflow: hidden;
+      display: none;
+    }
+
+    .notif-panel.open { display: block; }
+
+    .notif-header {
+      padding: 16px 18px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-weight: 600;
+    }
+
+    .notif-list { max-height: 360px; overflow-y: auto; }
+
+    .notif-item {
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      gap: 12px;
+      transition: background 0.2s;
+    }
+
+    .notif-item:hover { background: var(--surface2); }
+    .notif-item:last-child { border-bottom: none; }
+
+    .notif-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--primary);
+      flex-shrink: 0;
+      margin-top: 5px;
+    }
+
+    .notif-item-title { font-size: 0.85rem; font-weight: 600; margin-bottom: 2px; }
+    .notif-item-msg { font-size: 0.8rem; color: var(--muted); }
+    .notif-item-time { font-size: 0.73rem; color: var(--muted); margin-top: 4px; }
+
+    /* ── Overdue Banner ── */
+    .overdue-banner {
+      background: linear-gradient(135deg, rgba(255,92,92,0.12), rgba(255,92,92,0.05));
+      border: 1px solid rgba(255,92,92,0.25);
+      border-radius: 12px;
+      padding: 14px 18px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    .overdue-banner .banner-icon { font-size: 1.4rem; }
+    .overdue-banner .banner-text { flex: 1; }
+    .overdue-banner .banner-title { font-weight: 600; color: var(--danger); font-size: 0.9rem; }
+    .overdue-banner .banner-desc { font-size: 0.8rem; color: var(--muted); margin-top: 2px; }
+
+    /* ── Responsive ── */
+    @media (max-width: 1024px) {
+      .stats-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+
+    @media (max-width: 768px) {
+      .app-shell { grid-template-columns: 1fr; }
+      .sidebar { display: none; }
+      .main { padding: 20px 16px; }
+      .stats-grid { grid-template-columns: repeat(2, 1fr); }
+      .fee-card { flex-direction: column; align-items: flex-start; }
+      .fee-right { width: 100%; justify-content: space-between; }
+    }
+
+    /* Loading skeleton */
+    .skeleton {
+      background: linear-gradient(90deg, var(--surface) 25%, var(--surface2) 50%, var(--surface) 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.5s infinite;
+      border-radius: 8px;
+    }
+
+    @keyframes shimmer {
+      0% { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+  </style>
+</head>
+<body>
+
+<div id="toastContainer" class="toast-container"></div>
+
+<div class="app-shell">
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <h2>EduConnect</h2>
+      <p>Parent Portal</p>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-item" onclick="window.location.href='/dashboard'">
+        <span class="nav-icon">🏠</span> Dashboard
+      </div>
+      <div class="nav-item active">
+        <span class="nav-icon">💳</span> Fee Management
+      </div>
+      <div class="nav-item" onclick="window.location.href='/dashboard'">
+        <span class="nav-icon">📊</span> Attendance
+      </div>
+      <div class="nav-item" onclick="window.location.href='/dashboard'">
+        <span class="nav-icon">📝</span> Marks & Reports
+      </div>
+      <div class="nav-item" onclick="window.location.href='/dashboard'">
+        <span class="nav-icon">💬</span> Messages
+      </div>
+    </nav>
+    <div class="sidebar-footer">
+      <button class="logout-btn" onclick="logout()">
+        <span>🚪</span> Logout
+      </button>
+    </div>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="main">
+    <div class="page-header">
+      <div class="page-title">
+        <h1>Fee Management</h1>
+        <p id="studentInfoLine">Loading student details...</p>
+      </div>
+      <button class="notification-bell" onclick="toggleNotifPanel()" id="notifBell">
+        🔔
+        <span class="notif-badge" id="notifCount" style="display:none">0</span>
+      </button>
+    </div>
+
+    <!-- Notification Panel -->
+    <div class="notif-panel" id="notifPanel">
+      <div class="notif-header">
+        <span>Notifications</span>
+        <button onclick="markAllRead()" style="background:none;border:none;color:var(--primary);font-size:0.8rem;cursor:pointer;font-family:inherit;font-weight:600;">Mark all read</button>
+      </div>
+      <div class="notif-list" id="notifList">
+        <div style="padding:24px;text-align:center;color:var(--muted);font-size:0.85rem;">Loading...</div>
+      </div>
+    </div>
+
+    <!-- Overdue Banner (shown conditionally) -->
+    <div class="overdue-banner" id="overdueBanner" style="display:none;">
+      <div class="banner-icon">⚠️</div>
+      <div class="banner-text">
+        <div class="banner-title">You have overdue fees!</div>
+        <div class="banner-desc" id="overdueDesc">Please clear your outstanding dues to avoid penalties.</div>
+      </div>
+      <button class="btn btn-primary btn-sm" onclick="switchTab('pending')">View Now</button>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats-grid">
+      <div class="stat-card green">
+        <div class="stat-label">Total Fees</div>
+        <div class="stat-value">₹<span id="statTotal">—</span></div>
+        <div class="stat-meta">Academic year total</div>
+      </div>
+      <div class="stat-card blue">
+        <div class="stat-label">Amount Paid</div>
+        <div class="stat-value">₹<span id="statPaid">—</span></div>
+        <div class="stat-meta">Cleared amount</div>
+      </div>
+      <div class="stat-card orange">
+        <div class="stat-label">Balance Due</div>
+        <div class="stat-value">₹<span id="statDue">—</span></div>
+        <div class="stat-meta"><span id="statPendingCount">0</span> pending fees</div>
+      </div>
+      <div class="stat-card red">
+        <div class="stat-label">Overdue</div>
+        <div class="stat-value"><span id="statOverdue">0</span></div>
+        <div class="stat-meta">Past due date</div>
+      </div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="tab-bar">
+      <button class="tab-btn active" onclick="switchTab('pending', this)">Pending Fees</button>
+      <button class="tab-btn" onclick="switchTab('history', this)">Payment History</button>
+    </div>
+
+    <!-- Tab: Pending Fees -->
+    <div class="tab-content active" id="tab-pending">
+      <div class="fees-list" id="feesList">
+        <!-- skeleton loaders -->
+        <div class="fee-card" style="height:100px"><div class="skeleton" style="width:100%;height:100%;border-radius:12px;"></div></div>
+        <div class="fee-card" style="height:100px"><div class="skeleton" style="width:100%;height:100%;border-radius:12px;"></div></div>
+      </div>
+      <div class="empty-state" id="noFeesMsg" style="display:none;">
+        <div class="empty-icon">🎉</div>
+        <h3>All Caught Up!</h3>
+        <p>No pending fees. You're all clear.</p>
+      </div>
+    </div>
+
+    <!-- Tab: Payment History -->
+    <div class="tab-content" id="tab-history">
+      <div class="data-table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Transaction ID</th>
+              <th>Date</th>
+              <th>Term / Fee</th>
+              <th>Method</th>
+              <th>Amount</th>
+              <th>Status</th>
+              <th>Receipt</th>
+            </tr>
+          </thead>
+          <tbody id="historyBody">
+            <tr><td colspan="7" style="text-align:center;padding:40px;color:var(--muted);">Loading history...</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="empty-state" id="noHistoryMsg" style="display:none;">
+        <div class="empty-icon">📂</div>
+        <h3>No Payment History</h3>
+        <p>You haven't made any payments yet.</p>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- Payment Modal -->
+<div class="modal-overlay" id="payModal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal()">✕</button>
+    <div class="modal-title">💳 Pay Fee</div>
+    <div class="modal-sub" id="modalSubtitle">Select a payment method to continue</div>
+
+    <div class="pay-amount-display">
+      <div class="amount-big">₹<span id="modalAmount">0.00</span></div>
+      <div class="amount-label">Amount due for <strong id="modalTerm">—</strong></div>
+    </div>
+
+    <div class="form-group">
+      <label>Select Payment Method</label>
+      <div class="payment-methods">
+        <div class="pay-method active" onclick="selectMethod(this,'Card')">
+          <div class="pm-icon">💳</div>
+          <div class="pm-label">Card</div>
+        </div>
+        <div class="pay-method" onclick="selectMethod(this,'UPI')">
+          <div class="pm-icon">📱</div>
+          <div class="pm-label">UPI</div>
+        </div>
+        <div class="pay-method" onclick="selectMethod(this,'NetBanking')">
+          <div class="pm-icon">🏦</div>
+          <div class="pm-label">NetBanking</div>
+        </div>
+        <div class="pay-method" onclick="selectMethod(this,'Wallet')">
+          <div class="pm-icon">👝</div>
+          <div class="pm-label">Wallet</div>
+        </div>
+      </div>
+    </div>
+
+    <button class="btn btn-primary" id="payBtn" onclick="initiatePayment()" style="width:100%;justify-content:center;margin-bottom:10px;">
+      🔒 Proceed to Pay Securely
+    </button>
+    <button class="btn btn-ghost" onclick="closeModal()" style="width:100%;justify-content:center;">
+      Cancel
+    </button>
+
+    <div style="text-align:center;margin-top:14px;font-size:0.75rem;color:var(--muted);">
+      🔐 Secured by Razorpay · SSL Encrypted
+    </div>
+  </div>
+</div>
+
+<!-- Razorpay -->
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+
+<script>
+  const API = 'http://localhost:3000/api';
+  const token = localStorage.getItem('token');
+  let currentFeeId = null, selectedMethod = 'Card';
+  let razorpayKey = '';
+
+  if (!token) window.location.href = '/';
+
+  /* ─── Init ─────────────────────────────────── */
+  async function init() {
+    await Promise.all([loadRazorpayKey(), loadFees(), loadNotifications()]);
+  }
+
+  async function loadRazorpayKey() {
+    try {
+      const r = await fetch(`${API}/razorpay/key`, { headers: { Authorization: `Bearer ${token}` } });
+      const d = await r.json();
+      razorpayKey = d.key;
+    } catch (_) {}
+  }
+
+  /* ─── Fees ──────────────────────────────────── */
+  async function loadFees() {
+    try {
+      const r = await fetch(`${API}/fees/my-fees`, { headers: { Authorization: `Bearer ${token}` } });
+      if (r.status === 401) { logout(); return; }
+      const { fees, summary } = await r.json();
+
+      document.getElementById('statTotal').textContent = fmtNum(summary.totalFees);
+      document.getElementById('statPaid').textContent = fmtNum(summary.totalPaid);
+      document.getElementById('statDue').textContent = fmtNum(summary.totalDue);
+      document.getElementById('statOverdue').textContent = summary.overdueCount;
+      document.getElementById('statPendingCount').textContent = summary.pendingCount;
+
+      if (summary.overdueCount > 0) {
+        document.getElementById('overdueBanner').style.display = 'flex';
+        document.getElementById('overdueDesc').textContent = `${summary.overdueCount} overdue fee(s) — please clear dues immediately.`;
+      }
+
+      const list = document.getElementById('feesList');
+      const empty = document.getElementById('noFeesMsg');
+
+      if (!fees.length) {
+        list.style.display = 'none';
+        empty.style.display = 'block';
+        return;
+      }
+
+      list.innerHTML = fees.map(f => {
+        const statusClass = statusToClass(f.status);
+        const paid = f.amountPaid || 0;
+        const isPaidStatus = String(f.status || '').toLowerCase() === 'paid';
+        const bal = isPaidStatus ? 0 : Math.max(0, (f.balance > 0 ? f.balance : f.amount - paid));
+        const pct = Math.round((paid / f.amount) * 100);
+        const icon = statusClass === 'overdue' ? '🔴' : statusClass === 'paid' ? '✅' : statusClass === 'partial' ? '🔵' : '🟡';
+        const isPaid = isPaidStatus;
+        return `
+          <div class="fee-card ${statusClass}">
+            <div class="fee-icon ${statusClass}">${icon}</div>
+            <div class="fee-body">
+              <div class="fee-top">
+                <div class="fee-term">${f.term} Fees</div>
+                <span class="status-pill ${statusClass}">${f.status}</span>
+              </div>
+              <div class="fee-meta">
+                <span>📅 Due: ${fmtDate(f.dueDate)}</span>
+                <span>💰 Total: ₹${fmtNum(f.amount)}</span>
+                <span>✅ Paid: ₹${fmtNum(paid)}</span>
+              </div>
+              ${!isPaid ? `<div class="progress-bar" style="margin-top:10px"><div class="progress-fill" style="width:${pct}%"></div></div>` : ''}
+            </div>
+            <div class="fee-right">
+              <div class="fee-amounts">
+                <div class="fee-balance">₹${fmtNum(bal)}</div>
+                <div class="fee-total">${isPaid ? 'Fully Paid' : 'Balance'}</div>
+              </div>
+              <div class="fee-actions">
+                ${!isPaid ? `<button class="btn btn-primary btn-sm" onclick="openModal('${f._id}','${f.term}',${bal})">Pay Now</button>` : `<button class="btn btn-ghost btn-sm" disabled>Paid ✓</button>`}
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    } catch (e) {
+      showToast('error', 'Load Failed', 'Could not load fees. ' + e.message);
+    }
+  }
+
+  /* ─── History ───────────────────────────────── */
+  async function loadHistory() {
+    try {
+      const r = await fetch(`${API}/fees/payment-history`, { headers: { Authorization: `Bearer ${token}` } });
+      const payments = await r.json();
+      const body = document.getElementById('historyBody');
+      const empty = document.getElementById('noHistoryMsg');
+
+      if (!payments.length) {
+        body.innerHTML = '';
+        document.querySelector('.data-table-wrap').style.display = 'none';
+        empty.style.display = 'block';
+        return;
+      }
+
+      body.innerHTML = payments.map(p => `
+        <tr>
+          <td class="mono">${p.transactionId || '—'}</td>
+          <td>${fmtDate(p.paymentDate)}</td>
+          <td>${p.feeId?.term || '—'}</td>
+          <td>
+            <span class="status-pill" style="background:var(--blue-glow);color:var(--blue);border:1px solid rgba(79,195,247,0.2)">
+              ${p.paymentMethod}
+            </span>
+          </td>
+          <td style="font-family:'DM Mono',monospace;color:var(--primary);font-weight:600;">₹${fmtNum(p.amount)}</td>
+          <td><span class="status-pill paid">Success</span></td>
+          <td>
+            ${p.receiptUrl
+              ? `<a href="${p.receiptUrl}?v=${Date.now()}" download style="color:var(--blue);text-decoration:none;font-size:0.82rem;display:flex;align-items:center;gap:4px;">
+                  <span>📥</span> Download PDF
+                </a>`
+              : '<span style="color:var(--muted);font-size:0.8rem;">N/A</span>'}
+          </td>
+        </tr>
+      `).join('');
+    } catch (e) {
+      showToast('error', 'Error', 'Could not load payment history.');
+    }
+  }
+
+  /* ─── Notifications ─────────────────────────── */
+  async function loadNotifications() {
+    try {
+      const r = await fetch(`${API}/notifications`, { headers: { Authorization: `Bearer ${token}` } });
+      if (!r.ok) return;
+      const notifs = await r.json();
+
+      const unread = notifs.filter(n => !n.isRead).length;
+      const badge = document.getElementById('notifCount');
+      if (unread > 0) {
+        badge.style.display = 'flex';
+        badge.textContent = unread;
+      }
+
+      const list = document.getElementById('notifList');
+      if (!notifs.length) {
+        list.innerHTML = '<div style="padding:24px;text-align:center;color:var(--muted);font-size:0.85rem;">No notifications</div>';
+        return;
+      }
+
+      list.innerHTML = notifs.slice(0, 10).map(n => `
+        <div class="notif-item">
+          <div class="notif-dot" style="background:${n.type === 'success' ? 'var(--primary)' : n.type === 'danger' ? 'var(--danger)' : 'var(--warning)'}"></div>
+          <div>
+            <div class="notif-item-title">${n.title}</div>
+            <div class="notif-item-msg">${n.message}</div>
+            <div class="notif-item-time">${fmtDate(n.createdAt)}</div>
+          </div>
+        </div>
+      `).join('');
+    } catch (_) {}
+  }
+
+  function toggleNotifPanel() {
+    document.getElementById('notifPanel').classList.toggle('open');
+  }
+
+  async function markAllRead() {
+    try {
+      await fetch(`${API}/notifications/mark-all-read`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      document.getElementById('notifCount').style.display = 'none';
+    } catch (_) {}
+  }
+
+  /* ─── Tabs ──────────────────────────────────── */
+  function switchTab(name, btn) {
+    document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('tab-' + name).classList.add('active');
+    if (btn) btn.classList.add('active');
+    if (name === 'history') loadHistory();
+  }
+
+  /* ─── Modal ─────────────────────────────────── */
+  function openModal(feeId, term, amount) {
+    currentFeeId = feeId;
+    document.getElementById('modalTerm').textContent = term;
+    document.getElementById('modalAmount').textContent = fmtNum(amount);
+    document.getElementById('payModal').classList.add('open');
+    selectedMethod = 'Card';
+    document.querySelectorAll('.pay-method').forEach((el, i) => {
+      el.classList.toggle('active', i === 0);
+    });
+  }
+
+  function closeModal() {
+    document.getElementById('payModal').classList.remove('open');
+    currentFeeId = null;
+  }
+
+  function selectMethod(el, method) {
+    document.querySelectorAll('.pay-method').forEach(m => m.classList.remove('active'));
+    el.classList.add('active');
+    selectedMethod = method;
+  }
+
+  /* ─── Payment ───────────────────────────────── */
+  async function initiatePayment() {
+    const btn = document.getElementById('payBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<div class="spinner"></div> Creating order...';
+
+    try {
+      const r = await fetch(`${API}/fees/create-order`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ feeId: currentFeeId })
+      });
+      if (!r.ok) throw new Error('Failed to create order');
+      const order = await r.json();
+
+      const options = {
+        key: razorpayKey,
+        order_id: order.orderId,
+        amount: order.amount * 100,
+        currency: 'INR',
+        name: 'EduConnect Fee Payment',
+        description: `Fee payment for ${document.getElementById('modalTerm').textContent}`,
+        image: '',
+        handler: async (resp) => {
+          btn.innerHTML = '<div class="spinner"></div> Verifying...';
+          await verifyPayment(resp);
+        },
+        prefill: {},
+        method: {
+          upi: selectedMethod === 'UPI',
+          card: selectedMethod === 'Card',
+          netbanking: selectedMethod === 'NetBanking',
+          wallet: selectedMethod === 'Wallet',
+        },
+        theme: { color: '#00e5b0' },
+        modal: {
+          ondismiss: () => {
+            btn.disabled = false;
+            btn.innerHTML = '🔒 Proceed to Pay Securely';
+          }
+        }
+      };
+
+      const rzp = new Razorpay(options);
+      rzp.open();
+    } catch (e) {
+      showToast('error', 'Payment Failed', e.message);
+      btn.disabled = false;
+      btn.innerHTML = '🔒 Proceed to Pay Securely';
+    }
+  }
+
+  async function verifyPayment(resp) {
+    const btn = document.getElementById('payBtn');
+    try {
+      const r = await fetch(`${API}/fees/verify-payment`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          razorpayOrderId: resp.razorpay_order_id,
+          razorpayPaymentId: resp.razorpay_payment_id,
+          razorpaySignature: resp.razorpay_signature,
+          feeId: currentFeeId,
+          paymentMethod: selectedMethod
+        })
+      });
+      const result = await r.json();
+      if (!r.ok) throw new Error(result.error || 'Verification failed');
+
+      closeModal();
+      showToast('success', 'Payment Successful! 🎉', `₹${result.amountPaid?.toFixed(2)} paid. Receipt sent to your email.`);
+      setTimeout(loadFees, 1500);
+    } catch (e) {
+      showToast('error', 'Verification Failed', e.message);
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = '🔒 Proceed to Pay Securely';
+    }
+  }
+
+  /* ─── Helpers ───────────────────────────────── */
+  function fmtNum(n) {
+    return Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  function fmtDate(d) {
+    if (!d) return '—';
+    return new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+  }
+
+  function statusToClass(s) {
+    if (!s) return 'pending';
+    const m = s.toLowerCase();
+    if (m === 'paid') return 'paid';
+    if (m === 'overdue') return 'overdue';
+    if (m.includes('partial')) return 'partial';
+    return 'pending';
+  }
+
+  function showToast(type, title, msg) {
+    const icons = { success: '✅', error: '❌', info: 'ℹ️' };
+    const el = document.createElement('div');
+    el.className = `toast ${type}`;
+    el.innerHTML = `
+      <div class="toast-icon">${icons[type] || 'ℹ️'}</div>
+      <div class="toast-body">
+        <div class="toast-title">${title}</div>
+        <div class="toast-msg">${msg}</div>
+      </div>
+    `;
+    document.getElementById('toastContainer').appendChild(el);
+    setTimeout(() => el.remove(), 5000);
+  }
+
+  function logout() {
+    localStorage.removeItem('token');
+    window.location.href = '/';
+  }
+
+  // Close notif panel on outside click
+  document.addEventListener('click', e => {
+    const panel = document.getElementById('notifPanel');
+    if (panel.classList.contains('open') &&
+        !panel.contains(e.target) &&
+        !document.getElementById('notifBell').contains(e.target)) {
+      panel.classList.remove('open');
+    }
+  });
+
+  init();
+</script>
+</body>
+</html>

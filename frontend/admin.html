@@ -1,0 +1,1138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>EduConnect — Admin Panel</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+:root{
+  --ink:#ffffff;--deep:#edf2fb;--card:#ffffff;--card2:#e8efff;
+  --teal:#001f54;--sky:#5784d7;--gold:#f59e0b;--coral:#ef4444;--purple:#7c3aed;--green:#16a34a;
+  --text:#0f172a;--muted:#5c677c;--muted2:#7a8aa8;
+  --border:rgba(0,31,84,.16);--border2:rgba(0,31,84,.12);
+  --font-display:Arial, Helvetica, sans-serif;--font-body:Arial, Helvetica, sans-serif;
+}
+*{font-family:var(--font-body);}
+html,body{min-height:100vh;background:var(--ink);color:var(--text);overflow-x:hidden;}
+body::before{content:'';position:fixed;inset:0;z-index:0;background:transparent;pointer-events:none;}
+
+/* SIDEBAR */
+.sidebar{width:230px;background:linear-gradient(180deg,#001f54,#133c72);border-right:1px solid rgba(0,31,84,.18);position:fixed;top:0;left:0;height:100vh;z-index:100;display:flex;flex-direction:column;transition:.3s;}
+.sidebar-logo{padding:24px 20px 20px;border-bottom:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.05);}
+.logo-text{font-family:var(--font-display);font-size:1.45rem;color:#ffffff;font-weight:700;}
+.logo-small{font-size:.72rem;color:rgba(255,255,255,.78);letter-spacing:.12em;text-transform:uppercase;margin-top:3px;}
+.nav{padding:10px 0;flex:1;overflow-y:auto;}
+.nav-label{padding:14px 20px 6px;font-size:.72rem;color:rgba(255,255,255,.65);letter-spacing:.12em;text-transform:uppercase;}
+.nav-item{display:flex;align-items:center;gap:12px;padding:12px 20px;cursor:pointer;color:rgba(255,255,255,.92);font-size:.88rem;transition:.2s;border-left:4px solid transparent;border-radius:12px;margin:0 8px;}
+.nav-item:hover{color:#ffffff;background:rgba(255,255,255,.14);}
+.nav-item.active{color:var(--teal);background:#ffffff;border-left-color:#ffffff;font-weight:600;}
+.nav-item i{width:18px;text-align:center;}
+.nav-badge{margin-left:auto;background:#ef4444;color:#fff;border-radius:20px;padding:1px 7px;font-size:.65rem;font-weight:700;}
+.sidebar-foot{padding:18px 20px;border-top:1px solid rgba(255,255,255,.16);}
+.user-row{display:flex;align-items:center;gap:8px;margin-bottom:10px;}
+.avatar{width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#001f54,#4f6ed2);display:flex;align-items:center;justify-content:center;font-weight:700;color:#ffffff;font-size:.85rem;flex-shrink:0;}
+.user-name{font-size:.8rem;font-weight:500;color:#ffffff;}
+.user-role{font-size:.68rem;color:rgba(255,255,255,.74);}
+.btn-logout{width:100%;padding:10px;border-radius:12px;border:1px solid rgba(255,255,255,.35);background:rgba(255,255,255,.12);color:#ffffff;cursor:pointer;font-size:.82rem;transition:.2s;display:flex;align-items:center;justify-content:center;gap:7px;}
+.btn-logout:hover{background:rgba(255,255,255,.24);border-color:#ffffff;color:#ffffff;}
+
+/* TOPBAR */
+.topbar{position:fixed;left:230px;right:0;top:0;height:62px;z-index:99;background:linear-gradient(180deg,#001f54,#133c72);color:#ffffff;backdrop-filter:blur(10px);border-bottom:1px solid rgba(0,31,84,.24);display:flex;align-items:center;justify-content:space-between;padding:0 24px;transition:.3s;}
+.topbar-title{font-family:var(--font-display);font-size:1.18rem;font-weight:700;color:#ffffff;}
+.topbar-right{display:flex;align-items:center;gap:10px;}
+.topbar-right select{
+  color:#111827!important;
+  background:#ffffff!important;
+  border:1px solid rgba(0,0,0,.12)!important;
+  -webkit-appearance:none!important;
+  -moz-appearance:none!important;
+  appearance:none!important;
+  background-image:none!important;
+  -webkit-text-fill-color:#111827!important;
+}
+.topbar-right select option{
+  background:#ffffff!important;
+  color:#111827!important;
+}
+.icon-btn{width:36px;height:36px;border-radius:10px;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.22);display:flex;align-items:center;justify-content:center;cursor:pointer;color:#ffffff;transition:.2s;}
+.icon-btn:hover{background:rgba(255,255,255,.28);color:#ffffff;}
+.hamburger{display:none;background:none;border:none;color:var(--text);font-size:1.1rem;cursor:pointer;}
+
+/* MAIN */
+.main{margin-left:230px;padding:72px 22px 40px;position:relative;z-index:1;min-height:100vh;}
+.page{display:none;animation:fadeUp .3s ease;}
+.page.active{display:block;}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+
+/* STAT CARDS */
+.stat-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:18px;margin-bottom:22px;}
+.stat-card{background:#f8faff;border:1px solid rgba(0,31,84,.14);border-radius:18px;padding:22px;position:relative;overflow:hidden;transition:.2s;color:#0f172a;}
+.stat-card:hover{transform:translateY(-2px);box-shadow:0 16px 36px rgba(0,31,84,.12);}
+.stat-card::after{content:'';position:absolute;bottom:0;left:0;right:0;height:4px;background:var(--c,var(--teal));border-radius:0 0 18px 18px;}
+.stat-emo{display:none;}
+.stat-val{font-family:var(--font-display);font-size:2rem;font-weight:700;line-height:1;}
+.stat-lbl{font-size:.76rem;color:#475569;margin-top:10px;letter-spacing:.02em;text-transform:uppercase;}
+.stat-trend{font-size:.78rem;margin-top:12px;color:#133c72;}
+.up{color:#16a34a;}.dn{color:#dc2626;}.wn{color:#d97706;}
+.stat-card{background:#ffffff;border:1px solid rgba(0,31,84,.12);border-radius:20px;padding:32px;position:relative;overflow:hidden;transition:.25s;color:#0f172a;box-shadow:0 18px 48px rgba(15,23,42,.06);}
+.stat-card:hover{transform:translateY(-4px);box-shadow:0 24px 64px rgba(15,23,42,.12);}
+.stat-card::after{content:'';position:absolute;bottom:0;left:0;right:0;height:6px;background:var(--c,var(--teal));border-radius:0 0 20px 20px;}
+.stat-val{font-family:var(--font-display);font-size:3.2rem;font-weight:800;line-height:1;color:var(--text);}
+.stat-lbl{font-size:1rem;color:#0f172a;margin-top:12px;letter-spacing:.02em;text-transform:uppercase;font-weight:700;}
+.stat-trend{font-size:.9rem;margin-top:14px;color:#475569;font-weight:600;}
+
+/* PANELS */
+.panel{background:var(--card);border:1px solid var(--border);border-radius:13px;padding:20px;margin-bottom:18px;}
+.panel-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px;}
+.panel-title{font-family:var(--font-display);font-size:1.1rem;font-weight:600;}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;}
+
+/* BUTTONS */
+.btn{padding:8px 14px;border-radius:8px;border:1px solid var(--border);background:rgba(255,255,255,.04);color:var(--text);cursor:pointer;font-size:.8rem;transition:.2s;display:inline-flex;align-items:center;gap:6px;}
+.btn:hover{border-color:var(--teal);color:var(--teal);}
+.btn-primary{background:linear-gradient(135deg, #001f54, #5784d7);border:none;color:var(--ink);font-weight:600;}
+.btn-primary:hover{transform:translateY(-1px);box-shadow:0 6px 18px rgba(0,31,84,.24);color:var(--ink);}
+.btn-danger{background:linear-gradient(135deg,var(--coral),#e53e3e);border:none;color:#fff;font-weight:600;}
+.btn-danger:hover{transform:translateY(-1px);box-shadow:0 5px 15px rgba(248,113,113,.3);}
+.btn-purple{background:linear-gradient(135deg,var(--purple),#7c3aed);border:none;color:#fff;font-weight:600;}
+.btn-purple:hover{transform:translateY(-1px);}
+.btn-wa{background:linear-gradient(135deg,#25d366,#128c7e);border:none;color:#fff;font-weight:600;}
+.btn-wa:hover{transform:translateY(-1px);box-shadow:0 6px 18px rgba(37,211,102,.3);color:#fff;}
+.btn:disabled{opacity:.5;cursor:not-allowed;transform:none!important;}
+
+/* CONTACT PARENT */
+.contact-card{background:rgba(0,31,84,.05);border:1px solid rgba(0,31,84,.15);border-radius:12px;padding:18px;margin-bottom:14px;}
+.contact-name{font-size:.95rem;font-weight:600;color:var(--teal);margin-bottom:4px;}
+.contact-role{font-size:.75rem;color:var(--muted);margin-bottom:12px;}
+.contact-actions{display:flex;gap:8px;flex-wrap:wrap;}
+
+/* FORM */
+.field{margin-bottom:14px;}
+.field label{display:block;font-size:.72rem;color:var(--muted);margin-bottom:6px;letter-spacing:.07em;text-transform:uppercase;}
+.field input,.field select,.field textarea{width:100%;padding:10px 13px;border-radius:9px;border:1px solid var(--border);background:rgba(255,255,255,.12);color:var(--text);font-family:var(--font-body);font-size:.85rem;outline:none;transition:.2s;}
+.field input:focus,.field select:focus,.field textarea:focus{border-color:var(--teal);background:rgba(255,255,255,.9);}
+.field select option{background:#ffffff;color:#111827;}
+.field textarea{resize:vertical;min-height:80px;}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+
+/* TABLES */
+.tbl{width:100%;border-collapse:collapse;font-size:.82rem;}
+.tbl th{padding:9px 13px;text-align:left;color:var(--muted);font-weight:500;font-size:.7rem;text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--border);}
+.tbl td{padding:11px 13px;border-bottom:1px solid rgba(255,255,255,.03);}
+.tbl tr:hover td{background:rgba(255,255,255,.02);}
+.grade{display:inline-block;padding:2px 8px;border-radius:20px;font-size:.7rem;font-weight:700;}
+.gA{background:rgba(0,212,170,.15);color:var(--teal);}
+.gB{background:rgba(56,189,248,.15);color:var(--sky);}
+.gC{background:rgba(245,158,11,.15);color:var(--gold);}
+.gD{background:rgba(248,113,113,.15);color:var(--coral);}
+.badge-s{padding:3px 9px;border-radius:20px;font-size:.7rem;font-weight:600;}
+.s-paid{background:rgba(0,212,170,.12);color:var(--teal);}
+.s-due{background:rgba(245,158,11,.12);color:var(--gold);}
+.s-overdue{background:rgba(248,113,113,.12);color:var(--coral);}
+.s-parent{background:rgba(56,189,248,.12);color:var(--sky);}
+.s-admin{background:rgba(167,139,250,.12);color:var(--purple);}
+
+/* UPLOAD ZONE */
+.upload-zone{border:2px dashed var(--border2);border-radius:13px;padding:36px 20px;text-align:center;cursor:pointer;transition:.2s;}
+.upload-zone:hover,.upload-zone.drag{border-color:var(--teal);background:rgba(0,212,170,.04);}
+.upload-icon{font-size:2.2rem;color:var(--teal);margin-bottom:10px;}
+
+/* NOTIF ITEMS */
+.notif-item{display:flex;gap:10px;padding:12px;border-radius:10px;background:rgba(255,255,255,.03);border:1px solid var(--border);align-items:flex-start;margin-bottom:8px;}
+.ni-icon{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:.8rem;}
+.ni-icon.info{background:rgba(56,189,248,.12);color:var(--sky);}
+.ni-icon.success{background:rgba(0,212,170,.12);color:var(--teal);}
+.ni-icon.warn{background:rgba(245,158,11,.12);color:var(--gold);}
+.ni-icon.danger{background:rgba(248,113,113,.12);color:var(--coral);}
+.ni-body .ni-title{font-size:.82rem;font-weight:500;}
+.ni-body .ni-sub{font-size:.73rem;color:var(--muted2);margin-top:2px;}
+.ni-body .ni-time{font-size:.68rem;color:var(--muted);margin-top:3px;}
+
+/* ALERT LOG */
+.alert-log-item{padding:12px;background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:10px;margin-bottom:8px;font-size:.82rem;}
+.al-to{color:var(--teal);font-weight:600;font-size:.78rem;margin-bottom:3px;}
+.al-msg{color:var(--muted2);line-height:1.5;margin-bottom:3px;}
+.al-time{font-size:.68rem;color:var(--muted);}
+
+/* TOAST */
+#toast{position:fixed;bottom:22px;right:22px;z-index:999;display:flex;flex-direction:column;gap:8px;max-width:320px;}
+.toast-item{padding:12px 16px;border-radius:10px;font-size:.83rem;background:var(--card2);border:1px solid var(--border2);box-shadow:0 8px 22px rgba(0,0,0,.4);animation:toastIn .3s ease;display:flex;align-items:center;gap:8px;}
+@keyframes toastIn{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+.toast-item.ok{border-left:3px solid var(--teal);color:var(--teal);}
+.toast-item.err{border-left:3px solid var(--coral);color:var(--coral);}
+.toast-item.info{border-left:3px solid var(--sky);color:var(--sky);}
+
+/* SEARCH BOX */
+.search-box{padding:9px 13px 9px 36px;border-radius:9px;border:1px solid var(--border);background:rgba(255,255,255,.04);color:var(--text);font-size:.83rem;outline:none;transition:.2s;width:220px;}
+.search-box:focus{border-color:var(--teal);}
+.search-wrap{position:relative;}
+.search-wrap i{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:.8rem;}
+
+/* TABS */
+.tabs{display:flex;gap:4px;margin-bottom:18px;flex-wrap:wrap;}
+.tab{padding:8px 16px;border-radius:7px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;font-size:.8rem;transition:.2s;}
+.tab.active{background:var(--teal);color:var(--ink);font-weight:600;border-color:var(--teal);}
+
+/* LOADER */
+.loader{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.1);border-top-color:var(--teal);border-radius:50%;animation:spin .6s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-p{text-align:center;padding:28px;color:var(--muted);font-size:.83rem;}
+.spin{display:inline-block;width:13px;height:13px;border:2px solid rgba(13,17,23,.3);border-top-color:var(--ink);border-radius:50%;animation:spin .6s linear infinite;}
+
+/* MODAL */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);backdrop-filter:blur(6px);z-index:200;align-items:center;justify-content:center;padding:20px;}
+.modal-overlay.open{display:flex;animation:fadeUp .25s ease;}
+.modal{background:var(--card2);border:1px solid var(--border2);border-radius:16px;padding:28px;width:100%;max-width:560px;max-height:90vh;overflow-y:auto;}
+.modal-hd{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;}
+.modal-title{font-family:var(--font-display);font-size:1.2rem;}
+.modal-close{background:none;border:none;color:var(--muted);cursor:pointer;font-size:1.1rem;transition:.2s;}
+.modal-close:hover{color:var(--coral);}
+
+/* RESPONSIVE */
+@media(max-width:900px){.grid2,.grid3{grid-template-columns:1fr!important;}.form-row{grid-template-columns:1fr;}}
+@media(max-width:768px){.sidebar{transform:translateX(-100%);}.sidebar.open{transform:translateX(0);}.topbar,.main{left:0!important;margin-left:0!important;}.hamburger{display:block;}.stat-row{grid-template-columns:1fr 1fr;}}
+::-webkit-scrollbar{width:5px;height:5px;}::-webkit-scrollbar-track{background:transparent;}::-webkit-scrollbar-thumb{background:rgba(255,255,255,.08);border-radius:3px;}
+</style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<nav class="sidebar" id="sidebar">
+  <div class="sidebar-logo"><div class="logo-text">EduConnect</div><div class="logo-small" data-i18n="dashboard.adminPanel">Admin Panel</div></div>
+  <nav class="nav">
+    <div class="nav-label" data-i18n="common.overview">Overview</div>
+    <div class="nav-item active" onclick="go('dashboard',this)"><i class="fa fa-th-large"></i> <span data-i18n="common.dashboard">Dashboard</span></div>
+    <div class="nav-label">Students</div>
+    <div class="nav-item" onclick="go('import',this)"><i class="fa fa-file-excel"></i> <span data-i18n="dashboard.importStudents">Import Students</span></div>
+    <div class="nav-item" onclick="go('importMarks',this)"><i class="fa fa-file-excel"></i> <span data-i18n="dashboard.importMarks">Import Marks</span></div>
+    <div class="nav-item" onclick="go('students',this)"><i class="fa fa-users"></i> <span data-i18n="dashboard.allStudents">All Students</span></div>
+    <div class="nav-item" onclick="go('marks',this)"><i class="fa fa-edit"></i> <span data-i18n="dashboard.manageMarks">Manage Marks</span></div>
+    <div class="nav-item" onclick="go('attendance',this)"><i class="fa fa-calendar-check"></i> <span data-i18n="common.attendance">Attendance</span></div>
+    <div class="nav-item" onclick="go('fees',this)"><i class="fa fa-rupee-sign"></i> <span data-i18n="dashboard.feeRecords">Fee Records</span></div>
+    <div class="nav-item"><a href="/achievement-wall.html" style="display:flex;align-items:center;gap:10px;color:inherit;text-decoration:none;"><i class="fa fa-trophy"></i> Achievement Wall</a></div>
+    <div class="nav-item"><a href="/admin/bus" style="display:flex;align-items:center;gap:10px;color:inherit;text-decoration:none;"><i class="fa fa-bus"></i> Bus Tracking</a></div>
+    <div class="nav-label">Communication</div>
+    <div class="nav-item" onclick="go('contactParent',this)"><i class="fab fa-whatsapp"></i> <span data-i18n="dashboard.contactParent">Contact Parent</span></div>
+    <div class="nav-item" onclick="go('notifications',this)"><i class="fa fa-bell"></i> <span data-i18n="dashboard.sendNotifications">Send Notifications</span></div>
+  </nav>
+  <div class="sidebar-foot">
+    <div class="user-row"><div class="avatar" id="sAvatar">A</div><div><div class="user-name" id="sUserName">Admin</div><div class="user-role">Administrator</div></div></div>
+    <button class="btn-logout" onclick="logout()"><i class="fa fa-sign-out-alt"></i> <span data-i18n="common.signOut">Sign Out</span></button>
+  </div>
+</nav>
+
+<!-- Lightweight nav fallback: ensure sidebar navigation works even if main JS errors -->
+<script src="lang.js"></script>
+<script>
+  initLanguage({ titleKey: 'app.title.admin' });
+  (function(){
+    function safeGo(page, el){
+      var pages = document.querySelectorAll('.page');
+      for(var i=0;i<pages.length;i++) pages[i].classList.remove('active');
+      var target = document.getElementById('page-'+page);
+      if (target) target.classList.add('active');
+      var navs = document.querySelectorAll('.nav-item');
+      for(var i=0;i<navs.length;i++) navs[i].classList.remove('active');
+      if (el) el.classList.add('active');
+      var t = document.getElementById('topbarTitle'); if (t) t.textContent = page.charAt(0).toUpperCase()+page.slice(1);
+    }
+    document.addEventListener('click', function(e){
+      var el = e.target;
+      while(el && el!==document){
+        if (el.classList && el.classList.contains('nav-item')){
+          var page = el.getAttribute('data-page');
+          if (!page){
+            var oc = el.getAttribute('onclick');
+            if (oc){ var m = oc.match(/go\(['\"]([a-zA-Z0-9_\-]+)['\"]/); if (m) page=m[1]; }
+          }
+          if (page){ e.preventDefault(); safeGo(page, el); return; }
+        }
+        el = el.parentNode;
+      }
+    }, true);
+    var navs = document.querySelectorAll('.nav-item');
+    for(var i=0;i<navs.length;i++){ var oc = navs[i].getAttribute('onclick'); if (oc){ var m=oc.match(/go\(['\"]([a-zA-Z0-9_\-]+)['\"]/); if (m) navs[i].setAttribute('data-page', m[1]); } }
+  })();
+</script>
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <div style="display:flex;align-items:center;gap:10px;">
+    <button class="hamburger" onclick="toggleSidebar()"><i class="fa fa-bars"></i></button>
+    <div class="topbar-title" id="topbarTitle">Dashboard</div>
+  </div>
+  <div class="topbar-right">
+    <select data-lang-switcher style="padding:8px 10px;border-radius:999px;border:1px solid rgba(255,255,255,.22);background:rgba(255,255,255,.9);color:#111827;font-size:.8rem;backdrop-filter:blur(8px);">
+      <option value="en">English</option>
+      <option value="hi">हिंदी</option>
+      <option value="ta">தமிழ்</option>
+      <option value="te">తెలుగు</option>
+      <option value="kn">ಕನ್ನಡ</option>
+    </select>
+    <div class="icon-btn" title="Refresh" onclick="loadPage(currentPage)"><i class="fa fa-sync-alt"></i></div>
+  </div>
+</div>
+<div id="sbOverlay" style="display:none;position:fixed;inset:0;z-index:99;background:rgba(0,0,0,.5);" onclick="toggleSidebar()"></div>
+
+<div class="main">
+
+  <!-- ── DASHBOARD ── -->
+  <div id="page-dashboard" class="page active">
+    <div class="panel" style="background:#eef5ff;border-color:rgba(0,31,84,.18);margin-top:20px;">
+      <div class="panel-hd"><div class="panel-title">Dashboard Overview</div></div>
+      <div id="dashStats" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:18px;margin-top:18px;">
+        <div class="stat-card" style="--c:var(--teal)"><div class="stat-val">3</div><div class="stat-lbl">Total Students</div><div class="stat-trend up">All enrolled this year</div></div>
+        <div class="stat-card" style="--c:var(--sky)"><div class="stat-val">3</div><div class="stat-lbl">Parent Accounts</div><div class="stat-trend up">Active parent logins</div></div>
+        <div class="stat-card" style="--c:var(--gold)"><div class="stat-val">₹0K</div><div class="stat-lbl">Fees Pending</div><div class="stat-trend wn">Outstanding fees total</div></div>
+        <div class="stat-card" style="--c:var(--purple)"><div class="stat-val">0</div><div class="stat-lbl">Alerts Sent</div><div class="stat-trend">Notifications delivered</div></div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-hd"><div class="panel-title">Recent Achievements</div><a class="btn" href="/achievement-wall.html">Open Wall</a></div>
+      <div id="recentAchievementsAdmin" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;"></div>
+    </div>
+  </div>
+
+  <!-- ── IMPORT ── -->
+  <div id="page-import" class="page">
+    <div class="panel" style="max-width:800px;">
+      <div class="panel-hd"><div class="panel-title">Import Students & Marks from Excel</div></div>
+      <div style="font-size:.82rem;color:var(--muted);margin-bottom:16px;line-height:1.7;">
+        Upload a <code style="background:rgba(255,255,255,.07);padding:2px 6px;border-radius:4px;">.xlsx</code> or <code style="background:rgba(255,255,255,.07);padding:2px 6px;border-radius:4px;">.xls</code> file.<br>
+        Required columns: <b style="color:var(--teal)">Student_ID, Name, Class, Section, Parent_Email</b><br>
+        Optional student fields: Roll_Number, DOB, Parent_Name, Parent_Phone, Faculty_Name, Faculty_Email, Faculty_Whatsapp, Address<br>
+        Optional fee fields: Fee_Term, Fee_Amount, Fee_Status, Fee_Due_Date<br>
+        Optional marks fields: Subject, Exam_Type, Score, Max_Score, Remarks<br>
+        <strong style="color:#34d399;">If marks are included, parents will receive an automatic results notification.</strong>
+      </div>
+      <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()"
+        ondragover="event.preventDefault();this.classList.add('drag')"
+        ondragleave="this.classList.remove('drag')"
+        ondrop="handleDrop(event)">
+        <div class="upload-icon"><i class="fa fa-file-excel"></i></div>
+        <div style="font-size:.95rem;font-weight:500;margin-bottom:4px;">Click to browse or drag & drop</div>
+        <div style="font-size:.78rem;color:var(--muted);">Supports .xlsx .xls — Max 5MB</div>
+      </div>
+      <input type="file" id="fileInput" accept=".xlsx,.xls" style="display:none" onchange="handleFile(this)"/>
+
+      <div id="importPreview" style="margin-top:16px;"></div>
+      <div id="importActions" style="display:none;margin-top:14px;display:flex;gap:10px;flex-wrap:wrap;">
+        <button class="btn btn-primary" id="importBtn" onclick="doImport()"><i class="fa fa-database"></i> Import </button>
+        <button class="btn" onclick="clearImport()"><i class="fa fa-times"></i> Clear</button>
+      </div>
+    </div>
+
+    
+  </div>
+
+  <!-- ── IMPORT MARKS ── -->
+  <div id="page-importMarks" class="page">
+    <div class="panel" style="max-width:800px;">
+      <div class="panel-hd"><div class="panel-title">Import Marks from Excel</div></div>
+      <div style="font-size:.82rem;color:var(--muted);margin-bottom:16px;line-height:1.7;">
+        Upload a <code style="background:rgba(255,255,255,.07);padding:2px 6px;border-radius:4px;">.xlsx</code> or <code style="background:rgba(255,255,255,.07);padding:2px 6px;border-radius:4px;">.xls</code> file.<br>
+        Required columns: <b style="color:var(--teal)">Student_ID, Subject, Exam_Type, Score, Max_Score</b><br>
+        Optional: Remarks<br>
+        This page is for marks-only imports. Student records are matched by Student_ID and parents will be notified when results are published.
+      </div>
+      <div class="upload-zone" id="uploadMarksZone" onclick="document.getElementById('marksFileInput').click()"
+        ondragover="event.preventDefault();this.classList.add('drag')"
+        ondragleave="this.classList.remove('drag')"
+        ondrop="handleMarksDrop(event)">
+        <div class="upload-icon"><i class="fa fa-file-excel"></i></div>
+        <div style="font-size:.95rem;font-weight:500;margin-bottom:4px;">Click to browse or drag & drop</div>
+        <div style="font-size:.78rem;color:var(--muted);">Supports .xlsx .xls — Max 5MB</div>
+      </div>
+      <input type="file" id="marksFileInput" accept=".xlsx,.xls" style="display:none" onchange="handleMarksFile(this)"/>
+      <div id="marksPreview" style="margin-top:16px;"></div>
+      <div id="marksActions" style="display:none;margin-top:14px;display:flex;gap:10px;flex-wrap:wrap;">
+        <button class="btn btn-primary" id="importMarksBtn" onclick="doImportMarks()"><i class="fa fa-database"></i> Import Marks & Notify Parents</button>
+        <button class="btn" onclick="clearMarksImport()"><i class="fa fa-times"></i> Clear</button>
+      </div>
+    </div>
+    
+  </div>
+
+  <!-- ── STUDENTS ── -->
+  <div id="page-students" class="page">
+    <div class="panel">
+      <div class="panel-hd">
+        <div class="panel-title">All Students</div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          <div class="search-wrap"><i class="fa fa-search"></i><input type="text" class="search-box" placeholder="Search name or ID…" oninput="filterStudents(this.value)"/></div>
+          <select id="classFilter" onchange="filterStudents(document.querySelector('.search-box').value)" style="padding:9px 12px;border-radius:8px;border:1px solid var(--border);background:rgba(255,255,255,.04);color:var(--text);font-size:.8rem;outline:none;">
+            <option value="">All Classes</option>
+            <option>8</option><option>9</option><option>10</option><option>11</option><option>12</option>
+          </select>
+        </div>
+      </div>
+      <div style="overflow-x:auto;">
+        <table class="tbl">
+          <thead><tr><th>ID</th><th>Name</th><th>Class</th><th>Parent Email</th><th>Parent Phone</th><th>Faculty</th><th>Actions</th></tr></thead>
+          <tbody id="studentsBody"><tr><td colspan="7" class="loading-p"><span class="loader"></span></td></tr></tbody>
+        </table>
+      </div>
+      <div id="studentsCount" style="font-size:.75rem;color:var(--muted);margin-top:10px;"></div>
+    </div>
+  </div>
+
+  <!-- ── MARKS ── -->
+  <div id="page-marks" class="page">
+    <div class="grid2">
+      <div class="panel">
+        <div class="panel-hd"><div class="panel-title">Add / Update Marks</div></div>
+        <div class="field"><label>Student</label>
+          <select id="mStudentSel"><option value="">— Select Student —</option></select></div>
+        <div class="form-row">
+          <div class="field"><label>Exam Type</label>
+            <select id="mExamType"><option>Mid-Term</option><option>Finals</option><option>Unit Test</option></select></div>
+          <div class="field"><label>Subject</label>
+            <select id="mSubject"><option>Mathematics</option><option>Science</option><option>English</option><option>Social Studies</option><option>Hindi</option><option>Computer Science</option><option>Physics</option><option>Chemistry</option><option>Biology</option></select></div>
+        </div>
+        <div class="form-row">
+          <div class="field"><label>Score</label><input type="number" id="mScore" min="0" placeholder="e.g. 78"/></div>
+          <div class="field"><label>Max Marks</label><input type="number" id="mMax" value="100"/></div>
+        </div>
+        <div class="field"><label>Remarks (optional)</label><input type="text" id="mRemarks" placeholder="e.g. Good performance"/></div>
+        <button class="btn btn-primary" onclick="submitMarks()"><i class="fa fa-save"></i> Save Marks</button>
+      </div>
+      <div class="panel">
+        <div class="panel-hd"><div class="panel-title">View Student Marks</div></div>
+        <div class="field"><label>Select Student</label>
+          <select id="vStudentSel" onchange="viewMarks()"><option value="">— Select —</option></select></div>
+        <div class="tabs">
+          <button class="tab active" onclick="setMarkTab('Mid-Term',this)">Mid-Term</button>
+          <button class="tab" onclick="setMarkTab('Finals',this)">Finals</button>
+          <button class="tab" onclick="setMarkTab('Unit Test',this)">Unit Test</button>
+        </div>
+        <div id="viewMarksContent"><div style="color:var(--muted);font-size:.82rem;">Select a student to view marks.</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── ATTENDANCE ── -->
+  <div id="page-attendance" class="page">
+    <div class="panel">
+      <div class="panel-hd">
+        <div class="panel-title">Mark Attendance</div>
+        <div style="font-size:.8rem;color:var(--muted);" id="todayLbl"></div>
+      </div>
+      <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;">
+        <div class="field" style="margin:0;flex:1;min-width:160px;"><label>Class Filter</label>
+          <select id="attClassFilter" onchange="loadAttStudents()" style="padding:9px 12px;border-radius:8px;border:1px solid var(--border);background:rgba(255,255,255,.04);color:var(--text);font-size:.82rem;outline:none;width:100%;">
+            <option value="">All Classes</option><option>8</option><option>9</option><option>10</option><option>11</option><option>12</option>
+          </select>
+        </div>
+        <div class="field" style="margin:0;flex:1;min-width:160px;"><label>Date</label>
+          <input type="date" id="attDate" style="padding:9px 12px;border-radius:8px;border:1px solid var(--border);background:rgba(255,255,255,.04);color:var(--text);font-size:.82rem;outline:none;width:100%;"/>
+        </div>
+      </div>
+      <div style="overflow-x:auto;">
+        <table class="tbl">
+          <thead><tr><th>ID</th><th>Name</th><th>Class</th><th>Status</th></tr></thead>
+          <tbody id="attBody"><tr><td colspan="4" class="loading-p"><span class="loader"></span></td></tr></tbody>
+        </table>
+      </div>
+      <div style="margin-top:14px;display:flex;gap:8px;">
+        <button class="btn btn-primary" onclick="markAllPresent()"><i class="fa fa-check-double"></i> Mark All Present</button>
+        <button class="btn btn-danger" onclick="submitAttendance()"><i class="fa fa-save"></i> Submit Attendance</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── FEES ── -->
+  <div id="page-fees" class="page">
+    <div class="grid2">
+      <div class="panel">
+        <div class="panel-hd"><div class="panel-title">Add / Update Fee Record</div></div>
+        <div class="field"><label>Student</label><select id="feeStudentSel"><option value="">— Select Student —</option></select></div>
+        <div class="form-row">
+          <div class="field"><label>Term</label><input type="text" id="feeTerm" placeholder="e.g. Term 1 Fee"/></div>
+          <div class="field"><label>Amount (₹)</label><input type="number" id="feeAmount" placeholder="18500"/></div>
+        </div>
+        <div class="form-row">
+          <div class="field"><label>Due Date</label><input type="date" id="feeDue"/></div>
+          <div class="field"><label>Status</label>
+            <select id="feeStatus"><option>Due</option><option>Paid</option><option>Overdue</option></select></div>
+        </div>
+        <div class="field"><label>Paid Date</label><input type="date" id="feePaid"/></div>
+        <button class="btn btn-primary" onclick="submitFee()"><i class="fa fa-save"></i> Save Fee Record</button>
+      </div>
+      <div class="panel">
+        <div class="panel-hd"><div class="panel-title">Fee Overview</div></div>
+        <div class="field"><label>Select Student</label>
+          <select id="viewFeeStudent" onchange="viewStudentFees()"><option value="">— Select —</option></select></div>
+        <div id="feeView"><div style="color:var(--muted);font-size:.82rem;">Select a student.</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── NOTIFICATIONS ── -->
+  <div id="page-notifications" class="page">
+    <div class="grid2">
+      <div class="panel">
+        <div class="panel-hd"><div class="panel-title">Send Notification</div></div>
+        <div class="field"><label>Recipient Email</label><input type="email" id="notifEmail" placeholder="parent@email.com"/></div>
+        <div class="form-row">
+          <div class="field"><label>Type</label>
+            <select id="notifType"><option value="info">Info</option><option value="success">Success</option><option value="warn">Warning</option><option value="danger">Alert</option></select></div>
+          <div class="field"><label>Also Send Email?</label>
+            <select id="notifSendEmail"><option value="true">Yes — send email</option><option value="false">No — in-app only</option></select></div>
+        </div>
+        <div class="field"><label>Title</label><input type="text" id="notifTitle" placeholder="Notification title"/></div>
+        <div class="field"><label>Message</label><textarea id="notifMsg" placeholder="Write the notification message here…"></textarea></div>
+        <button class="btn btn-primary" onclick="sendNotification()"><i class="fa fa-paper-plane"></i> Send Notification</button>
+      </div>
+      <div class="panel">
+        <div class="panel-hd"><div class="panel-title">Bulk Alerts</div></div>
+        <p style="font-size:.82rem;color:var(--muted);margin-bottom:16px;line-height:1.7;">
+          Sends automatic email alerts to all parents whose children have attendance below 75% or pending fee dues.
+        </p>
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          <div style="padding:12px;background:rgba(248,113,113,.07);border:1px solid rgba(248,113,113,.2);border-radius:10px;font-size:.82rem;">
+            <i class="fa fa-calendar-times" style="color:var(--coral);margin-right:6px"></i> <b>Attendance &lt; 75%</b> — Email parent + in-app notification
+          </div>
+          <div style="padding:12px;background:rgba(245,158,11,.07);border:1px solid rgba(245,158,11,.2);border-radius:10px;font-size:.82rem;">
+            <i class="fa fa-rupee-sign" style="color:var(--gold);margin-right:6px"></i> <b>Fee Due / Overdue</b> — Email parent + in-app notification
+          </div>
+        </div>
+        <button class="btn btn-danger" style="margin-top:18px;width:100%;justify-content:center;" onclick="sendAllAlerts()">
+          <i class="fa fa-paper-plane"></i> Send All Alerts Now
+        </button>
+        <div id="alertResult" style="margin-top:12px;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── CONTACT PARENT ── -->
+  <div id="page-contactParent" class="page">
+    <div class="panel" style="max-width:560px;">
+      <div class="panel-hd"><div class="panel-title">Contact Parent</div></div>
+      <p style="font-size:.83rem;color:var(--muted);margin-bottom:16px;line-height:1.6;">
+        Select a student to reach their parent via WhatsApp or email.
+      </p>
+      <div class="field">
+        <label>Select Student</label>
+        <select id="parentStudentSelect" onchange="renderParentContact()">
+          <option value="">Loading students…</option>
+        </select>
+      </div>
+      <div id="parentContactCard" style="margin-top:8px;">
+        <div class="loading-p"><span class="loader"></span></div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /main -->
+
+<!-- STUDENT DETAIL MODAL -->
+<div class="modal-overlay" id="studentModal">
+  <div class="modal">
+    <div class="modal-hd">
+      <div class="modal-title" id="modalStudentName">Student Details</div>
+      <button class="modal-close" onclick="closeModal()"><i class="fa fa-times"></i></button>
+    </div>
+    <div id="modalContent"></div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ── GLOBAL ERROR HOOK ─────────────────────────────────
+window.addEventListener('error', function(ev) {
+  console.error('Unhandled error:', ev.error || ev.message || ev);
+  try { if (ev.error && ev.error.stack) console.error(ev.error.stack); } catch(e){}
+  // show a visible alert so user knows JS halted
+  try { alert('JavaScript error: ' + ((ev.error && ev.error.message) || ev.message || 'see console')); } catch(e){}
+});
+window.addEventListener('unhandledrejection', function(ev){
+  console.error('Unhandled rejection:', ev.reason || ev);
+  try { alert('Unhandled promise rejection: ' + ((ev.reason && ev.reason.message) || ev.reason || 'see console')); } catch(e){}
+});
+
+// ── AUTH GUARD ───────────────────────────────────────
+const TOKEN = sessionStorage.getItem('token');
+const USER  = JSON.parse(sessionStorage.getItem('user') || 'null');
+if (!TOKEN || !USER || USER.role !== 'admin') location.href = 'index.html';
+
+const sUserNameEl = document.getElementById('sUserName');
+if (sUserNameEl) sUserNameEl.textContent = USER.name || 'Admin';
+const sAvatarEl = document.getElementById('sAvatar');
+if (sAvatarEl) sAvatarEl.textContent = (USER.name||'A')[0].toUpperCase();
+
+const API = '';
+let currentPage = 'dashboard';
+let studentsCache = [];
+let selectedFile = null;
+let currentMarkTab = 'Mid-Term';
+
+async function req(method, path, body, isForm=false) {
+  const headers = { Authorization: 'Bearer ' + TOKEN };
+  if (!isForm) headers['Content-Type'] = 'application/json';
+  const opts = { method, headers };
+  if (body) opts.body = isForm ? body : JSON.stringify(body);
+  const r = await fetch(API + path, opts);
+  const d = await r.json();
+  if (!r.ok) throw new Error(d.error || 'Request failed');
+  return d;
+}
+
+function setHtml(id, html) {
+  const el = document.getElementById(id);
+  if (!el) {
+    console.error(`setHtml: ${id} not found`);
+    return;
+  }
+  el.innerHTML = html;
+}
+
+// ── NAV ──────────────────────────────────────────────
+const titles = { dashboard:'Dashboard', import:'Import Students', importMarks:'Import Marks', students:'All Students', marks:'Manage Marks', attendance:'Mark Attendance', fees:'Fee Records', contactParent:'Contact Parent', notifications:'Send Notifications' };
+function go(page, navEl) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page-' + page).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  if (navEl) navEl.classList.add('active');
+  document.getElementById('topbarTitle').textContent = titles[page] || page;
+  currentPage = page;
+  loadPage(page);
+  if (window.innerWidth <= 768) { document.getElementById('sidebar').classList.remove('open'); document.getElementById('sbOverlay').style.display='none'; }
+}
+
+function toggleSidebar() {
+  const sb=document.getElementById('sidebar'),ov=document.getElementById('sbOverlay');
+  const o=sb.classList.toggle('open'); ov.style.display=o?'block':'none';
+}
+
+function logout() { sessionStorage.clear(); location.href='index.html'; }
+
+function loadPage(page) {
+  const fns = { dashboard:loadDashboard, import:()=>{}, importMarks:()=>{}, students:loadStudents, marks:loadMarksPage, attendance:loadAttendancePage, fees:loadFeesPage, contactParent:loadContactParentPage, notifications:()=>{} };
+  if (fns[page]) fns[page]();
+}
+
+// ── DASHBOARD ────────────────────────────────────────
+async function loadRecentAchievements() {
+  try {
+    const container = document.getElementById('recentAchievementsAdmin');
+    if (!container) return;
+    const res = await fetch('/api/achievements?limit=3');
+    const items = await res.json();
+    if (!items.length) {
+      container.innerHTML = '<div style="color:var(--muted);font-size:.85rem;">No achievements yet.</div>';
+      return;
+    }
+    container.innerHTML = items.map(item => `
+      <div style="padding:12px;border:1px solid var(--border);border-radius:12px;background:#fff;">
+        <div style="font-weight:700;color:var(--teal);margin-bottom:4px;">${item.studentName}</div>
+        <div style="font-size:.9rem;font-weight:600;margin-bottom:4px;">${item.title}</div>
+        <div style="font-size:.78rem;color:var(--muted);margin-bottom:6px;">${item.category} • ${item.achievementDate}</div>
+        <div style="font-size:.78rem;color:var(--muted2);">${item.badge || 'Recognized'}</div>
+      </div>`).join('');
+  } catch (e) {
+    const container = document.getElementById('recentAchievementsAdmin');
+    if (container) container.innerHTML = '<div style="color:var(--coral);font-size:.85rem;">Could not load achievements.</div>';
+  }
+}
+
+async function loadDashboard() {
+  try {
+    const stats = await req('GET', '/api/dashboard/stats');
+    const statsEl = document.getElementById('dashStats');
+    if (statsEl) {
+      statsEl.innerHTML = `
+        <div class="stat-card" style="--c:var(--teal)"><div class="stat-val">${stats.totalStudents}</div><div class="stat-lbl">Total Students</div><div class="stat-trend up">All enrolled this year</div></div>
+        <div class="stat-card" style="--c:var(--sky)"><div class="stat-val">${stats.totalParents}</div><div class="stat-lbl">Parent Accounts</div><div class="stat-trend up">Active parent logins</div></div>
+        <div class="stat-card" style="--c:var(--gold)"><div class="stat-val">₹${(stats.totalFeesDue/1000).toFixed(0)}K</div><div class="stat-lbl">Fees Pending</div><div class="stat-trend wn">Outstanding fees total</div></div>
+        <div class="stat-card" style="--c:var(--purple)"><div class="stat-val">${stats.alertsSent}</div><div class="stat-lbl">Alerts Sent</div><div class="stat-trend">Notifications delivered</div></div>`;
+    }
+  } catch(e) { toast(e.message,'err'); }
+
+  loadRecentAchievements();
+}
+
+// ── IMPORT ───────────────────────────────────────────
+function handleDrop(e) {
+  e.preventDefault(); document.getElementById('uploadZone').classList.remove('drag');
+  if (e.dataTransfer.files[0]) processFile(e.dataTransfer.files[0]);
+}
+function handleFile(inp) { if (inp.files[0]) processFile(inp.files[0]); }
+
+function processFile(file) {
+  selectedFile = file;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const wb   = XLSX.read(e.target.result, { type:'binary' });
+      const ws   = wb.Sheets[wb.SheetNames[0]];
+      const data = XLSX.utils.sheet_to_json(ws);
+      if (!data.length) { toast('No data found in file.','err'); return; }
+      const cols = Object.keys(data[0]);
+      setHtml('importPreview', `
+        <div style="padding:10px 14px;background:rgba(0,212,170,.07);border:1px solid rgba(0,212,170,.2);border-radius:10px;font-size:.82rem;color:#0f172a;font-weight:700;margin-bottom:12px;">
+          <i class="fa fa-check-circle"></i> <b style="color:#0f172a;font-weight:800">${file.name}</b> — <b style="color:#0f172a;font-weight:800">${data.length}</b> rows · <b style="color:#0f172a;font-weight:800">${cols.length}</b> columns
+        </div>
+        <div style="overflow-x:auto;border-radius:10px;border:1px solid var(--border);">
+        <table class="tbl" style="font-size:.76rem;">
+          <thead><tr>${cols.map(c=>`<th>${c}</th>`).join('')}</tr></thead>
+          <tbody>${data.slice(0,8).map(row=>`<tr>${cols.map(c=>`<td>${row[c]??'—'}</td>`).join('')}</tr>`).join('')}
+          ${data.length>8?`<tr><td colspan="${cols.length}" style="text-align:center;color:var(--muted);padding:10px">… and ${data.length-8} more rows</td></tr>`:''}</tbody>
+        </table></div>`);
+      document.getElementById('importActions').style.display = 'flex';
+    } catch(err) { toast('Cannot read file: '+err.message,'err'); }
+  };
+  reader.readAsBinaryString(file);
+}
+
+async function doImport() {
+  if (!selectedFile) return;
+  const btn = document.getElementById('importBtn');
+  if (!btn) {
+    console.error('doImport: importBtn element not found');
+    return;
+  }
+  btn.disabled = true; btn.innerHTML = '<span class="spin"></span> Importing…';
+  const fd = new FormData(); fd.append('file', selectedFile);
+  try {
+    const data = await req('POST', '/api/import/students', fd, true);
+    toast(`✅ ${data.message}`, 'ok');
+    setHtml('importPreview', `
+      <div style="padding:16px;background:rgba(0,212,170,.07);border:1px solid rgba(0,212,170,.2);border-radius:12px;font-size:.85rem;line-height:1.8;">
+        <div style="color:#0f172a;font-weight:800;margin-bottom:8px;"><i class="fa fa-check-circle"></i> Import Successful</div>
+        <div>🆕 New students created: <b style="color:#0f172a;font-weight:800">${data.results.created}</b></div>
+        <div>🔄 Students updated: <b style="color:#0f172a;font-weight:800">${data.results.updated}</b></div>
+        <div>� Marks imported: <b style="color:#0f172a;font-weight:800">${data.results.marksImported}</b></div>
+        <div>📧 Emails sent: <b style="color:#0f172a;font-weight:800">${data.results.emailsSent}</b></div>
+        ${data.results.errors.length?`<div style="color:var(--coral);margin-top:8px;">⚠ ${data.results.errors.length} row(s) had errors.</div>`:''}
+      </div>`);
+    document.getElementById('importActions').style.display = 'none';
+    selectedFile = null;
+  } catch(e) { toast(e.message,'err'); }
+  finally { btn.disabled=false; btn.innerHTML='<i class="fa fa-database"></i> Import to MongoDB'; }
+}
+
+function clearImport() {
+  selectedFile=null;
+  setHtml('importPreview', '');
+  const importActions = document.getElementById('importActions');
+  if (importActions) importActions.style.display='none';
+  const fileInput = document.getElementById('fileInput');
+  if (fileInput) fileInput.value='';
+}
+
+function handleMarksDrop(e) {
+  e.preventDefault(); document.getElementById('uploadMarksZone').classList.remove('drag');
+  if (e.dataTransfer.files[0]) processMarksFile(e.dataTransfer.files[0]);
+}
+function handleMarksFile(inp) { if (inp.files[0]) processMarksFile(inp.files[0]); }
+
+function processMarksFile(file) {
+  selectedFile = file;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const wb   = XLSX.read(e.target.result, { type:'binary' });
+      const ws   = wb.Sheets[wb.SheetNames[0]];
+      const data = XLSX.utils.sheet_to_json(ws);
+      if (!data.length) { toast('No data found in file.','err'); return; }
+      const cols = Object.keys(data[0]);
+      setHtml('marksPreview', `
+        <div style="padding:10px 14px;background:rgba(0,212,170,.07);border:1px solid rgba(0,212,170,.2);border-radius:10px;font-size:.82rem;color:#0f172a;font-weight:700;margin-bottom:12px;">
+          <i class="fa fa-check-circle"></i> <b style="color:#0f172a;font-weight:800">${file.name}</b> — <b style="color:#0f172a;font-weight:800">${data.length}</b> rows · <b style="color:#0f172a;font-weight:800">${cols.length}</b> columns
+        </div>
+        <div style="overflow-x:auto;border-radius:10px;border:1px solid var(--border);">
+        <table class="tbl" style="font-size:.76rem;">
+          <thead><tr>${cols.map(c=>`<th>${c}</th>`).join('')}</tr></thead>
+          <tbody>${data.slice(0,8).map(row=>`<tr>${cols.map(c=>`<td>${row[c]??'—'}</td>`).join('')}</tr>`).join('')}
+          ${data.length>8?`<tr><td colspan="${cols.length}" style="text-align:center;color:var(--muted);padding:10px">… and ${data.length-8} more rows</td></tr>`:''}</tbody>
+        </table></div>`);
+      document.getElementById('marksActions').style.display = 'flex';
+    } catch(err) { toast('Cannot read file: '+err.message,'err'); }
+  };
+  reader.readAsBinaryString(file);
+}
+
+async function doImportMarks() {
+  if (!selectedFile) return;
+  const btn = document.getElementById('importMarksBtn');
+  if (!btn) {
+    console.error('doImportMarks: importMarksBtn element not found');
+    return;
+  }
+  btn.disabled = true; btn.innerHTML = '<span class="spin"></span> Importing…';
+  const fd = new FormData(); fd.append('file', selectedFile);
+  try {
+    const data = await req('POST', '/api/import/marks', fd, true);
+    toast(`✅ ${data.message}`, 'ok');
+    const errorList = data.results.errors.map(e => `<div style="margin:6px 0;font-size:.76rem;">• ${e}</div>`).join('');
+    setHtml('marksPreview', `
+      <div style="padding:16px;background:rgba(0,212,170,.07);border:1px solid rgba(0,212,170,.2);border-radius:12px;font-size:.85rem;line-height:1.8;">
+        <div style="color:#0f172a;font-weight:800;margin-bottom:8px;"><i class="fa fa-check-circle"></i> Import Successful</div>
+        <div>📝 Marks imported: <b style="color:#0f172a;font-weight:800">${data.results.imported}</b></div>
+        <div>📧 Parent emails sent: <b style="color:#0f172a;font-weight:800">${data.results.emailsSent}</b></div>
+        ${data.results.errors.length?`<div style="color:var(--coral);margin-top:12px;"><b>⚠ ${data.results.errors.length} row(s) had errors:</b>${errorList}</div>`:''}
+      </div>`);
+    document.getElementById('marksActions').style.display = 'none';
+    selectedFile = null;
+  } catch(e) { toast(e.message,'err'); }
+  finally { btn.disabled=false; btn.innerHTML='<i class="fa fa-database"></i> Import Marks & Notify Parents'; }
+}
+
+function clearMarksImport() {
+  selectedFile=null;
+  setHtml('marksPreview', '');
+  const marksActions = document.getElementById('marksActions');
+  if (marksActions) marksActions.style.display='none';
+  const marksFileInput = document.getElementById('marksFileInput');
+  if (marksFileInput) marksFileInput.value='';
+}
+
+function downloadTemplate() {
+  const wb  = XLSX.utils.book_new();
+  const ws  = XLSX.utils.json_to_sheet([{
+    Student_ID:'S-001', Name:'Arjun Kumar', Class:'10', Section:'A',
+    Parent_Name:'Rajesh Kumar', Parent_Email:'rajesh@email.com', Parent_Phone:'9876543210',
+    Faculty_Name:'Mrs. Priya Sharma', Faculty_Email:'priya@school.edu', Faculty_Whatsapp:'+919876501234',
+    Address:'123 Main Street, Bengaluru', Roll_Number:'042', DOB:'2010-04-15',
+    Fee_Term:'Term 1 Fee', Fee_Amount:18500, Fee_Status:'Paid', Fee_Due_Date:'2026-01-15',
+    Subject:'Mathematics', Exam_Type:'Mid-Term', Score:82, Max_Score:100, Remarks:'Good work'
+  }]);
+  XLSX.utils.book_append_sheet(wb, ws, 'Students');
+  XLSX.writeFile(wb, 'EduConnect_Student_Template.xlsx');
+  toast('Template downloaded!','ok');
+}
+
+function downloadMarksTemplate() {
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.json_to_sheet([{
+    Student_ID:'S-001', Subject:'Mathematics', Exam_Type:'Mid-Term', Score:82, Max_Score:100, Remarks:'Good work'
+  },{
+    Student_ID:'S-001', Subject:'Science', Exam_Type:'Mid-Term', Score:88, Max_Score:100, Remarks:'Well done'
+  }]);
+  XLSX.utils.book_append_sheet(wb, ws, 'Marks');
+  XLSX.writeFile(wb, 'EduConnect_Marks_Template.xlsx');
+  toast('Marks template downloaded!','ok');
+}
+
+// ── STUDENTS ─────────────────────────────────────────
+async function loadStudents() {
+  try {
+    studentsCache = await req('GET', '/api/students');
+    renderStudents(studentsCache);
+  } catch(e) { toast(e.message,'err'); }
+}
+
+async function loadContactParentPage() {
+  const sel = document.getElementById('parentStudentSelect');
+  const card = document.getElementById('parentContactCard');
+  if (!sel || !card) return;
+  try {
+    if (!studentsCache.length) studentsCache = await req('GET', '/api/students');
+    sel.innerHTML = '<option value="">— Select a student —</option>' +
+      studentsCache.map(s => `<option value="${s.studentId}">${s.name} (${s.studentId}) — Class ${s.class}-${s.section}</option>`).join('');
+    renderParentContact();
+  } catch (e) {
+    sel.innerHTML = '<option value="">Failed to load</option>';
+    card.innerHTML = `<div style="color:var(--coral)">${e.message}</div>`;
+  }
+}
+
+function renderParentContact() {
+  const card = document.getElementById('parentContactCard');
+  const sel = document.getElementById('parentStudentSelect');
+  if (!card || !sel) return;
+
+  const s = studentsCache.find(x => x.studentId === sel.value);
+  if (!s) {
+    card.innerHTML = '<div style="color:var(--muted);font-size:.85rem;">Select a student to view parent contact details.</div>';
+    return;
+  }
+
+  const parentName = s.parentName || 'Parent';
+  const wa = s.parentPhone ? s.parentPhone.replace(/\D/g, '') : '';
+  const email = s.parentEmail || '';
+  const school = 'Sri Sairam International School';
+  const waMsg = encodeURIComponent(
+    `Hello ${parentName}, this is the admin from ${school}. Regarding your child ${s.name} (${s.studentId}, Class ${s.class}-${s.section}). `
+  );
+
+  card.innerHTML = `
+    <div class="contact-card">
+      <div class="contact-name"><i class="fa fa-user" style="margin-right:6px"></i>${parentName}</div>
+      <div class="contact-role">Parent of ${s.name} — Class ${s.class}-${s.section} • ${s.studentId}</div>
+      <div style="font-size:.8rem;color:var(--muted);margin-bottom:12px;">
+        ${email ? `<div><i class="fa fa-envelope" style="width:16px"></i> ${email}</div>` : ''}
+        ${s.parentPhone ? `<div style="margin-top:4px"><i class="fa fa-phone" style="width:16px"></i> ${s.parentPhone}</div>` : ''}
+      </div>
+      <div class="contact-actions">
+        ${wa ? `<a href="https://wa.me/${wa}?text=${waMsg}" target="_blank" class="btn btn-wa"><i class="fab fa-whatsapp"></i> WhatsApp</a>` : '<span style="color:var(--muted);font-size:.8rem">No parent phone on file.</span>'}
+        ${email ? `<a href="mailto:${email}" class="btn"><i class="fa fa-envelope"></i> Email</a>` : ''}
+      </div>
+    </div>
+    <div style="padding:14px;background:rgba(56,189,248,.06);border:1px solid rgba(56,189,248,.15);border-radius:12px;font-size:.82rem;color:var(--muted2);line-height:1.6;">
+      <i class="fab fa-whatsapp" style="color:#25d366;margin-right:6px"></i>
+      WhatsApp opens with a pre-filled message. You can edit it before sending.
+    </div>`;
+}
+
+function renderStudents(list) {
+  const studentsCount = document.getElementById('studentsCount');
+  if (studentsCount) studentsCount.textContent = `Showing ${list.length} student(s)`;
+  setHtml('studentsBody', list.length ? list.map(s => `
+    <tr>
+      <td><code style="font-size:.75rem;color:var(--teal)">${s.studentId}</code></td>
+      <td><b>${s.name}</b></td>
+      <td><span class="grade gB">${s.class}-${s.section}</span></td>
+      <td style="color:var(--muted2);font-size:.78rem">${s.parentEmail}</td>
+      <td style="color:var(--muted2);font-size:.78rem">${s.parentPhone||'—'}</td>
+      <td style="font-size:.78rem">${s.facultyName||'—'}</td>
+      <td style="display:flex;gap:6px;">
+        <button class="btn" onclick="viewStudent('${s.studentId}')" style="padding:5px 10px;font-size:.75rem;"><i class="fa fa-eye"></i></button>
+        <button class="btn btn-danger" onclick="deleteStudent('${s.studentId}');" style="padding:5px 10px;font-size:.75rem;"><i class="fa fa-trash"></i></button>
+      </td>
+    </tr>`).join('') : '<tr><td colspan="7" class="loading-p">No students found.</td></tr>');
+}
+
+async function deleteStudent(studentId) {
+  const s = studentsCache.find(x => x.studentId === studentId);
+  if (!s) return toast('Student not found.','err');
+  if (!confirm(`Are you sure you want to delete student "${s.name}" (${studentId})? This action cannot be undone.`)) return;
+  try {
+    await req('DELETE', `/api/students/${studentId}`);
+    studentsCache = studentsCache.filter(x => x.studentId !== studentId);
+    renderStudents(studentsCache);
+    toast('Student deleted.','ok');
+  } catch(e) {
+    toast(e.message,'err');
+  }
+}
+
+function filterStudents(q) {
+  const cls = document.getElementById('classFilter').value;
+  renderStudents(studentsCache.filter(s =>
+    (!q || s.name.toLowerCase().includes(q.toLowerCase()) || s.studentId.toLowerCase().includes(q.toLowerCase())) &&
+    (!cls || s.class === cls)
+  ));
+}
+
+async function viewStudent(sid) {
+  const s = studentsCache.find(x => x.studentId === sid);
+  if (!s) return;
+  const modalStudentName = document.getElementById('modalStudentName');
+  if (modalStudentName) modalStudentName.textContent = s.name;
+  setHtml('modalContent', `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:.83rem;">
+      ${[['Student ID',s.studentId],['Class',s.class+'-'+s.section],['Roll No',s.rollNumber||'—'],['DOB',s.dateOfBirth||'—'],
+         ['Parent',s.parentName||'—'],['Parent Email',s.parentEmail],['Parent Phone',s.parentPhone||'—'],
+         ['Faculty',s.facultyName||'—'],['Faculty Email',s.facultyEmail||'—'],
+         ['Faculty WhatsApp',s.facultyWhatsapp||'—'],['Address',s.address||'—']].map(([k,v])=>`
+      <div style="padding:10px;background:rgba(255,255,255,.03);border-radius:8px;border:1px solid var(--border);">
+        <div style="font-size:.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:3px">${k}</div>
+        <div>${v}</div>
+      </div>`).join('')}
+    </div>`);
+  document.getElementById('studentModal').classList.add('open');
+}
+
+function closeModal() { const sm = document.getElementById('studentModal'); if (sm) sm.classList.remove('open'); }
+const _studentModalEl = document.getElementById('studentModal');
+if (_studentModalEl) {
+  _studentModalEl.addEventListener('click', e => { if(e.target===e.currentTarget) closeModal(); });
+}
+
+// ── MARKS ────────────────────────────────────────────
+async function loadMarksPage() {
+  const students = studentsCache.length ? studentsCache : await req('GET','/api/students');
+  if (!studentsCache.length) studentsCache = students;
+  const opts = students.map(s=>`<option value="${s.studentId}">${s.name} (${s.studentId})</option>`).join('');
+  setHtml('mStudentSel', '<option value="">— Select Student —</option>' + opts);
+  setHtml('vStudentSel', '<option value="">— Select —</option>' + opts);
+}
+
+function setMarkTab(type, btn) {
+  currentMarkTab = type;
+  document.querySelectorAll('#page-marks .tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  viewMarks();
+}
+
+async function viewMarks() {
+  const vStudentSelEl = document.getElementById('vStudentSel');
+  const sid = vStudentSelEl ? vStudentSelEl.value : '';
+  if (!sid) { setHtml('viewMarksContent','<div style="color:var(--muted);font-size:.82rem;">Select a student.</div>'); return; }
+  try {
+    const data = await req('GET', `/api/marks/${sid}?examType=${encodeURIComponent(currentMarkTab)}`);
+    if (!data.length) { setHtml('viewMarksContent','<div style="color:var(--muted);font-size:.82rem;">No marks yet for this exam.</div>'); return; }
+    let t=0,m=0;
+    setHtml('viewMarksContent', `
+      <table class="tbl"><thead><tr><th>Subject</th><th>Score</th><th>Max</th><th>%</th><th>Grade</th></tr></thead>
+      <tbody>${data.map(mk=>{const p=Math.round(mk.score/mk.maxScore*100);const g=p>=90?'A':p>=75?'B':p>=60?'C':'D';t+=mk.score;m+=mk.maxScore;return`<tr><td>${mk.subject}</td><td><b>${mk.score}</b></td><td>${mk.maxScore}</td><td>${p}%</td><td><span class="grade g${g}">${g}</span></td></tr>`;}).join('')}</tbody></table>
+      <div style="margin-top:10px;font-size:.82rem;color:var(--muted)">Total: <b style="color:var(--teal)">${t}/${m}</b> — ${Math.round(t/m*100)}%</div>`);
+  } catch(e) { toast(e.message,'err'); }
+}
+
+async function submitMarks() {
+  const studentId = document.getElementById('mStudentSel').value;
+  const examType  = document.getElementById('mExamType').value;
+  const subject   = document.getElementById('mSubject').value;
+  const score     = parseFloat(document.getElementById('mScore').value);
+  const maxScore  = parseFloat(document.getElementById('mMax').value);
+  const remarks   = document.getElementById('mRemarks').value;
+  if (!studentId || isNaN(score) || !maxScore) { toast('Please fill all required fields.','err'); return; }
+  if (score > maxScore) { toast('Score cannot exceed max marks.','err'); return; }
+  try {
+    await req('POST','/api/marks',{studentId,examType,subject,score,maxScore,remarks});
+    toast('✅ Marks saved successfully!','ok');
+    document.getElementById('mScore').value='';
+    document.getElementById('mRemarks').value='';
+    if (document.getElementById('vStudentSel').value===studentId) viewMarks();
+  } catch(e) { toast(e.message,'err'); }
+}
+
+// ── ATTENDANCE ────────────────────────────────────────
+let attStudents = [];
+async function loadAttendancePage() {
+  document.getElementById('todayLbl').textContent = new Date().toLocaleDateString('en-IN',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  document.getElementById('attDate').value = new Date().toISOString().slice(0,10);
+  loadAttStudents();
+}
+
+async function loadAttStudents() {
+  const cls = document.getElementById('attClassFilter').value;
+  try {
+    const all = studentsCache.length ? studentsCache : await req('GET','/api/students');
+    if (!studentsCache.length) studentsCache = all;
+    attStudents = cls ? all.filter(s=>s.class===cls) : all;
+    setHtml('attBody', attStudents.map(s=>`
+      <tr>
+        <td><code style="font-size:.75rem;color:var(--teal)">${s.studentId}</code></td>
+        <td>${s.name}</td>
+        <td>${s.class}-${s.section}</td>
+        <td>
+          <select id="att_${s.studentId}" style="padding:6px 10px;border-radius:7px;border:1px solid var(--border);background:rgba(255,255,255,.05);color:var(--text);font-size:.78rem;outline:none;">
+            <option value="Present">Present</option><option value="Absent">Absent</option><option value="Late">Late</option><option value="Holiday">Holiday</option>
+          </select>
+        </td>
+      </tr>`).join(''));
+  } catch(e) { toast(e.message,'err'); }
+}
+
+function markAllPresent() {
+  attStudents.forEach(s => { const el=document.getElementById('att_'+s.studentId); if(el) el.value='Present'; });
+  toast('All marked Present','info');
+}
+
+async function submitAttendance() {
+  const date = document.getElementById('attDate').value;
+  if (!date) { toast('Please select a date','err'); return; }
+  const records = attStudents.map(s=>{ const el=document.getElementById('att_'+s.studentId); return { studentId:s.studentId, subject:'All', date, status:(el?el.value:'Present') }; });
+  if (!records.length) { toast('No students to mark','err'); return; }
+  try {
+    await req('POST','/api/attendance',{records});
+    toast(`✅ Attendance submitted for ${records.length} students!`,'ok');
+  } catch(e) { toast(e.message,'err'); }
+}
+
+// ── FEES ─────────────────────────────────────────────
+async function loadFeesPage() {
+  const students = studentsCache.length ? studentsCache : await req('GET','/api/students');
+  if (!studentsCache.length) studentsCache=students;
+  const opts = students.map(s=>`<option value="${s.studentId}">${s.name} (${s.studentId})</option>`).join('');
+  setHtml('feeStudentSel','<option value="">— Select —</option>' + opts);
+  setHtml('viewFeeStudent','<option value="">— Select —</option>' + opts);
+}
+
+async function submitFee() {
+  const studentId = document.getElementById('feeStudentSel').value;
+  const term      = document.getElementById('feeTerm').value.trim();
+  const amount    = parseFloat(document.getElementById('feeAmount').value);
+  const dueDate   = document.getElementById('feeDue').value;
+  const paidDate  = document.getElementById('feePaid').value;
+  const status    = document.getElementById('feeStatus').value;
+  if (!studentId||!term||!amount) { toast('Student, term and amount are required.','err'); return; }
+  try {
+    await req('POST','/api/fees',{studentId,term,amount,dueDate,paidDate,status});
+    toast('✅ Fee record saved!','ok');
+  } catch(e) { toast(e.message,'err'); }
+}
+
+async function viewStudentFees() {
+  const viewFeeStudentEl = document.getElementById('viewFeeStudent');
+  const sid = viewFeeStudentEl ? viewFeeStudentEl.value : '';
+  if (!sid) { setHtml('feeView','<div style="color:var(--muted);font-size:.82rem;">Select a student.</div>'); return; }
+  try {
+    const d = await req('GET',`/api/fees/${sid}`);
+    setHtml('feeView', d.fees.length ? d.fees.map(f=>{
+      const cls=f.status==='Paid'?'s-paid':f.status==='Due'?'s-due':'s-overdue';
+      return `<div style="padding:12px;border:1px solid var(--border);border-radius:9px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
+        <div><div style="font-size:.83rem;font-weight:500">${f.term}</div><div style="font-size:.73rem;color:var(--muted)">Due: ${f.dueDate||'—'}</div></div>
+        <div style="text-align:right"><div style="font-family:var(--font-display);font-size:1.2rem">₹${f.amount.toLocaleString('en-IN')}</div><span class="badge-s ${cls}">${f.status}</span></div>
+      </div>`;
+    }).join('') + (d.totalDue?`<div style="padding:10px 12px;background:rgba(248,113,113,.07);border:1px solid rgba(248,113,113,.2);border-radius:9px;font-size:.82rem;color:var(--coral)">Total Pending: ₹${d.totalDue.toLocaleString('en-IN')}</div>`:'') : '<div style="color:var(--muted);font-size:.82rem;">No fee records.</div>');
+  } catch(e) { toast(e.message,'err'); }
+}
+
+// ── NOTIFICATIONS ────────────────────────────────────
+async function sendNotification() {
+  const targetEmail = document.getElementById('notifEmail').value.trim();
+  const type        = document.getElementById('notifType').value;
+  const title       = document.getElementById('notifTitle').value.trim();
+  const message     = document.getElementById('notifMsg').value.trim();
+  const sendEmail   = document.getElementById('notifSendEmail').value === 'true';
+  if (!targetEmail||!title||!message) { toast('All fields are required.','err'); return; }
+  try {
+    await req('POST','/api/notifications/send',{targetEmail,type,title,message,sendEmail});
+    toast('✅ Notification sent!','ok');
+    document.getElementById('notifTitle').value='';
+    document.getElementById('notifMsg').value='';
+  } catch(e) { toast(e.message,'err'); }
+}
+
+async function sendAllAlerts() {
+  const res = document.getElementById('alertResult');
+  if (res) { res.innerHTML = '<span class="loader"></span> Sending alerts…'; }
+  try {
+    const data = await req('POST','/api/alerts/send-all');
+    toast(`📨 ${data.message}`,'ok');
+    if (res) res.innerHTML = `<div style="padding:10px;background:rgba(0,212,170,.07);border:1px solid rgba(0,212,170,.2);border-radius:9px;font-size:.82rem;color:var(--teal);margin-top:8px;">${data.message}<br>${data.sent.map(s=>`• ${s.student} — ${s.reason}`).join('<br>')}</div>`;
+  } catch(e) { toast(e.message,'err'); if(res) res.innerHTML=''; }
+}
+
+// ── TOAST ────────────────────────────────────────────
+function toast(msg, type='info') {
+  const container = document.getElementById('toast');
+  const el = document.createElement('div');
+  el.className = `toast-item ${type}`;
+  el.innerHTML = `<i class="fa ${type==='ok'?'fa-check-circle':type==='err'?'fa-exclamation-circle':'fa-info-circle'}"></i> ${msg}`;
+  container.appendChild(el);
+  setTimeout(() => { el.style.opacity='0'; el.style.transform='translateY(8px)'; el.style.transition='.3s'; setTimeout(()=>el.remove(),300); }, 4000);
+}
+
+// ── INIT ─────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  try {
+    loadPage('dashboard');
+  } catch (e) {
+    console.error('Initialization error', e);
+    try { alert('Initialization error: '+(e.message||e)); } catch(_){}
+  }
+});
+
+// Add fee POST route not in api.js — patch via fetch to POST /api/fees
+// (This is handled client-side since we need to add it to the backend routes)
+// Fee POST is added directly here as a helper that calls our endpoint
+const origReq = req;
+window.req = async function(method, path, body, isForm) {
+  if (method==='POST' && path==='/api/fees') {
+    path = '/api/fees/add';
+  }
+  return origReq(method, path, body, isForm);
+};
+</script>
+</body>
+</html>

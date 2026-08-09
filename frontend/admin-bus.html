@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>EduConnect — Bus Management</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet"/>
+<style>
+  :root{--bg:#f4f7fb;--card:#ffffff;--text:#111827;--muted:#64748b;--primary:#0d6efd;--success:#16a34a;--warning:#f59e0b;--danger:#ef4444;--border:rgba(13,110,253,.12);}
+  *{box-sizing:border-box;margin:0;padding:0;font-family:'Outfit',Arial,sans-serif;}
+  body{background:var(--bg);color:var(--text);min-height:100vh;}
+  .page-wrap{max-width:1200px;margin:0 auto;padding:20px;}
+  .topbar{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:22px;}
+  h1{font-family:'Cormorant Garamond',serif;font-size:2rem;color:var(--primary);}
+  .btn{padding:10px 16px;border-radius:12px;border:none;background:var(--primary);color:#fff;font-weight:600;cursor:pointer;transition:.2s;}
+  .btn:hover{background:#0b5ed7;}
+  .btn-secondary{background:#475569;}
+  .grid3{display:grid;grid-template-columns:1.3fr 1fr;gap:18px;}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:18px;padding:22px;box-shadow:0 18px 45px rgba(15,23,42,.06);}
+  .section{margin-bottom:20px;}
+  .section-title{font-size:1.05rem;font-weight:700;margin-bottom:14px;color:var(--text);}
+  .field{margin-bottom:14px;}
+  .field label{display:block;font-size:.82rem;color:var(--muted);margin-bottom:6px;}
+  .field input,.field select,.field textarea{width:100%;padding:11px 14px;border-radius:12px;border:1px solid var(--border);background:#fff;color:var(--text);font-size:.92rem;outline:none;}
+  .field textarea{min-height:100px;resize:vertical;}
+  .tbl{width:100%;border-collapse:collapse;font-size:.88rem;}
+  .tbl th,.tbl td{padding:12px 14px;border-bottom:1px solid rgba(15,23,42,.08);text-align:left;}
+  .tbl th{font-size:.77rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;}
+  .status-pill{display:inline-flex;align-items:center;gap:8px;padding:7px 12px;border-radius:999px;font-size:.82rem;font-weight:700;}
+  .status-pill.on{background:rgba(13,110,253,.12);color:var(--primary);} .status-pill.arriving{background:rgba(34,197,94,.12);color:var(--success);} .status-pill.delay{background:rgba(245,158,11,.12);color:var(--warning);} .status-pill.off{background:rgba(248,113,113,.12);color:var(--danger);}
+  .tag{display:inline-flex;padding:6px 10px;border-radius:999px;background:rgba(13,110,253,.08);color:var(--primary);font-size:.79rem;}
+  .list{list-style:none;margin-top:12px;}
+  .list li{padding:10px 12px;border:1px solid rgba(15,23,42,.06);border-radius:12px;background:#f8fbff;margin-bottom:10px;}
+  .helper{font-size:.82rem;color:var(--muted);margin-top:6px;}
+  @media(max-width:900px){.grid3{grid-template-columns:1fr;}}
+</style>
+</head>
+<body>
+<div class="page-wrap">
+  <div class="topbar">
+    <div>
+      <h1>Bus Management</h1>
+      <small>Admin tools for adding buses/routes, assigning students, and monitoring live fleet status.</small>
+    </div>
+    <button class="btn" onclick="loadAll()"><i class="fa fa-sync-alt"></i> Refresh</button>
+  </div>
+
+  <div class="grid3">
+    <div class="card">
+      <div class="section">
+        <div class="section-title">Add New Route</div>
+        <div class="field"><label>Route Code</label><input id="routeCode" placeholder="e.g. R1"/></div>
+        <div class="field"><label>Route Name</label><input id="routeName" placeholder="e.g. North Campus"/></div>
+        <div class="field"><label>Stops (comma separated)</label><textarea id="routeStops" placeholder="Station Road, City Center, School Gate"></textarea></div>
+        <div class="field"><label>Notes</label><textarea id="routeNotes" placeholder="Optional route description"></textarea></div>
+        <button class="btn" onclick="createRoute()"><i class="fa fa-plus"></i> Save Route</button>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Add / Update Bus</div>
+        <div class="field"><label>Bus Number</label><input id="busNo" placeholder="e.g. KA01AB1234"/></div>
+        <div class="field"><label>Driver Name</label><input id="driverName" placeholder="e.g. Rohan Kumar"/></div>
+        <div class="field"><label>Driver Phone</label><input id="driverPhone" placeholder="+91 98765 43210"/></div>
+        <div class="field"><label>Route</label><select id="busRoute"><option value="">Select route</option></select></div>
+        <div class="field"><label>Current Location</label><input id="busLocation" placeholder="e.g. Marathahalli"/></div>
+        <div class="field"><label>ETA</label><input id="busEta" placeholder="e.g. 08:20 AM"/></div>
+        <div class="field"><label>Latitude</label><input id="busLat" placeholder="e.g. 12.9716"/></div>
+        <div class="field"><label>Longitude</label><input id="busLng" placeholder="e.g. 77.5946"/></div>
+        <button class="btn" onclick="createBus()"><i class="fa fa-bus"></i> Add Bus</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="section">
+        <div class="section-title">Assign Student to Bus</div>
+        <div class="field"><label>Student</label><select id="assignStudent"><option value="">Select student</option></select></div>
+        <div class="field"><label>Bus</label><select id="assignBus"><option value="">Select bus</option></select></div>
+        <div class="field"><label>Pickup Point</label><input id="assignPickup" placeholder="e.g. Main Gate"/></div>
+        <div class="field"><label>Drop Point</label><input id="assignDrop" placeholder="e.g. School Gate"/></div>
+        <button class="btn" onclick="assignBus()"><i class="fa fa-user-plus"></i> Assign Bus</button>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Trip History</div>
+        <div class="field"><label>Select Bus</label><select id="historyBus" onchange="loadHistory()"><option value="">Select bus</option></select></div>
+        <div id="historyList" class="list"><div class="helper">Select a bus to view its trip history.</div></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="section">
+        <div class="section-title">Live Fleet Monitor</div>
+        <div id="busTableWrapper"><div class="helper">Loading buses…</div></div>
+      </div>
+      <div class="section">
+        <div class="section-title">Route List</div>
+        <div id="routeList"><div class="helper">Loading routes…</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const TOKEN = sessionStorage.getItem('token');
+const USER = JSON.parse(sessionStorage.getItem('user') || 'null');
+if (!TOKEN || !USER || USER.role !== 'admin') { location.href = 'index.html'; }
+const API = '';
+let routes = [];
+let buses = [];
+let students = [];
+
+async function req(method, path, body) {
+  const opts = { method, headers: { Authorization: 'Bearer ' + TOKEN, 'Content-Type': 'application/json' } };
+  if (body) opts.body = JSON.stringify(body);
+  const res = await fetch(API + path, opts);
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Request failed');
+  return data;
+}
+
+function toast(message, type='info') {
+  const el = document.createElement('div');
+  el.textContent = message;
+  el.style.cssText = 'position:fixed;right:20px;bottom:20px;padding:14px 18px;border-radius:14px;color:#fff;z-index:999;box-shadow:0 18px 40px rgba(15,23,42,.22);';
+  if (type==='ok') el.style.background='#16a34a';
+  else if (type==='err') el.style.background='#ef4444';
+  else el.style.background='#0d6efd';
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 3500);
+}
+
+async function loadAll() {
+  try { await Promise.all([loadRoutes(), loadBuses(), loadStudents()]); } catch (err) { toast(err.message,'err'); }
+}
+
+async function loadRoutes() {
+  try {
+    routes = await req('GET', '/api/routes');
+    const routeSelect = document.getElementById('busRoute');
+    const historySelect = document.getElementById('historyBus');
+    routeSelect.innerHTML = '<option value="">Select route</option>';
+    routes.forEach(r => routeSelect.insertAdjacentHTML('beforeend', `<option value="${r._id}">${r.routeCode} — ${r.name}</option>`));
+    document.getElementById('routeList').innerHTML = routes.length ? routes.map(r => `<div class="list"><strong>${r.routeCode} — ${r.name}</strong><div class="helper">${(r.stops||[]).join(' → ')}</div></div>`).join('') : '<div class="helper">No routes created yet.</div>';
+  } catch (err) { document.getElementById('routeList').innerHTML = `<div class="helper">${err.message}</div>`; }
+}
+
+async function loadBuses() {
+  try {
+    buses = await req('GET', '/api/buses');
+    const assignBus = document.getElementById('assignBus');
+    const historyBus = document.getElementById('historyBus');
+    assignBus.innerHTML = '<option value="">Select bus</option>';
+    historyBus.innerHTML = '<option value="">Select bus</option>';
+    buses.forEach(bus => {
+      assignBus.insertAdjacentHTML('beforeend', `<option value="${bus._id}">${bus.busNo} — ${bus.driverName}</option>`);
+      historyBus.insertAdjacentHTML('beforeend', `<option value="${bus._id}">${bus.busNo}</option>`);
+    });
+    const table = buses.length ? `
+      <table class="tbl"><thead><tr><th>Bus</th><th>Driver</th><th>Route</th><th>Location</th><th>Actions</th></tr></thead><tbody>
+      ${buses.map(bus => `<tr>
+        <td>${bus.busNo}</td>
+        <td>${bus.driverName}<br><span class="helper">${bus.driverPhone || '—'}</span></td>
+        <td><span class="tag">${bus.routeId?.routeCode || 'N/A'}</span> ${bus.routeId?.name || ''}</td>
+        <td>${bus.currentLocation || '—'}</td>
+        <td><button class="btn btn-secondary" style="font-size:.78rem;" onclick="viewBus('${bus._id}')">View</button> <button class="btn btn-secondary" style="font-size:.78rem;" onclick="deleteBus('${bus._id}')">Delete</button></td>
+      </tr>`).join('')}
+      </tbody></table>` : '<div class="helper">No buses registered yet.</div>';
+    document.getElementById('busTableWrapper').innerHTML = table;
+  } catch (err) { document.getElementById('busTableWrapper').innerHTML = `<div class="helper">${err.message}</div>`; }
+}
+
+async function loadStudents() {
+  try {
+    const data = await req('GET', '/api/students');
+    students = data;
+    const assignStudent = document.getElementById('assignStudent');
+    assignStudent.innerHTML = '<option value="">Select student</option>';
+    students.forEach(student => assignStudent.insertAdjacentHTML('beforeend', `<option value="${student.studentId}">${student.studentId} — ${student.name}</option>`));
+  } catch (err) { document.getElementById('assignStudent').innerHTML = `<option value="">${err.message}</option>`; }
+}
+
+async function createRoute() {
+  try {
+    const routeCode = document.getElementById('routeCode').value.trim();
+    const name = document.getElementById('routeName').value.trim();
+    const stops = document.getElementById('routeStops').value.trim();
+    const description = document.getElementById('routeNotes').value.trim();
+    if (!routeCode || !name) return toast('Route code and name are required.', 'err');
+    await req('POST', '/api/routes', { routeCode, name, stops, description });
+    document.getElementById('routeCode').value = '';
+    document.getElementById('routeName').value = '';
+    document.getElementById('routeStops').value = '';
+    document.getElementById('routeNotes').value = '';
+    toast('Route created.', 'ok');
+    loadRoutes();
+  } catch (err) { toast(err.message,'err'); }
+}
+
+async function createBus() {
+  try {
+    const busNo = document.getElementById('busNo').value.trim();
+    const driverName = document.getElementById('driverName').value.trim();
+    const driverPhone = document.getElementById('driverPhone').value.trim();
+    const routeId = document.getElementById('busRoute').value;
+    const currentLocation = document.getElementById('busLocation').value.trim();
+    const eta = document.getElementById('busEta').value.trim();
+    const latRaw = document.getElementById('busLat').value.trim();
+    const lngRaw = document.getElementById('busLng').value.trim();
+    const lat = latRaw ? parseFloat(latRaw) : undefined;
+    const lng = lngRaw ? parseFloat(lngRaw) : undefined;
+    if (!busNo || !driverName) return toast('Bus number and driver name are required.', 'err');
+    const payload = { busNo, driverName, driverPhone, routeId, currentLocation, eta };
+    if (!isNaN(lat) && !isNaN(lng)) payload.coordinates = { lat, lng };
+    await req('POST', '/api/buses', payload);
+    document.getElementById('busNo').value = '';
+    document.getElementById('driverName').value = '';
+    document.getElementById('driverPhone').value = '';
+    document.getElementById('busLocation').value = '';
+    document.getElementById('busEta').value = '';
+    document.getElementById('busLat').value = '';
+    document.getElementById('busLng').value = '';
+    toast('Bus added.', 'ok');
+    loadBuses();
+  } catch (err) { toast(err.message,'err'); }
+}
+
+async function assignBus() {
+  try {
+    const studentId = document.getElementById('assignStudent').value;
+    const busId = document.getElementById('assignBus').value;
+    const pickupPoint = document.getElementById('assignPickup').value.trim();
+    const dropPoint = document.getElementById('assignDrop').value.trim();
+    if (!studentId || !busId) return toast('Student and bus selection are required.', 'err');
+    await req('PUT', `/api/students/${studentId}/bus`, { busId, pickupPoint, dropPoint });
+    toast('Student assigned to bus.', 'ok');
+  } catch (err) { toast(err.message,'err'); }
+}
+
+async function loadHistory() {
+  try {
+    const busId = document.getElementById('historyBus').value;
+    if (!busId) { document.getElementById('historyList').innerHTML = '<div class="helper">Select a bus to view history.</div>'; return; }
+    const history = await req('GET', `/api/buses/${busId}/history`);
+    if (!history.length) { document.getElementById('historyList').innerHTML = '<div class="helper">No history recorded yet.</div>'; return; }
+    document.getElementById('historyList').innerHTML = history.reverse().map(item => `
+      <li>
+        <strong>${new Date(item.updatedAt).toLocaleString()}</strong><br>
+        <span class="helper">Location:</span> ${item.location || '—'} · <span class="helper">ETA:</span> ${item.eta || '—'} · <span class="helper">Status:</span> ${item.status || '—'}
+      </li>
+    `).join('');
+  } catch (err) { document.getElementById('historyList').innerHTML = `<div class="helper">${err.message}</div>`; }
+}
+
+async function viewBus(busId) {
+  try {
+    const bus = await req('GET', `/api/buses/${busId}`);
+    const route = bus.routeId ? `${bus.routeId.routeCode} — ${bus.routeId.name}` : 'No route';
+    const message = `Bus ${bus.busNo} | Driver ${bus.driverName} | Route ${route} | Location ${bus.currentLocation || 'N/A'} | ETA ${bus.eta || 'TBD'}`;
+    toast(message, 'info');
+  } catch (err) { toast(err.message,'err'); }
+}
+
+async function deleteBus(busId) {
+  if (!confirm('Delete this bus and unassign students?')) return;
+  try {
+    await req('DELETE', `/api/buses/${busId}`);
+    toast('Bus removed.', 'ok');
+    loadBuses();
+  } catch (err) { toast(err.message,'err'); }
+}
+
+loadAll();
+</script>
+</body>
+</html>
