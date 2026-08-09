@@ -6,6 +6,8 @@ const { User, Student } = require('../models');
 const { sendMail } = require('../middleware/email');
 const { auth } = require('../middleware/auth');
 
+const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
+
 // POST /api/auth/login
 router.post('/login', async (req, res) => {
   const { email, password } = req.body;
@@ -70,7 +72,7 @@ router.post('/forgot-password', async (req, res) => {
   user.resetExpires = new Date(Date.now() + 2 * 60 * 60 * 1000); // 2 hours
   await user.save();
 
-  const link = `${process.env.FRONTEND_URL}/set-password.html?token=${token}`;
+  const link = `${FRONTEND_URL}/set-password.html?token=${token}`;
   await sendMail(user.email, 'Reset your EduConnect password',
     `<div style="font-family:sans-serif;padding:32px;background:#0a1628;color:#e8f0fe;border-radius:12px;">
       <h2 style="color:#00c9a7">Password Reset</h2>

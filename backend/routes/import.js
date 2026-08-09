@@ -9,6 +9,7 @@ const { auth, adminOnly } = require('../middleware/auth');
 const { sendMail, sendMailToParent, passwordSetupEmail, notificationEmail } = require('../middleware/email');
 
 const upload = multer({ dest: 'uploads/' });
+const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
 
 // POST /api/import/students
 // Excel columns: Student_ID, Name, Class, Section, Parent_Name, Parent_Email,
@@ -83,17 +84,17 @@ router.post('/students', auth, adminOnly, upload.single('file'), async (req, res
           results.marksImported++;
         }
 
-        // Create parent user account if not exists
+        // Create or update parent user account and always send a fresh setup link
         let parentUser = await User.findOne({ email: parentEmail });
         const isNewParent = !parentUser;
+        const setupToken   = crypto.randomBytes(32).toString('hex');
+        const setupExpires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+        const setupUrl     = `${FRONTEND_URL}/set-password.html?token=${setupToken}`;
 
         if (isNewParent) {
           // Placeholder password until parent sets their own via email link
           const placeholder = crypto.randomBytes(32).toString('hex');
           const hashed = await bcrypt.hash(placeholder, 10);
-
-          const setupToken   = crypto.randomBytes(32).toString('hex');
-          const setupExpires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
 
           parentUser = await User.create({
             email: parentEmail,
@@ -105,28 +106,36 @@ router.post('/students', auth, adminOnly, upload.single('file'), async (req, res
             resetToken: setupToken,
             resetExpires: setupExpires,
           });
-
-          const setupUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/set-password.html?token=${setupToken}`;
-          const html = passwordSetupEmail(
-            studentData.parentName || 'Parent',
-            parentEmail,
-            studentData.name,
-            setupUrl
-          );
-          const sent = await sendMailToParent(parentEmail, studentData.parentPhone, `Welcome to ${process.env.SCHOOL_NAME || 'EduConnect'} — Your Login Credentials`, html);
-          if (sent) results.emailsSent++;
-
-          // Welcome notification
-          await Notification.create({
-            targetEmail: parentEmail,
-            type: 'success',
-            title: '👋 Welcome to EduConnect!',
-            message: `Your parent portal account has been created for ${studentData.name}. Use the link in your welcome email to set your password.`,
-          });
-        } else if (parentUser.studentId !== studentId) {
-          // Update linked student if changed
-          await User.findByIdAndUpdate(parentUser._id, { studentId });
+        } else {
+          // Existing parent: update studentId, reset token, and keep passwordSet false until they choose a new password
+          parentUser.studentId = studentId;
+          parentUser.resetToken = setupToken;
+          parentUser.resetExpires = setupExpires;
+          parentUser.passwordSet = false;
+          await parentUser.save();
         }
+
+        const html = passwordSetupEmail(
+          studentData.parentName || 'Parent',
+          parentEmail,
+          studentData.name,
+          setupUrl
+        );
+        const emailSubject = isNewParent
+          ? `Welcome to ${process.env.SCHOOL_NAME || 'EduConnect'} — Your Login Credentials`
+          : `Password Setup Link for ${process.env.SCHOOL_NAME || 'EduConnect'}`;
+        const sent = await sendMailToParent(parentEmail, studentData.parentPhone, emailSubject, html);
+        if (sent) results.emailsSent++;
+
+        // Welcome or reset notification
+        await Notification.create({
+          targetEmail: parentEmail,
+          type: 'success',
+          title: isNewParent ? '👋 Parent Portal Access' : '🔁 Password Setup Link Sent',
+          message: isNewParent
+            ? `A password setup link has been sent to ${parentEmail} for ${studentData.name}.`
+            : `A new password setup link has been resent to ${parentEmail} for ${studentData.name}.`,
+        });
 
         // Notify parent when marks are imported for this student
         if (markSubject && !Number.isNaN(score) && !Number.isNaN(maxScore) && !emailedStudents.has(studentId)) {
