@@ -87,7 +87,7 @@ function sendWithBrevoApi({ to, subject, html, text }) {
     headers: {
       'Content-Type': 'application/json',
       'Content-Length': Buffer.byteLength(payload),
-      Authorization: `Bearer ${apiKey}`
+      'api-key': apiKey
     }
   };
 
