@@ -1,12 +1,24 @@
 const nodemailer = require('nodemailer');
 
 function getTransporter() {
+  const host = process.env.BREVO_SMTP_HOST || 'smtp-relay.brevo.com';
+  const port = Number(process.env.BREVO_SMTP_PORT || 587);
+  const secure = port === 465;
+  const user = process.env.BREVO_SMTP_USER;
+  const pass = process.env.BREVO_SMTP_KEY;
+
+  if (!user || !pass) {
+    throw new Error('Brevo SMTP is not configured. Set BREVO_SMTP_USER and BREVO_SMTP_KEY in .env');
+  }
+
   return nodemailer.createTransport({
-    service: 'gmail',
-    auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS },
+    host,
+    port,
+    secure,
+    auth: { user, pass },
+    tls: { rejectUnauthorized: false }
   });
 }
-
 function normalizePhone(phone) {
   return String(phone || '').replace(/\D/g, '');
 }
@@ -49,32 +61,21 @@ async function sendMail(to, subject, html, text) {
       return false;
     }
 
-    const response = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${process.env.RESEND_API_KEY}`,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        from: `${process.env.SCHOOL_NAME || "EduConnect"} <onboarding@resend.dev>`,
-        to: recipients,
-        subject,
-        html,
-        text: text || htmlToText(html)
-      })
+    const transporter = getTransporter();
+
+    const info = await transporter.sendMail({
+      from: `"${process.env.SCHOOL_NAME || 'EduConnect'}" <${process.env.BREVO_SENDER_EMAIL}>`,
+      to: recipients.join(', '),
+      subject: subject,
+      html: html,
+      text: text || htmlToText(html)
     });
 
-    const data = await response.json();
-
-    if (!response.ok) {
-      console.error("❌ Resend email failed:", data);
-      return false;
-    }
-
-    console.log(`📧 Email sent → ${recipients.join(", ")}`);
-    console.log("Resend ID:", data.id);
+    console.log("✅ Email sent →", recipients.join(", "));
+    console.log("Message ID:", info.messageId);
 
     return true;
+
   } catch (err) {
     console.error("❌ Email failed:", err.message);
     return false;
