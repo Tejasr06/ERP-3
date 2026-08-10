@@ -1,4 +1,5 @@
 const nodemailer = require('nodemailer');
+const https = require('https');
 
 function getTransporter() {
   const host = process.env.BREVO_SMTP_HOST || 'smtp-relay.brevo.com';
@@ -19,6 +20,7 @@ function getTransporter() {
     tls: { rejectUnauthorized: false }
   });
 }
+
 function normalizePhone(phone) {
   return String(phone || '').replace(/\D/g, '');
 }
@@ -52,6 +54,66 @@ function normalizeRecipients(to) {
   return Array.isArray(to) ? to.filter(Boolean) : [to];
 }
 
+function formatBrevoRecipients(to) {
+  return normalizeRecipients(to).map(email => ({ email }));
+}
+
+function sendWithBrevoApi({ to, subject, html, text }) {
+  const apiKey = process.env.BREVO_API_KEY;
+  const senderEmail = process.env.BREVO_SENDER_EMAIL;
+  const fromName = process.env.SCHOOL_NAME || 'EduConnect';
+
+  if (!apiKey || !senderEmail) {
+    throw new Error('Brevo API is not configured. Set BREVO_API_KEY and BREVO_SENDER_EMAIL in .env');
+  }
+
+  const recipients = formatBrevoRecipients(to);
+  if (!recipients.length) {
+    throw new Error('No email recipient');
+  }
+
+  const payload = JSON.stringify({
+    sender: { email: senderEmail, name: fromName },
+    to: recipients,
+    subject,
+    htmlContent: html,
+    textContent: text
+  });
+
+  const options = {
+    method: 'POST',
+    hostname: 'api.brevo.com',
+    path: '/v3/smtp/email',
+    headers: {
+      'Content-Type': 'application/json',
+      'Content-Length': Buffer.byteLength(payload),
+      Authorization: `Bearer ${apiKey}`
+    }
+  };
+
+  return new Promise((resolve, reject) => {
+    const req = https.request(options, res => {
+      let body = '';
+      res.on('data', chunk => body += chunk);
+      res.on('end', () => {
+        if (res.statusCode >= 200 && res.statusCode < 300) {
+          try {
+            resolve(JSON.parse(body));
+          } catch (err) {
+            resolve({ raw: body });
+          }
+        } else {
+          reject(new Error(`Brevo API failed: ${res.statusCode} ${res.statusMessage} ${body}`));
+        }
+      });
+    });
+
+    req.on('error', reject);
+    req.write(payload);
+    req.end();
+  });
+}
+
 async function sendMail(to, subject, html, text) {
   try {
     const recipients = normalizeRecipients(to);
@@ -61,14 +123,30 @@ async function sendMail(to, subject, html, text) {
       return false;
     }
 
+    const senderEmail = process.env.BREVO_SENDER_EMAIL;
+    const emailText = text || htmlToText(html);
+
+    if (process.env.BREVO_API_KEY) {
+      const info = await sendWithBrevoApi({
+        to: recipients,
+        subject: subject,
+        html: html,
+        text: emailText
+      });
+
+      console.log("✅ Email sent via Brevo API →", recipients.join(", "));
+      console.log("Brevo API response:", info.messageId || info.message_id || JSON.stringify(info));
+      return true;
+    }
+
     const transporter = getTransporter();
 
     const info = await transporter.sendMail({
-      from: `"${process.env.SCHOOL_NAME || 'EduConnect'}" <${process.env.BREVO_SENDER_EMAIL}>`,
+      from: `"${process.env.SCHOOL_NAME || 'EduConnect'}" <${senderEmail}>`,
       to: recipients.join(', '),
       subject: subject,
       html: html,
-      text: text || htmlToText(html)
+      text: emailText
     });
 
     console.log("✅ Email sent →", recipients.join(", "));
