@@ -14,7 +14,7 @@ function getFrontendUrl(req) {
 
 // POST /api/auth/login
 router.post('/login', async (req, res) => {
-  const { email, password } = req.body;
+  const { email, password, selectedRole } = req.body;
   if (!email || !password) return res.status(400).json({ error: 'Email and password required.' });
 
   const user = await User.findOne({ email: email.toLowerCase() });
@@ -22,6 +22,17 @@ router.post('/login', async (req, res) => {
 
   const valid = await bcrypt.compare(password, user.password);
   if (!valid) return res.status(401).json({ error: 'Invalid email or password.' });
+
+  const normalizedRole = selectedRole === 'staff' ? 'staff' : (selectedRole === 'parent' || selectedRole === 'student' ? 'parent' : selectedRole);
+  const allowedRoles = normalizedRole === 'parent' ? ['parent'] : ['admin', 'staff'];
+
+  if (!allowedRoles.includes(user.role)) {
+    return res.status(403).json({
+      error: normalizedRole === 'parent'
+        ? 'This account is not authorized to sign in to the parent portal.'
+        : 'This account is not authorized to sign in to the staff portal.',
+    });
+  }
 
   if (user.role === 'parent' && !user.passwordSet) {
     return res.status(403).json({
