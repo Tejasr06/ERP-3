@@ -207,13 +207,11 @@ body::before{content:'';position:fixed;inset:0;z-index:0;background:transparent;
     <div class="nav-label" data-i18n="common.overview">Overview</div>
     <div class="nav-item active" onclick="go('dashboard',this)"><i class="fa fa-th-large"></i> <span data-i18n="common.dashboard">Dashboard</span></div>
     <div class="nav-label">Students</div>
-    <div class="nav-item" onclick="go('import',this)"><i class="fa fa-file-excel"></i> <span data-i18n="dashboard.importStudents">Import Students</span></div>
-    <div class="nav-item" onclick="go('importMarks',this)"><i class="fa fa-file-excel"></i> <span data-i18n="dashboard.importMarks">Import Marks</span></div>
+    <div class="nav-item" onclick="go('import',this)"><i class="fa fa-file-excel"></i> <span data-i18n="dashboard.importStudents">Import Data</span></div>
     <div class="nav-item" onclick="go('students',this)"><i class="fa fa-users"></i> <span data-i18n="dashboard.allStudents">All Students</span></div>
     <div class="nav-item" onclick="go('marks',this)"><i class="fa fa-edit"></i> <span data-i18n="dashboard.manageMarks">Manage Marks</span></div>
     <div class="nav-item" onclick="go('attendance',this)"><i class="fa fa-calendar-check"></i> <span data-i18n="common.attendance">Attendance</span></div>
     <div class="nav-item" onclick="go('fees',this)"><i class="fa fa-rupee-sign"></i> <span data-i18n="dashboard.feeRecords">Fee Records</span></div>
-    <div class="nav-item"><a href="/achievement-wall.html" style="display:flex;align-items:center;gap:10px;color:inherit;text-decoration:none;"><i class="fa fa-trophy"></i> Achievement Wall</a></div>
     <div class="nav-item"><a href="/admin/bus" style="display:flex;align-items:center;gap:10px;color:inherit;text-decoration:none;"><i class="fa fa-bus"></i> Bus Tracking</a></div>
     <div class="nav-label">Communication</div>
     <div class="nav-item" onclick="go('contactParent',this)"><i class="fab fa-whatsapp"></i> <span data-i18n="dashboard.contactParent">Contact Parent</span></div>
@@ -292,7 +290,7 @@ body::before{content:'';position:fixed;inset:0;z-index:0;background:transparent;
       </div>
     </div>
     <div class="panel">
-      <div class="panel-hd"><div class="panel-title">Recent Achievements</div><a class="btn" href="/achievement-wall.html">Open Wall</a></div>
+      <div class="panel-hd"><div class="panel-title">Recent Achievements</div></div>
       <div id="recentAchievementsAdmin" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;"></div>
     </div>
   </div>
@@ -300,7 +298,7 @@ body::before{content:'';position:fixed;inset:0;z-index:0;background:transparent;
   <!-- ── IMPORT ── -->
   <div id="page-import" class="page">
     <div class="panel" style="max-width:800px;">
-      <div class="panel-hd"><div class="panel-title">Import Students & Marks from Excel</div></div>
+      <div class="panel-hd"><div class="panel-title">Import Students & Marks</div></div>
       <div style="font-size:.82rem;color:var(--muted);margin-bottom:16px;line-height:1.7;">
         Upload a <code style="background:rgba(255,255,255,.07);padding:2px 6px;border-radius:4px;">.xlsx</code> or <code style="background:rgba(255,255,255,.07);padding:2px 6px;border-radius:4px;">.xls</code> file.<br>
         Required columns: <b style="color:var(--teal)">Student_ID, Name, Class, Section, Parent_Email</b><br>
@@ -321,40 +319,10 @@ body::before{content:'';position:fixed;inset:0;z-index:0;background:transparent;
 
       <div id="importPreview" style="margin-top:16px;"></div>
       <div id="importActions" style="display:none;margin-top:14px;display:flex;gap:10px;flex-wrap:wrap;">
-        <button class="btn btn-primary" id="importBtn" onclick="doImport()"><i class="fa fa-database"></i> Import </button>
+        <button class="btn btn-primary" id="importBtn" onclick="doImport()"><i class="fa fa-database"></i> Import Data</button>
         <button class="btn" onclick="clearImport()"><i class="fa fa-times"></i> Clear</button>
       </div>
     </div>
-
-    
-  </div>
-
-  <!-- ── IMPORT MARKS ── -->
-  <div id="page-importMarks" class="page">
-    <div class="panel" style="max-width:800px;">
-      <div class="panel-hd"><div class="panel-title">Import Marks from Excel</div></div>
-      <div style="font-size:.82rem;color:var(--muted);margin-bottom:16px;line-height:1.7;">
-        Upload a <code style="background:rgba(255,255,255,.07);padding:2px 6px;border-radius:4px;">.xlsx</code> or <code style="background:rgba(255,255,255,.07);padding:2px 6px;border-radius:4px;">.xls</code> file.<br>
-        Required columns: <b style="color:var(--teal)">Student_ID, Subject, Exam_Type, Score, Max_Score</b><br>
-        Optional: Remarks<br>
-        This page is for marks-only imports. Student records are matched by Student_ID and parents will be notified when results are published.
-      </div>
-      <div class="upload-zone" id="uploadMarksZone" onclick="document.getElementById('marksFileInput').click()"
-        ondragover="event.preventDefault();this.classList.add('drag')"
-        ondragleave="this.classList.remove('drag')"
-        ondrop="handleMarksDrop(event)">
-        <div class="upload-icon"><i class="fa fa-file-excel"></i></div>
-        <div style="font-size:.95rem;font-weight:500;margin-bottom:4px;">Click to browse or drag & drop</div>
-        <div style="font-size:.78rem;color:var(--muted);">Supports .xlsx .xls — Max 5MB</div>
-      </div>
-      <input type="file" id="marksFileInput" accept=".xlsx,.xls" style="display:none" onchange="handleMarksFile(this)"/>
-      <div id="marksPreview" style="margin-top:16px;"></div>
-      <div id="marksActions" style="display:none;margin-top:14px;display:flex;gap:10px;flex-wrap:wrap;">
-        <button class="btn btn-primary" id="importMarksBtn" onclick="doImportMarks()"><i class="fa fa-database"></i> Import Marks & Notify Parents</button>
-        <button class="btn" onclick="clearMarksImport()"><i class="fa fa-times"></i> Clear</button>
-      </div>
-    </div>
-    
   </div>
 
   <!-- ── STUDENTS ── -->
@@ -592,7 +560,7 @@ function setHtml(id, html) {
 }
 
 // ── NAV ──────────────────────────────────────────────
-const titles = { dashboard:'Dashboard', import:'Import Students', importMarks:'Import Marks', students:'All Students', marks:'Manage Marks', attendance:'Mark Attendance', fees:'Fee Records', contactParent:'Contact Parent', notifications:'Send Notifications' };
+const titles = { dashboard:'Dashboard', import:'Import Data', students:'All Students', marks:'Manage Marks', attendance:'Mark Attendance', fees:'Fee Records', contactParent:'Contact Parent', notifications:'Send Notifications' };
 function go(page, navEl) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.getElementById('page-' + page).classList.add('active');
@@ -612,7 +580,7 @@ function toggleSidebar() {
 function logout() { sessionStorage.clear(); location.href='index.html'; }
 
 function loadPage(page) {
-  const fns = { dashboard:loadDashboard, import:()=>{}, importMarks:()=>{}, students:loadStudents, marks:loadMarksPage, attendance:loadAttendancePage, fees:loadFeesPage, contactParent:loadContactParentPage, notifications:()=>{} };
+  const fns = { dashboard:loadDashboard, import:()=>{}, students:loadStudents, marks:loadMarksPage, attendance:loadAttendancePage, fees:loadFeesPage, contactParent:loadContactParentPage, notifications:()=>{} };
   if (fns[page]) fns[page]();
 }
 
