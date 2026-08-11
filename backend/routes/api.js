@@ -341,7 +341,8 @@ router.post('/parents/resend-setup/:email', auth, adminOnly, async (req, res) =>
     user.resetExpires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
     await user.save();
   }
-  const setupUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/set-password.html?token=${user.resetToken}`;
+  const frontendUrl = process.env.FRONTEND_URL || `${req.protocol}://${req.get('host')}`;
+  const setupUrl = `${frontendUrl}/set-password.html?token=${user.resetToken}`;
   const html = passwordSetupEmail(student?.parentName || user.name || 'Parent', email, student?.name || '', setupUrl);
   const sent = await sendMailToParent(email, student?.parentPhone, `Set Your Password — ${process.env.SCHOOL_NAME || 'EduConnect'}`, html);
   if (sent) {
