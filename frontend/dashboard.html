@@ -523,11 +523,12 @@ async function loadHome() {
       const recs = todayData.records || [];
       const byPeriod = {};
       recs.forEach(r => byPeriod[r.period] = r);
-      const totalPeriods = cfg.periods.length || (recs.length || 0);
-      const presentCount = recs.filter(r => r.status === 'Present').length;
+      // Only consider marked periods for percentage
+      const totalPeriods = recs.length || 0;
+      const presentCount = recs.filter(r => r.status === 'Present' || r.status === 'Late').length;
       const pctDay = totalPeriods > 0 ? Math.round((presentCount / totalPeriods) * 100) : 0;
       document.getElementById('homeTodayPeriods').innerHTML = `<div style="font-weight:600;margin-bottom:6px">Today's Attendance — ${presentCount} / ${totalPeriods} Hours Present (${pctDay}%)</div>` +
-        `<div style="display:flex;flex-direction:column;gap:6px">${(cfg.periods||[]).map(p=>`<div style="display:flex;justify-content:space-between;gap:12px;padding:6px 10px;border-radius:8px;background:rgba(255,255,255,.03);border:1px solid var(--border);"><div>${p.name}${byPeriod[p.id] ? ' — '+(byPeriod[p.id].subject||'') : ''}</div><div style="font-weight:600;color:${(byPeriod[p.id] && byPeriod[p.id].status==='Present')?'var(--green)':'var(--coral)'}">${byPeriod[p.id]?byPeriod[p.id].status:'—'}</div></div>`).join('')}</div>`;
+        `<div style="display:flex;flex-direction:column;gap:6px">${(cfg.periods||[]).map(p=>`<div style="display:flex;justify-content:space-between;gap:12px;padding:6px 10px;border-radius:8px;background:rgba(255,255,255,.03);border:1px solid var(--border);"><div>${p.name}${byPeriod[p.id] ? ' — '+(byPeriod[p.id].subject||'') : ''}</div><div style="font-weight:600;color:${(byPeriod[p.id] && (byPeriod[p.id].status==='Present' || byPeriod[p.id].status==='Late'))?'var(--green)':'var(--coral)'}">${byPeriod[p.id]?byPeriod[p.id].status:'—'}</div></div>`).join('')}</div>`;
     } catch(e) { console.warn('Could not load today attendance', e); }
   } catch { document.getElementById('homeStats').innerHTML = '<div style="color:var(--muted)">Could not load stats.</div>'; }
 }
@@ -649,11 +650,25 @@ async function loadAttendance(sid) {
       }
     });
 
-    const recent = [...recs].reverse().slice(0, 10);
+    // Aggregate records by date so we show one row per day (day is Present if any period is Present)
+    const byDate = {};
+    [...recs].reverse().forEach(r => { byDate[r.date] = byDate[r.date] || []; byDate[r.date].push(r); });
+    const recentDates = Object.keys(byDate).sort((a,b)=>new Date(b)-new Date(a)).slice(0,10);
+    const recentDays = recentDates.map(d => {
+      const recsForDate = byDate[d] || [];
+      const hasPeriods = recsForDate.some(x => x.period && Number(x.period) > 0);
+      const recsFiltered = hasPeriods ? recsForDate.filter(x => Number(x.period) > 0) : recsForDate;
+      let status = 'Absent';
+      if (recsFiltered.some(x => x.status === 'Present' || x.status === 'Late')) status = 'Present';
+      else if (recsFiltered.length > 0 && recsFiltered.every(x => x.status === 'Absent')) status = 'Absent';
+      else if (recsFiltered.some(x => x.status === 'Holiday')) status = 'Holiday';
+      else status = recsFiltered[0]?.status || '—';
+      return { date: d, status };
+    });
     recentEl.innerHTML = `
       <table class="tbl">
         <thead><tr><th>Date</th><th>Day</th><th>Status</th></tr></thead>
-        <tbody>${recent.map(r => {
+        <tbody>${recentDays.map(r => {
           const pill = r.status === 'Present' ? 'present' : r.status === 'Absent' ? 'absent' : r.status === 'Late' ? 'late' : 'holiday';
           const day = new Date(r.date).toLocaleDateString('en-IN', { weekday: 'short' });
           return `<tr><td>${fmtAttDate(r.date)}</td><td style="color:#64748b">${day}</td><td><span class="status-pill ${pill}">${r.status}</span></td></tr>`;

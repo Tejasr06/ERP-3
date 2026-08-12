@@ -61,8 +61,11 @@ router.get('/attendance', auth, async (req, res) => {
   let presentDays = 0, absentDays = 0;
   dates.forEach(d => {
     const recs = byDate[d];
-    if (recs.some(x => x.status === 'Present')) presentDays++;
-    else if (recs.every(x => x.status === 'Absent')) absentDays++;
+    // If there are per-period records (period > 0) for this date, ignore period 0 legacy records
+    const hasPeriods = recs.some(x => x.period && Number(x.period) > 0);
+    const recsFiltered = hasPeriods ? recs.filter(x => Number(x.period) > 0) : recs;
+    if (recsFiltered.some(x => x.status === 'Present')) presentDays++;
+    else if (recsFiltered.length > 0 && recsFiltered.every(x => x.status === 'Absent')) absentDays++;
   });
   const daysPct = totalDays > 0 ? Math.round((presentDays / totalDays) * 100) : 0;
 
@@ -102,8 +105,10 @@ router.get('/attendance/:studentId', auth, async (req, res) => {
   let presentDays = 0, absentDays = 0;
   dates.forEach(d => {
     const recs = byDate[d];
-    if (recs.some(x => x.status === 'Present')) presentDays++;
-    else if (recs.every(x => x.status === 'Absent')) absentDays++;
+    const hasPeriods = recs.some(x => x.period && Number(x.period) > 0);
+    const recsFiltered = hasPeriods ? recs.filter(x => Number(x.period) > 0) : recs;
+    if (recsFiltered.some(x => x.status === 'Present')) presentDays++;
+    else if (recsFiltered.length > 0 && recsFiltered.every(x => x.status === 'Absent')) absentDays++;
   });
   const daysPct = totalDays > 0 ? Math.round((presentDays / totalDays) * 100) : 0;
 
@@ -177,7 +182,17 @@ router.post('/attendance', auth, adminOnly, async (req, res) => {
 async function checkAttendanceAlert(studentId) {
   const records = await Attendance.find({ studentId });
   if (!records.length) return;
-  const pct = Math.round(records.filter(r => r.status === 'Present').length / records.length * 100);
+  // Only consider marked periods: if a date has period>0 records, ignore any period=0 legacy records for that date
+  const byDate = {};
+  records.forEach(r => { byDate[r.date] = byDate[r.date] || []; byDate[r.date].push(r); });
+  const considered = [];
+  Object.keys(byDate).forEach(d => {
+    const recs = byDate[d];
+    const hasPeriods = recs.some(x => x.period && Number(x.period) > 0);
+    const recsFiltered = hasPeriods ? recs.filter(x => Number(x.period) > 0) : recs;
+    recsFiltered.forEach(r => considered.push(r));
+  });
+  const pct = considered.length ? Math.round(considered.filter(r => r.status === 'Present').length / considered.length * 100) : 0;
   if (pct < 75) {
     const student = await Student.findOne({ studentId });
     if (!student) return;
