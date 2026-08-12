@@ -7,6 +7,7 @@
 <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet"/>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="/attendance-config.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;}
 :root{
@@ -286,6 +287,7 @@ body::before{content:'';position:fixed;inset:0;z-index:0;background:transparent;
       <div style="text-align:center;padding:20px 0;">
         <div style="font-family:var(--font-display);font-size:3.5rem;font-weight:700;" id="homeAttPct">—</div>
         <div style="font-size:.78rem;color:var(--muted);margin-top:4px;" id="homeAttSub">Loading…</div>
+        <div id="homeTodayPeriods" style="margin-top:8px;color:var(--muted);font-size:.9rem"></div>
         <div class="bar" style="height:8px;margin:14px 0;border-radius:999px;background:rgba(0,31,84,.08);"><div class="bar-fill" id="homeAttBar" style="width:0%"></div></div>
         <div style="font-size:.75rem;color:var(--muted);"><span data-i18n="dashboard.minimumRequired">Minimum required:</span> <b style="color:var(--gold)">75%</b></div>
       </div>
@@ -513,6 +515,20 @@ async function loadHome() {
       <div class="stat-card" style="--c:var(--gold)"><div class="stat-emo">📊</div><div class="stat-val">${att.summary.present}</div><div class="stat-lbl">Days Present</div><div class="stat-trend">${att.summary.total} total days</div></div>
       <div class="stat-card" style="--c:var(--coral)"><div class="stat-emo">📅</div><div class="stat-val">${att.summary.absent}</div><div class="stat-lbl">Days Absent</div><div class="stat-trend">This academic year</div></div>`;
     loadRecentAchievementsParent();
+    // Also load today's period-wise attendance for quick view
+    try {
+      const today = new Date().toISOString().slice(0,10);
+      const todayData = await req('GET', `/api/attendance?studentId=${sid}&date=${today}`);
+      const cfg = window.ATTENDANCE_CONFIG || { periods: [] };
+      const recs = todayData.records || [];
+      const byPeriod = {};
+      recs.forEach(r => byPeriod[r.period] = r);
+      const totalPeriods = cfg.periods.length || (recs.length || 0);
+      const presentCount = recs.filter(r => r.status === 'Present').length;
+      const pctDay = totalPeriods > 0 ? Math.round((presentCount / totalPeriods) * 100) : 0;
+      document.getElementById('homeTodayPeriods').innerHTML = `<div style="font-weight:600;margin-bottom:6px">Today's Attendance — ${presentCount} / ${totalPeriods} Hours Present (${pctDay}%)</div>` +
+        `<div style="display:flex;flex-direction:column;gap:6px">${(cfg.periods||[]).map(p=>`<div style="display:flex;justify-content:space-between;gap:12px;padding:6px 10px;border-radius:8px;background:rgba(255,255,255,.03);border:1px solid var(--border);"><div>${p.name}${byPeriod[p.id] ? ' — '+(byPeriod[p.id].subject||'') : ''}</div><div style="font-weight:600;color:${(byPeriod[p.id] && byPeriod[p.id].status==='Present')?'var(--green)':'var(--coral)'}">${byPeriod[p.id]?byPeriod[p.id].status:'—'}</div></div>`).join('')}</div>`;
+    } catch(e) { console.warn('Could not load today attendance', e); }
   } catch { document.getElementById('homeStats').innerHTML = '<div style="color:var(--muted)">Could not load stats.</div>'; }
 }
 

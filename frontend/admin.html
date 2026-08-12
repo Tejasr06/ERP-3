@@ -225,6 +225,7 @@ body::before{content:'';position:fixed;inset:0;z-index:0;background:transparent;
 
 <!-- Lightweight nav fallback: ensure sidebar navigation works even if main JS errors -->
 <script src="lang.js"></script>
+<script src="/attendance-config.js"></script>
 <script>
   initLanguage({ titleKey: 'app.title.admin' });
   (function(){
@@ -390,13 +391,24 @@ body::before{content:'';position:fixed;inset:0;z-index:0;background:transparent;
         <div style="font-size:.8rem;color:var(--muted);" id="todayLbl"></div>
       </div>
       <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;">
-        <div class="field" style="margin:0;flex:1;min-width:160px;"><label>Class Filter</label>
-          <select id="attClassFilter" onchange="loadAttStudents()" style="padding:9px 12px;border-radius:8px;border:1px solid var(--border);background:rgba(255,255,255,.04);color:var(--text);font-size:.82rem;outline:none;width:100%;">
-            <option value="">All Classes</option><option>8</option><option>9</option><option>10</option><option>11</option><option>12</option>
+        <div class="field" style="margin:0;flex:1;min-width:140px;"><label>Class</label>
+          <select id="attClassFilter" onchange="onClassChange();" style="padding:9px 12px;border-radius:8px;border:1px solid var(--border);background:rgba(255,255,255,.04);color:var(--text);font-size:.82rem;outline:none;width:100%;">
+            <option value="">All Classes</option>
+          </select>
+        </div>
+        <div class="field" style="margin:0;flex:1;min-width:120px;"><label>Section</label>
+          <select id="attSectionFilter" onchange="loadAttStudents()" style="padding:9px 12px;border-radius:8px;border:1px solid var(--border);background:rgba(255,255,255,.04);color:var(--text);font-size:.82rem;outline:none;width:100%;">
+            <option value="">All Sections</option>
           </select>
         </div>
         <div class="field" style="margin:0;flex:1;min-width:160px;"><label>Date</label>
           <input type="date" id="attDate" style="padding:9px 12px;border-radius:8px;border:1px solid var(--border);background:rgba(255,255,255,.04);color:var(--text);font-size:.82rem;outline:none;width:100%;"/>
+        </div>
+        <div class="field" style="margin:0;flex:1;min-width:160px;"><label>Period</label>
+          <select id="attPeriod" style="padding:9px 12px;border-radius:8px;border:1px solid var(--border);background:rgba(255,255,255,.04);color:var(--text);font-size:.82rem;outline:none;width:100%;"></select>
+        </div>
+        <div class="field" style="margin:0;flex:1;min-width:160px;"><label>Subject</label>
+          <select id="attSubject" style="padding:9px 12px;border-radius:8px;border:1px solid var(--border);background:rgba(255,255,255,.04);color:var(--text);font-size:.82rem;outline:none;width:100%;"></select>
         </div>
       </div>
       <div style="overflow-x:auto;">
@@ -967,15 +979,39 @@ let attStudents = [];
 async function loadAttendancePage() {
   document.getElementById('todayLbl').textContent = new Date().toLocaleDateString('en-IN',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
   document.getElementById('attDate').value = new Date().toISOString().slice(0,10);
+  // Populate class and section selects from students
+  const all = studentsCache.length ? studentsCache : await req('GET','/api/students');
+  if (!studentsCache.length) studentsCache = all;
+  const classes = [...new Set(all.map(s=>s.class))].sort();
+  const classSel = document.getElementById('attClassFilter');
+  classSel.innerHTML = '<option value="">All Classes</option>' + classes.map(c=>`<option>${c}</option>`).join('');
+  // populate periods and subjects from config
+  const cfg = window.ATTENDANCE_CONFIG || { periods: [], subjects: [] };
+  const perEl = document.getElementById('attPeriod');
+  perEl.innerHTML = cfg.periods.map(p=>`<option value="${p.id}">${p.name}</option>`).join('');
+  const subEl = document.getElementById('attSubject');
+  subEl.innerHTML = cfg.subjects.map(s=>`<option value="${s}">${s}</option>`).join('');
+  // build section list
+  const secs = [...new Set(all.map(s=>s.section))].sort();
+  document.getElementById('attSectionFilter').innerHTML = '<option value="">All Sections</option>' + secs.map(s=>`<option>${s}</option>`).join('');
+  loadAttStudents();
+}
+
+function onClassChange() {
+  const cls = document.getElementById('attClassFilter').value;
+  const all = studentsCache;
+  const secs = [...new Set((cls ? all.filter(s=>s.class===cls) : all).map(s=>s.section))].sort();
+  document.getElementById('attSectionFilter').innerHTML = '<option value="">All Sections</option>' + secs.map(s=>`<option>${s}</option>`).join('');
   loadAttStudents();
 }
 
 async function loadAttStudents() {
   const cls = document.getElementById('attClassFilter').value;
+  const sec = document.getElementById('attSectionFilter').value;
   try {
     const all = studentsCache.length ? studentsCache : await req('GET','/api/students');
     if (!studentsCache.length) studentsCache = all;
-    attStudents = cls ? all.filter(s=>s.class===cls) : all;
+    attStudents = all.filter(s => (cls ? s.class === cls : true) && (sec ? s.section === sec : true));
     setHtml('attBody', attStudents.map(s=>`
       <tr>
         <td><code style="font-size:.75rem;color:var(--teal)">${s.studentId}</code></td>
@@ -997,11 +1033,20 @@ function markAllPresent() {
 
 async function submitAttendance() {
   const date = document.getElementById('attDate').value;
+  const cls = document.getElementById('attClassFilter').value;
+  const sec = document.getElementById('attSectionFilter').value;
+  const period = document.getElementById('attPeriod').value;
+  const subject = document.getElementById('attSubject').value;
   if (!date) { toast('Please select a date','err'); return; }
-  const records = attStudents.map(s=>{ const el=document.getElementById('att_'+s.studentId); return { studentId:s.studentId, subject:'All', date, status:(el?el.value:'Present') }; });
+  if (!cls) { toast('Please select a class','err'); return; }
+  if (!sec) { toast('Please select a section','err'); return; }
+  if (!period) { toast('Please select a period','err'); return; }
+  if (!subject) { toast('Please select a subject','err'); return; }
+
+  const records = attStudents.map(s=>{ const el=document.getElementById('att_'+s.studentId); return { studentId:s.studentId, date, class: s.class, section: s.section, period: Number(period), subject, status:(el?el.value:'Present') }; });
   if (!records.length) { toast('No students to mark','err'); return; }
   try {
-    const data = await req('POST','/api/attendance',{records});
+    const data = await req('POST','/api/attendance',{records, markedBy: (USER && USER.email) || ''});
     toast(`✅ ${data.message}`,'ok');
   } catch(e) { toast(e.message,'err'); }
 }

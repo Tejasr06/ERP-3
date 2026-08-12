@@ -33,10 +33,15 @@ const userSchema = new mongoose.Schema({
 const attendanceSchema = new mongoose.Schema({
   studentId: { type: String, required: true },
   date:      { type: String, required: true },
+  class:     { type: String },
+  section:   { type: String },
+  period:    { type: Number, default: 0 }, // 0 = full-day legacy, 1..n = period index
   subject:   { type: String, default: 'All' },
   status:    { type: String, enum: ['Present','Absent','Late','Holiday'], required: true },
+  markedBy:  { type: String },
 }, { timestamps: true });
-attendanceSchema.index({ studentId: 1, date: 1, subject: 1 }, { unique: true });
+// Ensure we don't create duplicates for same student + date + period + subject
+attendanceSchema.index({ studentId: 1, date: 1, period: 1, subject: 1 }, { unique: true });
 
 const marksSchema = new mongoose.Schema({
   studentId: { type: String, required: true },

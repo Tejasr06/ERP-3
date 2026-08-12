@@ -28,13 +28,36 @@ router.get('/students/:id', auth, adminOnly, async (req, res) => {
 
 // ── ATTENDANCE ────────────────────────────────────────
 
-// GET /api/attendance/:studentId
+// GET /api/attendance — query attendance records by filters
+router.get('/attendance', auth, async (req, res) => {
+  const q = {};
+  // allow queries: studentId, date, class, section, period, subject
+  if (req.query.studentId) {
+    if (req.user.role === 'parent' && req.user.studentId !== req.query.studentId)
+      return res.status(403).json({ error: 'Access denied.' });
+    q.studentId = req.query.studentId;
+  }
+  if (req.query.date) q.date = req.query.date;
+  if (req.query.class) q.class = req.query.class;
+  if (req.query.section) q.section = req.query.section;
+  if (req.query.period) q.period = Number(req.query.period);
+  if (req.query.subject) q.subject = req.query.subject;
+
+  const records = await Attendance.find(q).sort({ date: -1, period: 1 });
+  const total   = records.length;
+  const present = records.filter(r => r.status === 'Present').length;
+  const absent  = records.filter(r => r.status === 'Absent').length;
+  const pct     = total > 0 ? Math.round((present / total) * 100) : 0;
+  res.json({ records, summary: { total, present, absent, percentage: pct } });
+});
+
+// GET /api/attendance/:studentId — legacy endpoint (summary across all records)
 router.get('/attendance/:studentId', auth, async (req, res) => {
   // Parents can only see their own child
   if (req.user.role === 'parent' && req.user.studentId !== req.params.studentId)
     return res.status(403).json({ error: 'Access denied.' });
 
-  const records = await Attendance.find({ studentId: req.params.studentId }).sort({ date: -1 });
+  const records = await Attendance.find({ studentId: req.params.studentId }).sort({ date: -1, period: 1 });
   const total   = records.length;
   const present = records.filter(r => r.status === 'Present').length;
   const absent  = records.filter(r => r.status === 'Absent').length;
@@ -44,15 +67,31 @@ router.get('/attendance/:studentId', auth, async (req, res) => {
 
 // POST /api/attendance — admin adds records
 router.post('/attendance', auth, adminOnly, async (req, res) => {
-  const { records } = req.body;
+  const { records, markedBy } = req.body;
   if (!Array.isArray(records)) return res.status(400).json({ error: 'records[] required.' });
+
+  // Validate input fields
+  for (const r of records) {
+    if (!r.studentId) return res.status(400).json({ error: 'studentId required for each record.' });
+    if (!r.date) return res.status(400).json({ error: 'date required for each record.' });
+    if (!r.period && r.period !== 0 && r.period !== '0') return res.status(400).json({ error: 'period required for each record.' });
+    if (!r.class) return res.status(400).json({ error: 'class required for each record.' });
+    if (!r.section) return res.status(400).json({ error: 'section required for each record.' });
+    if (!r.subject) return res.status(400).json({ error: 'subject required for each record.' });
+    if (!r.status) return res.status(400).json({ error: 'status required for each record.' });
+  }
 
   const operations = records.map(record => {
     const normalizedRecord = {
       studentId: record.studentId,
       date: record.date,
+      class: record.class,
+      section: record.section,
+      period: Number(record.period) || 0,
       subject: record.subject || 'All',
       status: record.status,
+      markedBy: markedBy || req.user.email || req.user.name || '',
+      updatedAt: new Date(),
     };
 
     return {
@@ -60,10 +99,12 @@ router.post('/attendance', auth, adminOnly, async (req, res) => {
         filter: {
           studentId: normalizedRecord.studentId,
           date: normalizedRecord.date,
+          period: normalizedRecord.period,
           subject: normalizedRecord.subject,
         },
         update: {
           $set: normalizedRecord,
+          $setOnInsert: { createdAt: new Date() }
         },
         upsert: true,
       },
