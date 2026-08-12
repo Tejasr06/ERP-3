@@ -44,11 +44,41 @@ router.get('/attendance', auth, async (req, res) => {
   if (req.query.subject) q.subject = req.query.subject;
 
   const records = await Attendance.find(q).sort({ date: -1, period: 1 });
-  const total   = records.length;
-  const present = records.filter(r => r.status === 'Present').length;
-  const absent  = records.filter(r => r.status === 'Absent').length;
-  const pct     = total > 0 ? Math.round((present / total) * 100) : 0;
-  res.json({ records, summary: { total, present, absent, percentage: pct } });
+  // Hour-based (period) summary
+  const totalHours = records.length;
+  const presentHours = records.filter(r => r.status === 'Present').length;
+  const absentHours = records.filter(r => r.status === 'Absent').length;
+  const hoursPct = totalHours > 0 ? Math.round((presentHours / totalHours) * 100) : 0;
+
+  // Day-based summary: count unique dates and mark day present if any period present
+  const byDate = {};
+  records.forEach(r => {
+    byDate[r.date] = byDate[r.date] || [];
+    byDate[r.date].push(r);
+  });
+  const dates = Object.keys(byDate).sort((a,b)=>new Date(b)-new Date(a));
+  const totalDays = dates.length;
+  let presentDays = 0, absentDays = 0;
+  dates.forEach(d => {
+    const recs = byDate[d];
+    if (recs.some(x => x.status === 'Present')) presentDays++;
+    else if (recs.every(x => x.status === 'Absent')) absentDays++;
+  });
+  const daysPct = totalDays > 0 ? Math.round((presentDays / totalDays) * 100) : 0;
+
+  // For backward compatibility, top-level summary remains day-based
+  res.json({
+    records,
+    summary: {
+      // day-level
+      total: totalDays,
+      present: presentDays,
+      absent: absentDays,
+      percentage: daysPct,
+      // hour-level nested
+      hours: { total: totalHours, present: presentHours, absent: absentHours, percentage: hoursPct }
+    }
+  });
 });
 
 // GET /api/attendance/:studentId — legacy endpoint (summary across all records)
@@ -58,11 +88,35 @@ router.get('/attendance/:studentId', auth, async (req, res) => {
     return res.status(403).json({ error: 'Access denied.' });
 
   const records = await Attendance.find({ studentId: req.params.studentId }).sort({ date: -1, period: 1 });
-  const total   = records.length;
-  const present = records.filter(r => r.status === 'Present').length;
-  const absent  = records.filter(r => r.status === 'Absent').length;
-  const pct     = total > 0 ? Math.round((present / total) * 100) : 0;
-  res.json({ records, summary: { total, present, absent, percentage: pct } });
+  // Hour-based summary
+  const totalHours = records.length;
+  const presentHours = records.filter(r => r.status === 'Present').length;
+  const absentHours = records.filter(r => r.status === 'Absent').length;
+  const hoursPct = totalHours > 0 ? Math.round((presentHours / totalHours) * 100) : 0;
+
+  // Day-based summary
+  const byDate = {};
+  records.forEach(r => { byDate[r.date] = byDate[r.date] || []; byDate[r.date].push(r); });
+  const dates = Object.keys(byDate).sort((a,b)=>new Date(b)-new Date(a));
+  const totalDays = dates.length;
+  let presentDays = 0, absentDays = 0;
+  dates.forEach(d => {
+    const recs = byDate[d];
+    if (recs.some(x => x.status === 'Present')) presentDays++;
+    else if (recs.every(x => x.status === 'Absent')) absentDays++;
+  });
+  const daysPct = totalDays > 0 ? Math.round((presentDays / totalDays) * 100) : 0;
+
+  res.json({
+    records,
+    summary: {
+      total: totalDays,
+      present: presentDays,
+      absent: absentDays,
+      percentage: daysPct,
+      hours: { total: totalHours, present: presentHours, absent: absentHours, percentage: hoursPct }
+    }
+  });
 });
 
 // POST /api/attendance — admin adds records
