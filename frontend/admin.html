@@ -290,10 +290,6 @@ body::before{content:'';position:fixed;inset:0;z-index:0;background:transparent;
         <div class="stat-card" style="--c:var(--purple)"><div class="stat-val">0</div><div class="stat-lbl">Alerts Sent</div><div class="stat-trend">Notifications delivered</div></div>
       </div>
     </div>
-    <div class="panel">
-      <div class="panel-hd"><div class="panel-title">Recent Achievements</div></div>
-      <div id="recentAchievementsAdmin" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;"></div>
-    </div>
   </div>
 
   <!-- ── IMPORT ── -->
@@ -620,20 +616,27 @@ async function loadRecentAchievements() {
   }
 }
 
+function navigateToDashboardCard(page) {
+  const navItems = document.querySelectorAll('.nav-item');
+  let targetNav = null;
+  if (page === 'students') targetNav = navItems[2];
+  else if (page === 'fees') targetNav = navItems[4];
+  else if (page === 'notifications') targetNav = navItems[6];
+  go(page, targetNav);
+}
+
 async function loadDashboard() {
   try {
     const stats = await req('GET', '/api/dashboard/stats');
     const statsEl = document.getElementById('dashStats');
     if (statsEl) {
       statsEl.innerHTML = `
-        <div class="stat-card" style="--c:var(--teal)"><div class="stat-val">${stats.totalStudents}</div><div class="stat-lbl">Total Students</div><div class="stat-trend up">All enrolled this year</div></div>
-        <div class="stat-card" style="--c:var(--sky)"><div class="stat-val">${stats.totalParents}</div><div class="stat-lbl">Parent Accounts</div><div class="stat-trend up">Active parent logins</div></div>
-        <div class="stat-card" style="--c:var(--gold)"><div class="stat-val">₹${(stats.totalFeesDue/1000).toFixed(0)}K</div><div class="stat-lbl">Fees Pending</div><div class="stat-trend wn">Outstanding fees total</div></div>
-        <div class="stat-card" style="--c:var(--purple)"><div class="stat-val">${stats.alertsSent}</div><div class="stat-lbl">Alerts Sent</div><div class="stat-trend">Notifications delivered</div></div>`;
+        <div class="stat-card" style="--c:var(--teal);cursor:pointer;" onclick="navigateToDashboardCard('students')"><div class="stat-val">${stats.totalStudents}</div><div class="stat-lbl">Total Students</div><div class="stat-trend up">All enrolled this year</div></div>
+        <div class="stat-card" style="--c:var(--sky);cursor:pointer;" onclick="navigateToDashboardCard('students')"><div class="stat-val">${stats.totalParents}</div><div class="stat-lbl">Parent Accounts</div><div class="stat-trend up">Active parent logins</div></div>
+        <div class="stat-card" style="--c:var(--gold);cursor:pointer;" onclick="navigateToDashboardCard('fees')"><div class="stat-val">₹${(stats.totalFeesDue/1000).toFixed(0)}K</div><div class="stat-lbl">Fees Pending</div><div class="stat-trend wn">Outstanding fees total</div></div>
+        <div class="stat-card" style="--c:var(--purple);cursor:pointer;" onclick="navigateToDashboardCard('notifications')"><div class="stat-val">${stats.alertsSent}</div><div class="stat-lbl">Alerts Sent</div><div class="stat-trend">Notifications delivered</div></div>`;
     }
   } catch(e) { toast(e.message,'err'); }
-
-  loadRecentAchievements();
 }
 
 // ── IMPORT ───────────────────────────────────────────
