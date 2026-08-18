@@ -292,6 +292,11 @@ async function doLogin() {
     if (data.student) sessionStorage.setItem('student', JSON.stringify(data.student));
 
     // Redirect
+    if (data.mustChangePassword) {
+      sessionStorage.setItem('token', data.token);
+      window.location.href = 'set-password.html?mode=first-login';
+      return;
+    }
     if (data.user.role === 'admin') window.location.href = 'admin.html';
     else window.location.href = 'dashboard.html';
 

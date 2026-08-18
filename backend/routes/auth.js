@@ -7,9 +7,24 @@ const { sendMail } = require('../middleware/email');
 const { auth } = require('../middleware/auth');
 
 const FRONTEND_URL = process.env.FRONTEND_URL;
+const SCHOOL_STAFF_DOMAIN = '@school.edu.in';
+const DEFAULT_STAFF_PASSWORD = 'Welcome@123';
+
+function normalizeEmail(email) {
+  return String(email || '').trim().toLowerCase();
+}
+
+function isValidSchoolStaffEmail(email) {
+  const normalized = normalizeEmail(email);
+  return /^[^\s@]+@school\.edu\.in$/i.test(normalized);
+}
 
 function getFrontendUrl(req) {
   return FRONTEND_URL || `${req.protocol}://${req.get('host')}`;
+}
+
+function buildJwtPayload(user) {
+  return { id: user._id, email: user.email, role: user.role, studentId: user.studentId, name: user.name };
 }
 
 // POST /api/auth/login
@@ -17,14 +32,15 @@ router.post('/login', async (req, res) => {
   const { email, password, selectedRole } = req.body;
   if (!email || !password) return res.status(400).json({ error: 'Email and password required.' });
 
-  const user = await User.findOne({ email: email.toLowerCase() });
+  const normalizedEmail = normalizeEmail(email);
+  const user = await User.findOne({ email: normalizedEmail });
   if (!user) return res.status(401).json({ error: 'Invalid email or password.' });
 
   const valid = await bcrypt.compare(password, user.password);
   if (!valid) return res.status(401).json({ error: 'Invalid email or password.' });
 
-  const normalizedRole = selectedRole === 'staff' ? 'staff' : (selectedRole === 'parent' || selectedRole === 'student' ? 'parent' : selectedRole);
-  const allowedRoles = normalizedRole === 'parent' ? ['parent'] : ['admin', 'staff'];
+  const normalizedRole = selectedRole === 'parent' || selectedRole === 'student' ? 'parent' : 'admin';
+  const allowedRoles = normalizedRole === 'parent' ? ['parent'] : ['admin'];
 
   if (!allowedRoles.includes(user.role)) {
     return res.status(403).json({
@@ -32,6 +48,10 @@ router.post('/login', async (req, res) => {
         ? 'This account is not authorized to sign in to the parent portal.'
         : 'This account is not authorized to sign in to the staff portal.',
     });
+  }
+
+  if (user.role === 'admin' && !isValidSchoolStaffEmail(user.email) && user.email !== 'admin@school.edu') {
+    return res.status(403).json({ error: 'This staff account is not authorized for this school domain.' });
   }
 
   if (user.role === 'parent' && !user.passwordSet) {
@@ -45,16 +65,33 @@ router.post('/login', async (req, res) => {
     studentInfo = await Student.findOne({ studentId: user.studentId });
   }
 
-  const token = jwt.sign(
-    { id: user._id, email: user.email, role: user.role, studentId: user.studentId, name: user.name },
-    process.env.JWT_SECRET,
-    { expiresIn: '10h' }
-  );
+  const token = jwt.sign(buildJwtPayload(user), process.env.JWT_SECRET, { expiresIn: '10h' });
+
+  const safeUser = {
+    id: user._id,
+    name: user.name,
+    email: user.email,
+    role: user.role,
+    studentId: user.studentId,
+    passwordSet: user.passwordSet,
+    mustChangePassword: !!user.mustChangePassword,
+  };
+
+  if (user.mustChangePassword) {
+    return res.json({
+      token,
+      user: safeUser,
+      student: studentInfo,
+      mustChangePassword: true,
+      message: 'Password change required for first-time staff login.',
+    });
+  }
 
   res.json({
     token,
-    user: { id: user._id, name: user.name, email: user.email, role: user.role, studentId: user.studentId, passwordSet: user.passwordSet },
-    student: studentInfo
+    user: safeUser,
+    student: studentInfo,
+    mustChangePassword: false,
   });
 });
 
@@ -69,11 +106,42 @@ router.post('/set-password', async (req, res) => {
 
   user.password    = await bcrypt.hash(newPassword, 10);
   user.passwordSet = true;
+  user.mustChangePassword = false;
   user.resetToken  = undefined;
   user.resetExpires = undefined;
   await user.save();
 
   res.json({ message: 'Password set successfully. You can now log in.' });
+});
+
+// POST /api/auth/first-login-set-password — staff must change temp password after valid login
+router.post('/first-login-set-password', auth, async (req, res) => {
+  const { newPassword } = req.body;
+  if (!newPassword) return res.status(400).json({ error: 'New password required.' });
+  if (newPassword.length < 6) return res.status(400).json({ error: 'Password must be at least 6 characters.' });
+
+  const user = await User.findById(req.user.id);
+  if (!user) return res.status(404).json({ error: 'User not found.' });
+
+  if (!user.mustChangePassword && user.role !== 'admin') {
+    return res.status(400).json({ error: 'This account does not require a password reset.' });
+  }
+
+  if (user.role === 'admin' && !isValidSchoolStaffEmail(user.email) && user.email !== 'admin@school.edu') {
+    return res.status(403).json({ error: 'This staff account is not approved for the school email domain.' });
+  }
+
+  user.password = await bcrypt.hash(newPassword, 10);
+  user.passwordSet = true;
+  user.mustChangePassword = false;
+  user.resetToken = undefined;
+  user.resetExpires = undefined;
+  await user.save();
+
+  res.json({
+    message: 'Password updated successfully. Redirecting to the staff dashboard.',
+    user: { id: user._id, name: user.name, email: user.email, role: user.role },
+  });
 });
 
 // POST /api/auth/forgot-password — send reset link
@@ -110,8 +178,13 @@ router.post('/change-password', auth, async (req, res) => {
 
   user.password = await bcrypt.hash(newPassword, 10);
   user.passwordSet = true;
+  user.mustChangePassword = false;
   await user.save();
   res.json({ message: 'Password changed successfully.' });
 });
 
 module.exports = router;
+module.exports.normalizeEmail = normalizeEmail;
+module.exports.isValidSchoolStaffEmail = isValidSchoolStaffEmail;
+module.exports.DEFAULT_STAFF_PASSWORD = DEFAULT_STAFF_PASSWORD;
+module.exports.SCHOOL_STAFF_DOMAIN = SCHOOL_STAFF_DOMAIN;

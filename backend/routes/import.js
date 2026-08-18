@@ -7,9 +7,71 @@ const fs      = require('fs');
 const { Student, User, Fee, Notification, Marks } = require('../models');
 const { auth, adminOnly } = require('../middleware/auth');
 const { sendMail, sendMailToParent, passwordSetupEmail, notificationEmail } = require('../middleware/email');
+const { normalizeEmail, isValidSchoolStaffEmail, DEFAULT_STAFF_PASSWORD } = require('./auth');
 
 const upload = multer({ dest: 'uploads/' });
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
+
+// POST /api/import/staff
+// JSON body example: { "staff": [{"name":"Rahul Kumar","email":"rahul@school.edu.in"},{"name":"Priya Nair","email":"priya@school.edu.in"}] }
+router.post('/staff', auth, adminOnly, async (req, res) => {
+  try {
+    const rows = Array.isArray(req.body?.staff) ? req.body.staff : (Array.isArray(req.body?.rows) ? req.body.rows : []);
+    if (!rows.length) return res.status(400).json({ error: 'No staff records provided.' });
+
+    const results = { created: 0, updated: 0, errors: [], skipped: 0 };
+
+    for (const item of rows) {
+      const name = String(item?.name || '').trim();
+      const email = normalizeEmail(item?.email || item?.Email || '');
+
+      if (!name || !email) {
+        results.errors.push('Row skipped: missing name or email.');
+        results.skipped++;
+        continue;
+      }
+
+      if (!isValidSchoolStaffEmail(email)) {
+        results.errors.push(`${email} is not an authorized school email. Use a @school.edu.in address.`);
+        results.skipped++;
+        continue;
+      }
+
+      const existing = await User.findOne({ email });
+      const hashed = await bcrypt.hash(DEFAULT_STAFF_PASSWORD, 10);
+
+      if (existing) {
+        existing.name = name;
+        existing.email = email;
+        existing.role = 'admin';
+        existing.password = hashed;
+        existing.passwordSet = true;
+        existing.mustChangePassword = true;
+        existing.resetToken = undefined;
+        existing.resetExpires = undefined;
+        await existing.save();
+        results.updated++;
+      } else {
+        await User.create({
+          name,
+          email,
+          password: hashed,
+          role: 'admin',
+          passwordSet: true,
+          mustChangePassword: true,
+        });
+        results.created++;
+      }
+    }
+
+    res.json({
+      message: `Staff authorization complete. ${results.created} created, ${results.updated} updated, ${results.skipped} skipped.`,
+      results,
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to authorize staff: ' + err.message });
+  }
+});
 
 // POST /api/import/students
 // Excel columns: Student_ID, Name, Class, Section, Parent_Name, Parent_Email,

@@ -20,14 +20,15 @@ const studentSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 const userSchema = new mongoose.Schema({
-  email:        { type: String, required: true, unique: true, lowercase: true },
-  password:     { type: String, required: true },
-  role:         { type: String, enum: ['parent','admin'], default: 'parent' },
-  studentId:    { type: String },
-  name:         { type: String },
-  passwordSet:  { type: Boolean, default: false },
-  resetToken:   { type: String },
-  resetExpires: { type: Date },
+  email:             { type: String, required: true, unique: true, lowercase: true },
+  password:          { type: String, required: true },
+  role:              { type: String, enum: ['parent','admin'], default: 'parent' },
+  studentId:         { type: String },
+  name:              { type: String },
+  passwordSet:       { type: Boolean, default: false },
+  mustChangePassword:{ type: Boolean, default: false },
+  resetToken:        { type: String },
+  resetExpires:      { type: Date },
 }, { timestamps: true });
 
 const attendanceSchema = new mongoose.Schema({

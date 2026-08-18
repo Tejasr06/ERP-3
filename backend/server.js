@@ -111,8 +111,8 @@ async function seedAdmin() {
   const exists = await User.findOne({ role: 'admin' });
   if (!exists) {
     const hashed = await bcrypt.hash('Admin@123', 10);
-    await User.create({ email: 'admin@school.edu', password: hashed, role: 'admin', name: 'School Admin', passwordSet: true });
-    console.log('✅ Admin created: admin@school.edu / Admin@123');
+    await User.create({ email: 'admin@school.edu.in', password: hashed, role: 'admin', name: 'School Admin', passwordSet: true, mustChangePassword: true });
+    console.log('✅ Admin created: admin@school.edu.in / Admin@123');
     console.log('   ⚠️  Change password after first login!');
   }
 }
