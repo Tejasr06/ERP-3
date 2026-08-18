@@ -278,7 +278,7 @@ async function doLogin() {
   btn.innerHTML = '<span class="spin"></span> ' + window.t('auth.signingIn');
 
   try {
-    const res  = await fetch('https://erp-3-dgz3.onrender.com/api/auth/login', {
+    const res  = await fetch('/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password, selectedRole }),
