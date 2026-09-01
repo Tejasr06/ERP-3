@@ -158,6 +158,17 @@ body::before{content:'';position:fixed;inset:0;z-index:0;background:transparent;
 .al-msg{color:var(--muted2);line-height:1.5;margin-bottom:3px;}
 .al-time{font-size:.68rem;color:var(--muted);}
 
+/* FACE RECOGNITION */
+.face-panel{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:18px;margin-bottom:18px;}
+.face-status{padding:10px 12px;border-radius:10px;background:rgba(87,132,215,.08);border:1px solid rgba(87,132,215,.18);font-size:.8rem;color:var(--muted);margin-bottom:12px;line-height:1.5;}
+.face-layout{display:grid;grid-template-columns:1.5fr .9fr;gap:14px;align-items:start;}
+.face-video-wrap{position:relative;aspect-ratio:4/3;border-radius:12px;background:#0b1020;border:1px solid rgba(255,255,255,.06);overflow:hidden;min-height:260px;display:flex;align-items:center;justify-content:center;}
+#faceVideo{width:100%;height:100%;object-fit:cover;display:block;background:#0b1020;}
+.face-results{padding:12px;border:1px solid var(--border);border-radius:12px;background:rgba(255,255,255,.02);min-height:260px;}
+.face-result-item{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;border:1px solid var(--border);border-radius:9px;background:rgba(255,255,255,.04);font-size:.78rem;color:var(--text);}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;}
+.dot.ok{background:var(--green);box-shadow:0 0 10px rgba(22,163,74,.75);} .dot.warn{background:var(--gold);box-shadow:0 0 10px rgba(245,158,11,.7);} .dot.err{background:var(--coral);box-shadow:0 0 10px rgba(239,68,68,.7);}
+
 /* TOAST */
 #toast{position:fixed;bottom:22px;right:22px;z-index:999;display:flex;flex-direction:column;gap:8px;max-width:320px;}
 .toast-item{padding:12px 16px;border-radius:10px;font-size:.83rem;background:var(--card2);border:1px solid var(--border2);box-shadow:0 8px 22px rgba(0,0,0,.4);animation:toastIn .3s ease;display:flex;align-items:center;gap:8px;}
@@ -212,7 +223,6 @@ body::before{content:'';position:fixed;inset:0;z-index:0;background:transparent;
     <div class="nav-item" onclick="go('marks',this)"><i class="fa fa-edit"></i> <span data-i18n="dashboard.manageMarks">Manage Marks</span></div>
     <div class="nav-item" onclick="go('attendance',this)"><i class="fa fa-calendar-check"></i> <span data-i18n="common.attendance">Attendance</span></div>
     <div class="nav-item" onclick="go('fees',this)"><i class="fa fa-rupee-sign"></i> <span data-i18n="dashboard.feeRecords">Fee Records</span></div>
-    <div class="nav-item"><a href="/admin/bus" style="display:flex;align-items:center;gap:10px;color:inherit;text-decoration:none;"><i class="fa fa-bus"></i> Bus Tracking</a></div>
     <div class="nav-label">Communication</div>
     <div class="nav-item" onclick="go('contactParent',this)"><i class="fab fa-whatsapp"></i> <span data-i18n="dashboard.contactParent">Contact Parent</span></div>
     <div class="nav-item" onclick="go('notifications',this)"><i class="fa fa-bell"></i> <span data-i18n="dashboard.sendNotifications">Send Notifications</span></div>
@@ -418,6 +428,39 @@ body::before{content:'';position:fixed;inset:0;z-index:0;background:transparent;
         <button class="btn btn-danger" onclick="submitAttendance()"><i class="fa fa-save"></i> Submit Attendance</button>
       </div>
     </div>
+
+    <div class="face-panel">
+      <div class="panel-hd" style="margin-bottom:8px;">
+        <div class="panel-title">Face Recognition Attendance</div>
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px;">
+        <div class="field" style="margin:0;flex:1;min-width:180px;">
+          <label>Student for Registration</label>
+          <select id="faceStudentSelect" style="padding:9px 12px;border-radius:8px;border:1px solid var(--border);background:rgba(255,255,255,.04);color:var(--text);font-size:.82rem;outline:none;width:100%;">
+            <option value="">Select student</option>
+          </select>
+        </div>
+      </div>
+      <div id="faceStatus" class="face-status">Camera idle. Start a session to register or recognize faces.</div>
+      <div class="face-layout">
+        <div class="face-video-wrap">
+          <video id="faceVideo" autoplay muted playsinline></video>
+        </div>
+        <div class="face-results">
+          <div style="font-size:.76rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px;font-weight:700;">Recognized Students</div>
+          <div id="faceRecognizedList" style="display:flex;flex-direction:column;gap:8px;">
+            <div class="face-result-item"><span>No recognized students yet</span><span class="dot warn"></span></div>
+          </div>
+        </div>
+      </div>
+      <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn btn-primary" id="faceStartBtn" onclick="startFaceSession()"><i class="fa fa-video"></i> Start Camera</button>
+        <button class="btn btn-danger" id="faceStopBtn" onclick="stopFaceSession()" style="display:none;"><i class="fa fa-video-slash"></i> Stop Camera</button>
+        <button class="btn btn-primary" id="faceCaptureBtn" onclick="captureFaceSamples()" disabled><i class="fa fa-camera"></i> Capture Sample</button>
+        <button class="btn btn-primary" id="faceRegisterBtn" onclick="registerFaceSamples()" disabled><i class="fa fa-user-check"></i> Register Face</button>
+        <button class="btn btn-danger" id="faceRecognizeBtn" onclick="recognizeFaceAttendance()" disabled><i class="fa fa-id-badge"></i> Recognize & Mark Present</button>
+      </div>
+    </div>
   </div>
 
   <!-- ── FEES ── -->
@@ -532,9 +575,17 @@ window.addEventListener('unhandledrejection', function(ev){
 });
 
 // ── AUTH GUARD ───────────────────────────────────────
+function safeJsonParse(value, fallback = null) {
+  if (!value) return fallback;
+  try { return JSON.parse(value); } catch { return fallback; }
+}
+
 const TOKEN = sessionStorage.getItem('token');
-const USER  = JSON.parse(sessionStorage.getItem('user') || 'null');
-if (!TOKEN || !USER || USER.role !== 'admin') location.href = 'index.html';
+const USER  = safeJsonParse(sessionStorage.getItem('user'), null);
+if (!TOKEN || !USER || USER.role !== 'admin') {
+  sessionStorage.clear();
+  location.href = 'index.html';
+}
 
 const sUserNameEl = document.getElementById('sUserName');
 if (sUserNameEl) sUserNameEl.textContent = USER.name || 'Admin';
@@ -979,6 +1030,10 @@ async function submitMarks() {
 
 // ── ATTENDANCE ────────────────────────────────────────
 let attStudents = [];
+let faceStream = null;
+let faceSampleFrames = [];
+let faceRecognitionSessionActive = false;
+
 async function loadAttendancePage() {
   document.getElementById('todayLbl').textContent = new Date().toLocaleDateString('en-IN',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
   document.getElementById('attDate').value = new Date().toISOString().slice(0,10);
@@ -994,10 +1049,226 @@ async function loadAttendancePage() {
   perEl.innerHTML = cfg.periods.map(p=>`<option value="${p.id}">${p.name}</option>`).join('');
   const subEl = document.getElementById('attSubject');
   subEl.innerHTML = cfg.subjects.map(s=>`<option value="${s}">${s}</option>`).join('');
+  const faceStudentSelect = document.getElementById('faceStudentSelect');
+  if (faceStudentSelect) {
+    faceStudentSelect.innerHTML = '<option value="">Select student</option>' + all.map(s => `<option value="${s.studentId}">${s.name} (${s.studentId})</option>`).join('');
+  }
   // build section list
   const secs = [...new Set(all.map(s=>s.section))].sort();
   document.getElementById('attSectionFilter').innerHTML = '<option value="">All Sections</option>' + secs.map(s=>`<option>${s}</option>`).join('');
   loadAttStudents();
+  loadRegisteredFaceStudents();
+}
+
+async function loadRegisteredFaceStudents() {
+  try {
+    const list = await req('GET', '/api/face/registered');
+    const out = document.getElementById('faceRecognizedList');
+    if (!out) return;
+    if (!list.length) {
+      out.innerHTML = '<div class="face-result-item"><span>No registered face samples yet</span><span class="dot warn"></span></div>';
+      return;
+    }
+    out.innerHTML = list.map(item => `<div class="face-result-item"><span>${item.studentId} (${item.sampleCount} samples)</span><span class="dot ok"></span></div>`).join('');
+  } catch {
+    const out = document.getElementById('faceRecognizedList');
+    if (out) out.innerHTML = '<div class="face-result-item"><span>Face database unavailable</span><span class="dot err"></span></div>';
+  }
+}
+
+async function startFaceSession() {
+  const video = document.getElementById('faceVideo');
+  const status = document.getElementById('faceStatus');
+  const startBtn = document.getElementById('faceStartBtn');
+  const stopBtn = document.getElementById('faceStopBtn');
+  const captureBtn = document.getElementById('faceCaptureBtn');
+  const registerBtn = document.getElementById('faceRegisterBtn');
+  const recognizeBtn = document.getElementById('faceRecognizeBtn');
+
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    status.textContent = 'This browser does not support webcam access on this device.';
+    status.style.color = 'var(--coral)';
+    return;
+  }
+
+  try {
+    if (faceStream) {
+      faceStream.getTracks().forEach(track => track.stop());
+      faceStream = null;
+    }
+    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
+    faceStream = stream;
+    video.srcObject = stream;
+    video.play();
+    faceRecognitionSessionActive = true;
+    status.textContent = 'Camera ready. Choose a student, capture 3–5 samples, then register or recognize.';
+    status.style.color = 'var(--teal)';
+    startBtn.style.display = 'none';
+    stopBtn.style.display = 'inline-flex';
+    captureBtn.disabled = false;
+    registerBtn.disabled = false;
+    recognizeBtn.disabled = false;
+    faceSampleFrames = [];
+  } catch (error) {
+    status.textContent = 'Unable to access the webcam. Please allow camera permission and try again.';
+    status.style.color = 'var(--coral)';
+    console.error(error);
+  }
+}
+
+function stopFaceSession() {
+  const video = document.getElementById('faceVideo');
+  const status = document.getElementById('faceStatus');
+  const startBtn = document.getElementById('faceStartBtn');
+  const stopBtn = document.getElementById('faceStopBtn');
+  const captureBtn = document.getElementById('faceCaptureBtn');
+  const registerBtn = document.getElementById('faceRegisterBtn');
+  const recognizeBtn = document.getElementById('faceRecognizeBtn');
+
+  if (faceStream) {
+    faceStream.getTracks().forEach(track => track.stop());
+    faceStream = null;
+  }
+  
+  video.srcObject = null;
+  faceRecognitionSessionActive = false;
+  status.textContent = 'Camera offline. Click Start Camera to resume.';
+  status.style.color = 'var(--muted)';
+  startBtn.style.display = 'inline-flex';
+  stopBtn.style.display = 'none';
+  captureBtn.disabled = true;
+  registerBtn.disabled = true;
+  recognizeBtn.disabled = true;
+  faceSampleFrames = [];
+}
+
+function captureFaceSamples() {
+  const video = document.getElementById('faceVideo');
+  const status = document.getElementById('faceStatus');
+  const studentId = document.getElementById('faceStudentSelect').value;
+
+  if (!faceRecognitionSessionActive) {
+    status.textContent = 'Start the camera before capturing face samples.';
+    status.style.color = 'var(--coral)';
+    return;
+  }
+  if (!studentId) {
+    status.textContent = 'Select a student before capturing face samples.';
+    status.style.color = 'var(--coral)';
+    return;
+  }
+
+  const canvas = document.createElement('canvas');
+  canvas.width = video.videoWidth || 640;
+  canvas.height = video.videoHeight || 480;
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+  faceSampleFrames.push(canvas.toDataURL('image/png'));
+
+  const remaining = Math.max(0, 5 - faceSampleFrames.length);
+  status.textContent = `Sample captured (${faceSampleFrames.length}/5). ${remaining > 0 ? `${remaining} more remaining.` : 'Ready to register.'}`;
+  status.style.color = 'var(--teal)';
+
+  if (faceSampleFrames.length >= 5) {
+    status.textContent = '5 samples captured. You can register the face now.';
+    status.style.color = 'var(--teal)';
+  }
+}
+
+async function registerFaceSamples() {
+  const studentId = document.getElementById('faceStudentSelect').value;
+  const status = document.getElementById('faceStatus');
+
+  if (!studentId) {
+    status.textContent = 'Select a student before registering the face.';
+    status.style.color = 'var(--coral)';
+    return;
+  }
+  if (faceSampleFrames.length < 3) {
+    status.textContent = 'At least 3 valid face samples are required for registration.';
+    status.style.color = 'var(--coral)';
+    return;
+  }
+
+  try {
+    status.textContent = 'Registering face samples...';
+    status.style.color = 'var(--teal)';
+    const data = await req('POST', '/api/face/register', { studentId, samples: faceSampleFrames.slice(0, 5) });
+    toast(data.message || 'Face registration complete.', 'ok');
+    status.textContent = data.message || 'Face samples registered successfully.';
+    status.style.color = 'var(--green)';
+    faceSampleFrames = [];
+    await loadRegisteredFaceStudents();
+  } catch (error) {
+    status.textContent = error.message || 'Face registration failed.';
+    status.style.color = 'var(--coral)';
+    toast(error.message, 'err');
+  }
+}
+
+async function recognizeFaceAttendance() {
+  const video = document.getElementById('faceVideo');
+  const status = document.getElementById('faceStatus');
+  const date = document.getElementById('attDate').value;
+  const className = document.getElementById('attClassFilter').value;
+  const section = document.getElementById('attSectionFilter').value;
+  const period = document.getElementById('attPeriod').value;
+  const subject = document.getElementById('attSubject').value;
+
+  if (!faceRecognitionSessionActive || !faceStream) {
+    status.textContent = 'Start the camera before recognition.';
+    status.style.color = 'var(--coral)';
+    return;
+  }
+  if (!date || !className || !section || !period || !subject) {
+    status.textContent = 'Select class, section, date, period, and subject before recognizing attendance.';
+    status.style.color = 'var(--coral)';
+    return;
+  }
+
+  try {
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth || 640;
+    canvas.height = video.videoHeight || 480;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    const imageData = canvas.toDataURL('image/png');
+
+    status.textContent = 'Recognizing face and marking attendance...';
+    status.style.color = 'var(--teal)';
+    const data = await req('POST', '/api/face/recognize', {
+      image: imageData,
+      date,
+      className,
+      section,
+      period,
+      subject,
+      status: 'Present',
+    });
+
+    const out = document.getElementById('faceRecognizedList');
+    if (out) {
+      const item = data.recognized ? `${data.studentName} (${data.studentId})` : 'Unknown face';
+      const dot = data.recognized ? 'ok' : 'warn';
+      out.innerHTML = `<div class="face-result-item"><span>${item}</span><span class="dot ${dot}"></span></div>` + (data.recognized ? '' : '<div class="face-result-item"><span>Attendance not marked</span><span class="dot warn"></span></div>');
+    }
+
+    if (data.recognized) {
+      toast(data.message || 'Recognized student marked present.', data.duplicate ? 'info' : 'ok');
+      status.textContent = `${data.studentName} (${data.studentId}) recognized. ${data.duplicate ? 'Attendance already exists for this hour.' : 'Marked present.'}`;
+      status.style.color = data.duplicate ? 'var(--gold)' : 'var(--green)';
+      const studentEl = document.getElementById(`att_${data.studentId}`);
+      if (studentEl) studentEl.value = 'Present';
+    } else {
+      toast(data.message || 'Unknown face; not marked present.', 'info');
+      status.textContent = data.message || 'Unknown face. No attendance was marked.';
+      status.style.color = 'var(--gold)';
+    }
+  } catch (error) {
+    status.textContent = error.message || 'Recognition failed.';
+    status.style.color = 'var(--coral)';
+    toast(error.message, 'err');
+  }
 }
 
 function onClassChange() {

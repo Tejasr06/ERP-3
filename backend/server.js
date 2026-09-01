@@ -21,9 +21,16 @@ process.on('unhandledRejection', err => console.error('Unhandled rejection:', er
 
 // ── Middleware ────────────────────────────────────────
 app.use(cors({ origin: '*' }));
-app.use(express.json());
+app.use(express.json({ limit: '20mb' }));
 app.use(express.static(path.join(__dirname, '../frontend')));
 app.use('/uploads', express.static(path.join(__dirname, './uploads')));
+
+app.use((err, req, res, next) => {
+  if (err && err.type === 'entity.too.large') {
+    return res.status(413).json({ error: 'Upload payload too large. Please reduce the image size or try fewer samples.' });
+  }
+  next(err);
+});
 
 // Serve generated receipt PDFs
 app.get('/api/receipts/:receiptId', async (req, res, next) => {
@@ -77,6 +84,7 @@ mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/educonnect'
   .then(() => {
     console.log('✅ MongoDB connected');
     seedAdmin().catch(err => console.error('⚠️  Admin seed failed:', err.message));
+    seedAuthorizedStaffAccounts().catch(err => console.error('⚠️  Staff seed failed:', err.message));
   })
   .catch(err => console.error('❌ MongoDB error:', err.message));
 
@@ -85,7 +93,6 @@ app.use('/api/auth',          require('./routes/auth'));
 app.use('/api',               require('./routes/fees'));          // Before api.js (has /fees/:studentId)
 app.use('/api',               require('./routes/api'));
 app.use('/api',               require('./routes/notifications')); // In-app notifications
-app.use('/api',               require('./routes/bus'));
 app.use('/api',               require('./routes/achievements'));
 app.use('/api/import',        require('./routes/import'));
 
@@ -97,8 +104,6 @@ app.get('/achievement-wall.html', (_, res) => res.sendFile(path.join(__dirname, 
 app.get('/achievement-wall', (_, res) => res.redirect('/achievement-wall.html'));
 app.get('/fees',          (_, res) => res.sendFile(path.join(__dirname, '../frontend/fees.html')));
 app.get('/admin/fees',    (_, res) => res.sendFile(path.join(__dirname, '../frontend/admin-fees.html')));
-app.get('/bus-tracker',   (_, res) => res.sendFile(path.join(__dirname, '../frontend/bus-tracker.html')));
-app.get('/admin/bus',     (_, res) => res.sendFile(path.join(__dirname, '../frontend/admin-bus.html')));
 app.get('/set-password.html', (_, res) => res.sendFile(path.join(__dirname, '../frontend/set-password.html')));
 
 // ── 404 ───────────────────────────────────────────────
@@ -114,6 +119,32 @@ async function seedAdmin() {
     await User.create({ email: 'admin@school.edu.in', password: hashed, role: 'admin', name: 'School Admin', passwordSet: true, mustChangePassword: true });
     console.log('✅ Admin created: admin@school.edu.in / Admin@123');
     console.log('   ⚠️  Change password after first login!');
+  }
+}
+
+async function seedAuthorizedStaffAccounts() {
+  if (mongoose.connection.readyState !== 1) return;
+  const { User } = require('./models');
+  const demoStaff = [
+    { name: 'Rahul Kumar', email: 'rahul@school.edu.in' },
+    { name: 'Priya Nair', email: 'priya@school.edu.in' },
+    { name: 'Arun Sharma', email: 'arun@school.edu.in' },
+  ];
+
+  for (const staff of demoStaff) {
+    const existing = await User.findOne({ email: staff.email.toLowerCase() });
+    if (!existing) {
+      const hashed = await bcrypt.hash('Welcome@123', 10);
+      await User.create({
+        name: staff.name,
+        email: staff.email.toLowerCase(),
+        password: hashed,
+        role: 'admin',
+        passwordSet: true,
+        mustChangePassword: true,
+      });
+      console.log(`✅ Demo staff created: ${staff.email} / Welcome@123`);
+    }
   }
 }
 

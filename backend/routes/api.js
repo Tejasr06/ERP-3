@@ -1,8 +1,90 @@
+const fs = require('fs');
+const path = require('path');
+const { spawnSync } = require('child_process');
 const router = require('express').Router();
 const { Student, Attendance, Marks, Fee, Notification, Message, AlertLog, User, Payment } = require('../models');
 const { auth, adminOnly } = require('../middleware/auth');
 const { sendMail, sendMailToParent, sendMailToParentWithOptions, notificationEmail, attendanceAlertEmail } = require('../middleware/email');
 const { generateReceiptPDF } = require('../utils/pdfGenerator');
+const { resolvePythonExecutable } = require('../utils/pythonCommand');
+
+const FACE_DATA_DIR = path.join(__dirname, '../uploads/faces');
+
+function ensureFaceDir() {
+  fs.mkdirSync(FACE_DATA_DIR, { recursive: true });
+}
+
+function decodeDataUrl(dataUrl) {
+  if (!dataUrl || typeof dataUrl !== 'string') return null;
+  const match = dataUrl.match(/^data:(image\/(png|jpeg|jpg|webp|bmp));base64,(.*)$/i);
+  if (!match) return null;
+  return { mime: match[1], buffer: Buffer.from(match[3], 'base64') };
+}
+
+function runPythonFaceScript(args) {
+  const python = resolvePythonExecutable();
+  const commandArgs = python.args.concat([path.join(__dirname, '../face_recognition_service.py'), ...args]);
+  const result = spawnSync(python.cmd, commandArgs, {
+    cwd: path.join(__dirname, '..'),
+    encoding: 'utf8',
+    maxBuffer: 1024 * 1024 * 10,
+  });
+
+  const stdout = (result.stdout || '').trim();
+  const stderr = (result.stderr || '').trim();
+  if (result.error) {
+    throw result.error;
+  }
+
+  let payload = null;
+  try {
+    payload = stdout ? JSON.parse(stdout) : null;
+  } catch {
+    payload = { ok: false, message: stderr || stdout || 'Python face recognition failed.' };
+  }
+
+  if (!payload || payload.ok === false) {
+    const message = payload?.message || stderr || 'Python face recognition failed.';
+    throw new Error(message);
+  }
+
+  return payload;
+}
+
+async function markAttendanceRecord({ studentId, date, className, section, period, subject, status, markedBy }) {
+  const normalized = {
+    studentId,
+    date,
+    class: className,
+    section,
+    period: Number(period) || 0,
+    subject: subject || 'All',
+    status,
+    markedBy: markedBy || 'Face Recognition',
+  };
+
+  const existing = await Attendance.findOne({
+    studentId: normalized.studentId,
+    date: normalized.date,
+    period: normalized.period,
+    subject: normalized.subject,
+  }).lean();
+
+  if (existing) {
+    if (existing.status === 'Present' && normalized.status === 'Present') {
+      return { upserted: false, duplicate: true, record: existing };
+    }
+    const updated = await Attendance.findOneAndUpdate(
+      { studentId: normalized.studentId, date: normalized.date, period: normalized.period, subject: normalized.subject },
+      { $set: { ...normalized, updatedAt: new Date() } },
+      { new: true }
+    );
+    return { upserted: false, duplicate: false, record: updated };
+  }
+
+  const created = await Attendance.create({ ...normalized, createdAt: new Date(), updatedAt: new Date() });
+  return { upserted: true, duplicate: false, record: created };
+}
 
 // ── STUDENTS ─────────────────────────────────────────
 
@@ -206,6 +288,144 @@ async function checkAttendanceAlert(studentId) {
     await AlertLog.create({ recipient: student.parentEmail, type: 'Email', subject: title, message: msg });
   }
 }
+
+// ── FACE RECOGNITION ───────────────────────────────────
+router.get('/face/students', auth, adminOnly, async (req, res) => {
+  const students = await Student.find().select('studentId name class section').sort({ name: 1 });
+  res.json(students);
+});
+
+router.get('/face/registered', auth, adminOnly, async (req, res) => {
+  ensureFaceDir();
+  const folders = fs.readdirSync(FACE_DATA_DIR, { withFileTypes: true })
+    .filter(entry => entry.isDirectory())
+    .map(entry => ({ studentId: entry.name, sampleCount: fs.readdirSync(path.join(FACE_DATA_DIR, entry.name)).filter(file => /\.(jpg|jpeg|png|bmp|webp)$/i.test(file)).length }))
+    .sort((a, b) => a.studentId.localeCompare(b.studentId));
+  res.json(folders);
+});
+
+router.post('/face/register', auth, adminOnly, async (req, res) => {
+  const { studentId, samples } = req.body || {};
+  if (!studentId) return res.status(400).json({ error: 'studentId required.' });
+  if (!Array.isArray(samples) || samples.length < 3 || samples.length > 5) {
+    return res.status(400).json({ error: 'Provide 3 to 5 face samples.' });
+  }
+
+  for (const sample of samples) {
+    if (typeof sample !== 'string' || !sample.startsWith('data:image/')) {
+      return res.status(400).json({ error: 'Each face sample must be a valid image data URL.' });
+    }
+  }
+
+  const student = await Student.findOne({ studentId });
+  if (!student) return res.status(404).json({ error: 'Student not found.' });
+
+  ensureFaceDir();
+  const studentFaceDir = path.join(FACE_DATA_DIR, studentId);
+  fs.mkdirSync(studentFaceDir, { recursive: true });
+  for (const file of fs.readdirSync(studentFaceDir)) {
+    fs.unlinkSync(path.join(studentFaceDir, file));
+  }
+
+  const savedFiles = [];
+  for (let i = 0; i < samples.length; i += 1) {
+    const sample = decodeDataUrl(samples[i]);
+    if (!sample) return res.status(400).json({ error: 'Invalid image sample provided.' });
+    const filePath = path.join(studentFaceDir, `sample_${i + 1}.png`);
+    fs.writeFileSync(filePath, sample.buffer);
+    savedFiles.push(filePath);
+  }
+
+  try {
+    const validation = runPythonFaceScript(['--validate-samples', '--student-dir', studentFaceDir]);
+    if (!validation.valid) {
+      return res.status(400).json({ error: validation.message || 'Face samples were not valid.' });
+    }
+
+    res.json({
+      message: `Face registration saved for ${student.name} (${studentId}).`,
+      studentId,
+      sampleCount: savedFiles.length,
+    });
+  } catch (error) {
+    return res.status(400).json({ error: error.message || 'Unable to validate face samples.' });
+  }
+});
+
+router.post('/face/recognize', auth, adminOnly, async (req, res) => {
+  const { image, date, className, section, period, subject, status } = req.body || {};
+  if (!image) return res.status(400).json({ error: 'Image data is required.' });
+
+  const selectedDate = date || new Date().toISOString().slice(0, 10);
+  const selectedClass = className || req.body.class || '';
+  const selectedSection = section || req.body.section || '';
+  const selectedPeriod = Number(period || req.body.period || 0);
+  const selectedSubject = subject || req.body.subject || 'All';
+  const selectedStatus = status || 'Present';
+
+  ensureFaceDir();
+  const tempImagePath = path.join(FACE_DATA_DIR, `snapshot_${Date.now()}.png`);
+  const decoded = decodeDataUrl(image);
+  if (!decoded) return res.status(400).json({ error: 'Invalid image payload.' });
+  fs.writeFileSync(tempImagePath, decoded.buffer);
+
+  try {
+    const result = runPythonFaceScript(['--recognize', '--image', tempImagePath, '--data-dir', FACE_DATA_DIR]);
+    if (!result.recognized || !result.studentId) {
+      try { fs.unlinkSync(tempImagePath); } catch {}
+      return res.json({ recognized: false, message: 'Unknown face. No attendance marked.' });
+    }
+
+    const student = await Student.findOne({ studentId: result.studentId });
+    if (!student) {
+      try { fs.unlinkSync(tempImagePath); } catch {}
+      return res.json({ recognized: false, message: 'Registered face found, but student record is missing.' });
+    }
+
+    if (!selectedClass || !selectedSection || !selectedPeriod || !selectedSubject) {
+      try { fs.unlinkSync(tempImagePath); } catch {}
+      return res.status(400).json({ error: 'Please select class, section, period, and subject before recognition.' });
+    }
+
+    const recordResult = await markAttendanceRecord({
+      studentId: student.studentId,
+      date: selectedDate,
+      className: selectedClass,
+      section: selectedSection,
+      period: selectedPeriod,
+      subject: selectedSubject,
+      status: selectedStatus,
+      markedBy: 'Face Recognition',
+    });
+
+    try { fs.unlinkSync(tempImagePath); } catch {}
+
+    if (recordResult.duplicate) {
+      return res.json({
+        recognized: true,
+        duplicate: true,
+        studentId: student.studentId,
+        studentName: student.name,
+        message: 'Attendance already marked as Present for this hour.',
+      });
+    }
+
+    return res.json({
+      recognized: true,
+      duplicate: false,
+      studentId: student.studentId,
+      studentName: student.name,
+      className: selectedClass,
+      section: selectedSection,
+      period: selectedPeriod,
+      subject: selectedSubject,
+      message: `${student.name} marked Present successfully.`,
+    });
+  } catch (error) {
+    try { fs.unlinkSync(tempImagePath); } catch {}
+    return res.status(400).json({ error: error.message || 'Face recognition failed.' });
+  }
+});
 
 // ── MARKS ─────────────────────────────────────────────
 

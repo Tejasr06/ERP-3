@@ -14,6 +14,21 @@ function normalizeEmail(email) {
   return String(email || '').trim().toLowerCase();
 }
 
+function normalizeStaffLoginEmail(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+
+  const lowered = raw.toLowerCase();
+  if (lowered.includes('@')) {
+    const [localPart, domain = ''] = lowered.split('@');
+    if (!localPart) return '';
+    if (domain === 'school.edu.in') return `${localPart.replace(/\s+/g, '')}@school.edu.in`;
+    return `${localPart.replace(/\s+/g, '')}@school.edu.in`;
+  }
+
+  return `${lowered.replace(/\s+/g, '')}@school.edu.in`;
+}
+
 function isValidSchoolStaffEmail(email) {
   const normalized = normalizeEmail(email);
   return /^[^\s@]+@school\.edu\.in$/i.test(normalized);
@@ -32,14 +47,23 @@ router.post('/login', async (req, res) => {
   const { email, password, selectedRole } = req.body;
   if (!email || !password) return res.status(400).json({ error: 'Email and password required.' });
 
-  const normalizedEmail = normalizeEmail(email);
-  const user = await User.findOne({ email: normalizedEmail });
+  const normalizedRole = selectedRole === 'parent' || selectedRole === 'student' ? 'parent' : 'admin';
+  const candidateEmails = new Set();
+
+  const directEmail = normalizeEmail(email);
+  if (directEmail) candidateEmails.add(directEmail);
+
+  if (normalizedRole === 'admin') {
+    const staffEmail = normalizeStaffLoginEmail(email);
+    if (staffEmail) candidateEmails.add(staffEmail);
+  }
+
+  const user = await User.findOne({ email: { $in: Array.from(candidateEmails) } });
   if (!user) return res.status(401).json({ error: 'Invalid email or password.' });
 
   const valid = await bcrypt.compare(password, user.password);
   if (!valid) return res.status(401).json({ error: 'Invalid email or password.' });
 
-  const normalizedRole = selectedRole === 'parent' || selectedRole === 'student' ? 'parent' : 'admin';
   const allowedRoles = normalizedRole === 'parent' ? ['parent'] : ['admin'];
 
   if (!allowedRoles.includes(user.role)) {
@@ -185,6 +209,7 @@ router.post('/change-password', auth, async (req, res) => {
 
 module.exports = router;
 module.exports.normalizeEmail = normalizeEmail;
+module.exports.normalizeStaffLoginEmail = normalizeStaffLoginEmail;
 module.exports.isValidSchoolStaffEmail = isValidSchoolStaffEmail;
 module.exports.DEFAULT_STAFF_PASSWORD = DEFAULT_STAFF_PASSWORD;
 module.exports.SCHOOL_STAFF_DOMAIN = SCHOOL_STAFF_DOMAIN;

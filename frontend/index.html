@@ -242,6 +242,19 @@ function getSelectedRole() {
   return selected ? selected.value : 'staff';
 }
 
+function normalizeStaffLoginEmail(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  const lowered = raw.toLowerCase();
+  if (lowered.includes('@')) {
+    const [localPart = '', domain = ''] = lowered.split('@');
+    if (!localPart) return '';
+    if (domain === 'school.edu.in') return `${localPart}@school.edu.in`;
+    return `${localPart}@school.edu.in`;
+  }
+  return `${lowered}@school.edu.in`;
+}
+
 function showMsg(msg, type='err') {
   const el = document.getElementById('msgBox');
   if (!el) {
@@ -265,8 +278,10 @@ async function doLogin() {
   const password = document.getElementById('password')?.value;
   if (!username || !password) { showMsg(window.t('auth.enterCredentials')); return; }
 
-  const email = username;
   const selectedRole = getSelectedRole();
+  const email = selectedRole === 'staff'
+    ? normalizeStaffLoginEmail(username)
+    : username;
 
   const btn = document.getElementById('loginBtn');
   if (!btn) {

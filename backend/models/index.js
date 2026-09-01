@@ -14,9 +14,6 @@ const studentSchema = new mongoose.Schema({
   facultyName:     { type: String },
   facultyEmail:    { type: String },
   address:         { type: String },
-  busId:           { type: mongoose.Schema.Types.ObjectId, ref: 'Bus' },
-  pickupPoint:     { type: String },
-  dropPoint:       { type: String },
 }, { timestamps: true });
 
 const userSchema = new mongoose.Schema({
@@ -133,37 +130,6 @@ const achievementSchema = new mongoose.Schema({
   certificateType: { type: String, default: '' },
 }, { timestamps: true });
 
-const routeSchema = new mongoose.Schema({
-  routeCode:   { type: String, required: true, unique: true },
-  name:        { type: String, required: true },
-  stops:       [{ type: String }],
-  description: { type: String },
-}, { timestamps: true });
-
-const busSchema = new mongoose.Schema({
-  busNo:          { type: String, required: true, unique: true },
-  driverName:     { type: String, required: true },
-  driverPhone:    { type: String },
-  routeId:        { type: mongoose.Schema.Types.ObjectId, ref: 'Route' },
-  currentLocation:{ type: String, default: 'Not available' },
-  eta:            { type: String, default: 'TBD' },
-  status:         { type: String, default: 'On Route' },
-  coordinates: {
-    lat: { type: Number },
-    lng: { type: Number },
-  },
-  history: [{
-    location:    { type: String },
-    eta:         { type: String },
-    status:      { type: String },
-    coordinates: {
-      lat: { type: Number },
-      lng: { type: Number },
-    },
-    updatedAt:   { type: Date, default: Date.now },
-  }],
-}, { timestamps: true });
-
 module.exports = {
   Student:      mongoose.model('Student', studentSchema),
   User:         mongoose.model('User', userSchema),
@@ -176,6 +142,4 @@ module.exports = {
   Message:      mongoose.model('Message', messageSchema),
   AlertLog:     mongoose.model('AlertLog', alertLogSchema),
   Achievement:  mongoose.model('Achievement', achievementSchema),
-  Route:        mongoose.model('Route', routeSchema),
-  Bus:          mongoose.model('Bus', busSchema),
 };
