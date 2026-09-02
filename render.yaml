@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: educonnect-backend
+    env: node
+    plan: free
+    buildCommand: ./render-build.sh
+    startCommand: cd backend && npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3000
