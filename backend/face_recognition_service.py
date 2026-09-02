@@ -5,12 +5,58 @@ import sys
 import warnings
 from pathlib import Path
 
+import subprocess
+
 warnings.filterwarnings('ignore')
+
+def _ensure_dependencies():
+    missing = []
+    try:
+        import cv2
+    except ImportError:
+        missing.append("opencv-python-headless")
+    try:
+        import numpy
+    except ImportError:
+        missing.append("numpy")
+    try:
+        import face_recognition_models
+    except ImportError:
+        missing.append("face_recognition_models")
+    try:
+        import face_recognition
+    except ImportError:
+        missing.append("face_recognition")
+
+    if missing:
+        for pkg in missing:
+            try:
+                subprocess.check_call(
+                    [sys.executable, "-m", "pip", "install", "--prefer-binary", "--no-cache-dir", pkg],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL
+                )
+            except Exception:
+                if "face_recognition_models" in pkg:
+                    try:
+                        subprocess.check_call(
+                            [sys.executable, "-m", "pip", "install", "--no-cache-dir", "git+https://github.com/ageitgey/face_recognition_models.git"],
+                            stdout=subprocess.DEVNULL,
+                            stderr=subprocess.DEVNULL
+                        )
+                    except Exception:
+                        pass
+
+_ensure_dependencies()
 
 try:
     import cv2
     import numpy as np
     import face_recognition
+    try:
+        import face_recognition_models
+    except ImportError:
+        pass
 except Exception as exc:  # pragma: no cover
     print(json.dumps({"ok": False, "error": f"Missing Python dependency: {exc}"}))
     sys.exit(1)

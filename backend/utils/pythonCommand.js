@@ -4,7 +4,8 @@ const { spawnSync } = require('child_process');
 
 function isPythonWorking(command, args = []) {
   try {
-    const result = spawnSync(command, args.concat(['-c', 'import cv2, face_recognition; print("OK")']), {
+    const testCode = 'import cv2, face_recognition; from face_recognition import api; print("OK")';
+    const result = spawnSync(command, args.concat(['-c', testCode]), {
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'pipe'],
     });
