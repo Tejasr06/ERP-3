@@ -41,8 +41,8 @@ function resolvePythonExecutable() {
   }
 
   const candidates = [
-    { cmd: 'python', args: [] },
     { cmd: 'python3', args: [] },
+    { cmd: 'python', args: [] },
     { cmd: 'py', args: ['-3'] },
   ];
 
@@ -51,6 +51,14 @@ function resolvePythonExecutable() {
       return candidate;
     }
   }
+
+  // Fallback: Return available system python
+  try {
+    const checkPy3 = spawnSync('python3', ['--version']);
+    if (!checkPy3.error && checkPy3.status === 0) {
+      return { cmd: 'python3', args: [] };
+    }
+  } catch {}
 
   return { cmd: 'python', args: [] };
 }
