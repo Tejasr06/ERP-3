@@ -2,6 +2,10 @@
 # Render Build Script for EduConnect ERP (Node.js + Python Face Recognition)
 set -o errexit
 
+# Limit compiler parallelism to 1 core to prevent Render out-of-memory (>8GB) errors
+export CMAKE_BUILD_PARALLEL_LEVEL=1
+export MAKEFLAGS="-j1"
+
 echo "========================================="
 echo "📦 1/3 Installing Node.js dependencies..."
 echo "========================================="
@@ -17,13 +21,16 @@ echo "========================================="
 echo "🐍 2/3 Installing Python & OpenCV (Headless)..."
 echo "========================================="
 # Upgrade pip and install build tools
-python3 -m pip install --upgrade pip setuptools wheel cmake || true
+python3 -m pip install --upgrade pip setuptools wheel cmake
 
-# Install requirements
+# Try installing pre-built binary wheels first to avoid compiling dlib
+python3 -m pip install --prefer-binary --no-cache-dir dlib-bin || true
+
+# Install requirements with binary preference and no cache
 if [ -f "requirements.txt" ]; then
-  python3 -m pip install -r requirements.txt
+  python3 -m pip install --prefer-binary --no-cache-dir -r requirements.txt
 elif [ -f "backend/requirements.txt" ]; then
-  python3 -m pip install -r backend/requirements.txt
+  python3 -m pip install --prefer-binary --no-cache-dir -r backend/requirements.txt
 fi
 
 echo "========================================="
@@ -34,3 +41,4 @@ python3 -c "import cv2, numpy, face_recognition; print('🎉 Python Dependencies
 echo "========================================="
 echo "🚀 Build completed successfully!"
 echo "========================================="
+
