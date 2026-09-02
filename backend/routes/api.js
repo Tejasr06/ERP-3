@@ -1,18 +1,14 @@
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
+const mongoose = require('mongoose');
 const { spawnSync } = require('child_process');
 const router = require('express').Router();
-const { Student, Attendance, Marks, Fee, Notification, Message, AlertLog, User, Payment } = require('../models');
+const { Student, Attendance, Marks, Fee, Notification, Message, AlertLog, User, Payment, FaceEmbedding } = require('../models');
 const { auth, adminOnly } = require('../middleware/auth');
 const { sendMail, sendMailToParent, sendMailToParentWithOptions, notificationEmail, attendanceAlertEmail } = require('../middleware/email');
 const { generateReceiptPDF } = require('../utils/pdfGenerator');
 const { resolvePythonExecutable } = require('../utils/pythonCommand');
-
-const FACE_DATA_DIR = path.join(__dirname, '../uploads/faces');
-
-function ensureFaceDir() {
-  fs.mkdirSync(FACE_DATA_DIR, { recursive: true });
-}
 
 function decodeDataUrl(dataUrl) {
   if (!dataUrl || typeof dataUrl !== 'string') return null;
@@ -38,17 +34,52 @@ function runPythonFaceScript(args) {
 
   let payload = null;
   try {
-    payload = stdout ? JSON.parse(stdout) : null;
+    const lines = stdout.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+    for (let i = lines.length - 1; i >= 0; i--) {
+      try {
+        const parsed = JSON.parse(lines[i]);
+        if (parsed && typeof parsed === 'object') {
+          payload = parsed;
+          break;
+        }
+      } catch {}
+    }
   } catch {
-    payload = { ok: false, message: stderr || stdout || 'Python face recognition failed.' };
+    payload = null;
   }
 
   if (!payload || payload.ok === false) {
-    const message = payload?.message || stderr || 'Python face recognition failed.';
+    const message = payload?.message || payload?.error || stderr || stdout || 'Python face recognition failed.';
     throw new Error(message);
   }
 
   return payload;
+}
+
+async function getKnownFaceEncodings() {
+  const records = await FaceEmbedding.find({}).select('studentId name encodings sampleCount registrationDate').lean();
+  return records
+    .filter(record => record.studentId && Array.isArray(record.encodings) && record.encodings.length)
+    .map(record => ({
+      studentId: record.studentId,
+      name: record.name || '',
+      encodings: record.encodings,
+      registrationDate: record.registrationDate || null,
+    }));
+}
+
+async function saveStudentFaceEncodings(studentId, name, encodings, sampleCount) {
+  return FaceEmbedding.findOneAndUpdate(
+    { studentId },
+    {
+      studentId,
+      name: name || 'Unknown',
+      encodings: Array.isArray(encodings) ? encodings : [],
+      sampleCount: Number(sampleCount) || 0,
+      registrationDate: new Date(),
+    },
+    { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true }
+  );
 }
 
 async function markAttendanceRecord({ studentId, date, className, section, period, subject, status, markedBy }) {
@@ -77,7 +108,7 @@ async function markAttendanceRecord({ studentId, date, className, section, perio
     const updated = await Attendance.findOneAndUpdate(
       { studentId: normalized.studentId, date: normalized.date, period: normalized.period, subject: normalized.subject },
       { $set: { ...normalized, updatedAt: new Date() } },
-      { new: true }
+      { returnDocument: 'after' }
     );
     return { upserted: false, duplicate: false, record: updated };
   }
@@ -296,12 +327,18 @@ router.get('/face/students', auth, adminOnly, async (req, res) => {
 });
 
 router.get('/face/registered', auth, adminOnly, async (req, res) => {
-  ensureFaceDir();
-  const folders = fs.readdirSync(FACE_DATA_DIR, { withFileTypes: true })
-    .filter(entry => entry.isDirectory())
-    .map(entry => ({ studentId: entry.name, sampleCount: fs.readdirSync(path.join(FACE_DATA_DIR, entry.name)).filter(file => /\.(jpg|jpeg|png|bmp|webp)$/i.test(file)).length }))
-    .sort((a, b) => a.studentId.localeCompare(b.studentId));
-  res.json(folders);
+  try {
+    const records = await FaceEmbedding.find({}).select('studentId name sampleCount registrationDate').sort({ studentId: 1 }).lean();
+    res.json(records.map(record => ({
+      studentId: record.studentId,
+      name: record.name || '',
+      sampleCount: Number(record.sampleCount) || 0,
+      registrationDate: record.registrationDate || null,
+    })));
+  } catch (error) {
+    console.error('Failed to load registered faces:', error?.message || error);
+    return res.status(500).json({ error: error?.message || 'Failed to load registered faces.' });
+  }
 });
 
 router.post('/face/register', auth, adminOnly, async (req, res) => {
@@ -320,35 +357,41 @@ router.post('/face/register', auth, adminOnly, async (req, res) => {
   const student = await Student.findOne({ studentId });
   if (!student) return res.status(404).json({ error: 'Student not found.' });
 
-  ensureFaceDir();
-  const studentFaceDir = path.join(FACE_DATA_DIR, studentId);
-  fs.mkdirSync(studentFaceDir, { recursive: true });
-  for (const file of fs.readdirSync(studentFaceDir)) {
-    fs.unlinkSync(path.join(studentFaceDir, file));
-  }
-
-  const savedFiles = [];
-  for (let i = 0; i < samples.length; i += 1) {
-    const sample = decodeDataUrl(samples[i]);
-    if (!sample) return res.status(400).json({ error: 'Invalid image sample provided.' });
-    const filePath = path.join(studentFaceDir, `sample_${i + 1}.png`);
-    fs.writeFileSync(filePath, sample.buffer);
-    savedFiles.push(filePath);
-  }
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'erp-face-register-'));
 
   try {
-    const validation = runPythonFaceScript(['--validate-samples', '--student-dir', studentFaceDir]);
+    for (let i = 0; i < samples.length; i += 1) {
+      const sample = decodeDataUrl(samples[i]);
+      if (!sample) return res.status(400).json({ error: 'Invalid image sample provided.' });
+      const filePath = path.join(tempDir, `sample_${i + 1}.png`);
+      fs.writeFileSync(filePath, sample.buffer);
+    }
+
+    const validation = runPythonFaceScript(['--validate-samples', '--student-dir', tempDir]);
     if (!validation.valid) {
       return res.status(400).json({ error: validation.message || 'Face samples were not valid.' });
     }
 
+    const encoded = runPythonFaceScript(['--encode-samples', '--student-dir', tempDir]);
+    const saved = await saveStudentFaceEncodings(studentId, student.name, encoded.encodings || [], encoded.sampleCount || samples.length);
+
     res.json({
       message: `Face registration saved for ${student.name} (${studentId}).`,
       studentId,
-      sampleCount: savedFiles.length,
+      sampleCount: saved.sampleCount,
+      name: saved.name,
+      registrationDate: saved.registrationDate,
     });
   } catch (error) {
-    return res.status(400).json({ error: error.message || 'Unable to validate face samples.' });
+    const message = error?.message || 'Unable to validate face samples.';
+    if (message.toLowerCase().includes('mongodb') || message.toLowerCase().includes('database')) {
+      return res.status(503).json({ error: message });
+    }
+    return res.status(400).json({ error: message });
+  } finally {
+    try {
+      fs.rmSync(tempDir, { recursive: true, force: true });
+    } catch {}
   }
 });
 
@@ -363,67 +406,129 @@ router.post('/face/recognize', auth, adminOnly, async (req, res) => {
   const selectedSubject = subject || req.body.subject || 'All';
   const selectedStatus = status || 'Present';
 
-  ensureFaceDir();
-  const tempImagePath = path.join(FACE_DATA_DIR, `snapshot_${Date.now()}.png`);
   const decoded = decodeDataUrl(image);
   if (!decoded) return res.status(400).json({ error: 'Invalid image payload.' });
-  fs.writeFileSync(tempImagePath, decoded.buffer);
+
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'erp-face-recognize-'));
+  const tempImagePath = path.join(tempDir, 'snapshot.png');
 
   try {
-    const result = runPythonFaceScript(['--recognize', '--image', tempImagePath, '--data-dir', FACE_DATA_DIR]);
-    if (!result.recognized || !result.studentId) {
-      try { fs.unlinkSync(tempImagePath); } catch {}
-      return res.json({ recognized: false, message: 'Unknown face. No attendance marked.' });
-    }
+    fs.writeFileSync(tempImagePath, decoded.buffer);
 
-    const student = await Student.findOne({ studentId: result.studentId });
-    if (!student) {
-      try { fs.unlinkSync(tempImagePath); } catch {}
-      return res.json({ recognized: false, message: 'Registered face found, but student record is missing.' });
-    }
+    const knownStudents = await getKnownFaceEncodings();
+    const knownEncodingsPath = path.join(tempDir, 'known_encodings.json');
+    fs.writeFileSync(knownEncodingsPath, JSON.stringify(knownStudents || []), 'utf8');
 
-    if (!selectedClass || !selectedSection || !selectedPeriod || !selectedSubject) {
-      try { fs.unlinkSync(tempImagePath); } catch {}
-      return res.status(400).json({ error: 'Please select class, section, period, and subject before recognition.' });
-    }
+    const result = runPythonFaceScript(['--recognize', '--image', tempImagePath, '--known-encodings-file', knownEncodingsPath]);
 
-    const recordResult = await markAttendanceRecord({
-      studentId: student.studentId,
-      date: selectedDate,
-      className: selectedClass,
-      section: selectedSection,
-      period: selectedPeriod,
-      subject: selectedSubject,
-      status: selectedStatus,
-      markedBy: 'Face Recognition',
-    });
+    const faces = Array.isArray(result.faces) ? result.faces : [];
+    const imageWidth = result.imageWidth || 640;
+    const imageHeight = result.imageHeight || 480;
 
-    try { fs.unlinkSync(tempImagePath); } catch {}
-
-    if (recordResult.duplicate) {
+    if (!faces.length) {
       return res.json({
-        recognized: true,
-        duplicate: true,
-        studentId: student.studentId,
-        studentName: student.name,
-        message: 'Attendance already marked as Present for this hour.',
+        ok: true,
+        recognized: false,
+        faceCount: 0,
+        faces: [],
+        imageWidth,
+        imageHeight,
+        message: 'No face detected in camera.',
       });
     }
 
+    const hasFilters = Boolean(selectedClass && selectedSection && selectedPeriod && selectedSubject);
+    const enrichedFaces = [];
+    const markedStudents = [];
+
+    for (const face of faces) {
+      const faceInfo = {
+        box: face.box,
+        recognized: Boolean(face.recognized && face.studentId),
+        studentId: face.studentId || null,
+        studentName: 'Unknown',
+        confidence: face.confidence || 0,
+        distance: face.distance || 1.0,
+        duplicate: false,
+        attendanceMarked: false,
+        message: 'Unknown face',
+      };
+
+      if (faceInfo.recognized) {
+        const student = await Student.findOne({ studentId: face.studentId }).lean();
+        if (student) {
+          faceInfo.studentName = student.name;
+          faceInfo.studentClass = student.class;
+          faceInfo.studentSection = student.section;
+
+          if (hasFilters) {
+            try {
+              const recordResult = await markAttendanceRecord({
+                studentId: student.studentId,
+                date: selectedDate,
+                className: selectedClass,
+                section: selectedSection,
+                period: selectedPeriod,
+                subject: selectedSubject,
+                status: selectedStatus,
+                markedBy: 'Face Recognition',
+              });
+              faceInfo.attendanceMarked = true;
+              faceInfo.duplicate = Boolean(recordResult.duplicate);
+              faceInfo.message = recordResult.duplicate
+                ? 'Attendance already recorded for this period'
+                : `${student.name} marked ${selectedStatus}`;
+
+              markedStudents.push({
+                studentId: student.studentId,
+                studentName: student.name,
+                duplicate: recordResult.duplicate,
+                status: selectedStatus,
+                time: new Date().toLocaleTimeString(),
+              });
+            } catch (attErr) {
+              faceInfo.attendanceMarked = false;
+              faceInfo.message = attErr.message || 'Failed to record attendance';
+            }
+          } else {
+            faceInfo.attendanceMarked = false;
+            faceInfo.message = 'Filters missing (Select class/section/period)';
+          }
+        } else {
+          faceInfo.recognized = false;
+          faceInfo.studentName = 'Unknown';
+          faceInfo.message = 'Face registered, but student profile not found in database.';
+        }
+      }
+
+      enrichedFaces.push(faceInfo);
+    }
+
+    const anyRecognized = enrichedFaces.some(f => f.recognized);
+    const primaryFace = enrichedFaces.find(f => f.recognized) || enrichedFaces[0];
+
     return res.json({
-      recognized: true,
-      duplicate: false,
-      studentId: student.studentId,
-      studentName: student.name,
-      className: selectedClass,
-      section: selectedSection,
-      period: selectedPeriod,
-      subject: selectedSubject,
-      message: `${student.name} marked Present successfully.`,
+      ok: true,
+      recognized: anyRecognized,
+      faceCount: enrichedFaces.length,
+      faces: enrichedFaces,
+      imageWidth,
+      imageHeight,
+      markedStudents,
+      studentId: primaryFace?.studentId || null,
+      studentName: primaryFace?.studentName || (anyRecognized ? 'Recognized' : 'Unknown face'),
+      duplicate: enrichedFaces.some(f => f.duplicate),
+      confidence: primaryFace?.confidence || 0,
+      message: anyRecognized
+        ? enrichedFaces.filter(f => f.recognized).map(f => `${f.studentName} (${f.studentId})`).join(', ') + ' recognized'
+        : 'Unknown face detected. No attendance marked.',
     });
   } catch (error) {
-    try { fs.unlinkSync(tempImagePath); } catch {}
     return res.status(400).json({ error: error.message || 'Face recognition failed.' });
+  } finally {
+    try {
+      fs.rmSync(tempDir, { recursive: true, force: true });
+    } catch {}
   }
 });
 
@@ -469,7 +574,7 @@ router.post('/marks', auth, adminOnly, async (req, res) => {
   await Marks.findOneAndUpdate(
     { studentId, subject, examType },
     { score, maxScore, remarks, updatedAt: new Date() },
-    { upsert: true, new: true }
+    { upsert: true, returnDocument: 'after' }
   );
   res.json({ message: 'Marks saved.' });
 });

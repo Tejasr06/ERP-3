@@ -160,12 +160,18 @@ body::before{content:'';position:fixed;inset:0;z-index:0;background:transparent;
 
 /* FACE RECOGNITION */
 .face-panel{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:18px;margin-bottom:18px;}
-.face-status{padding:10px 12px;border-radius:10px;background:rgba(87,132,215,.08);border:1px solid rgba(87,132,215,.18);font-size:.8rem;color:var(--muted);margin-bottom:12px;line-height:1.5;}
+.face-status{padding:10px 14px;border-radius:10px;background:rgba(87,132,215,.08);border:1px solid rgba(87,132,215,.18);font-size:.82rem;color:var(--muted);margin-bottom:12px;line-height:1.5;transition:.2s;}
 .face-layout{display:grid;grid-template-columns:1.5fr .9fr;gap:14px;align-items:start;}
-.face-video-wrap{position:relative;aspect-ratio:4/3;border-radius:12px;background:#0b1020;border:1px solid rgba(255,255,255,.06);overflow:hidden;min-height:260px;display:flex;align-items:center;justify-content:center;}
+.face-video-wrap{position:relative;aspect-ratio:4/3;border-radius:12px;background:#0b1020;border:1px solid rgba(255,255,255,.06);overflow:hidden;min-height:280px;display:flex;align-items:center;justify-content:center;}
 #faceVideo{width:100%;height:100%;object-fit:cover;display:block;background:#0b1020;}
-.face-results{padding:12px;border:1px solid var(--border);border-radius:12px;background:rgba(255,255,255,.02);min-height:260px;}
-.face-result-item{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;border:1px solid var(--border);border-radius:9px;background:rgba(255,255,255,.04);font-size:.78rem;color:var(--text);}
+#faceOverlay{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;object-fit:cover;}
+.face-hud-badge{position:absolute;top:12px;left:12px;background:rgba(15,23,42,0.85);border:1px solid rgba(16,185,129,0.5);color:#10b981;font-size:0.72rem;font-weight:700;letter-spacing:0.06em;padding:5px 12px;border-radius:20px;display:flex;align-items:center;gap:7px;backdrop-filter:blur(6px);z-index:10;box-shadow:0 4px 14px rgba(0,0,0,0.4);text-transform:uppercase;}
+.face-hud-badge.rec-active{border-color:rgba(239,68,68,0.6);color:#f43f5e;}
+.hud-pulse-dot{width:8px;height:8px;border-radius:50%;background:#10b981;box-shadow:0 0 10px #10b981;animation:hudPulse 1.3s infinite;}
+.face-hud-badge.rec-active .hud-pulse-dot{background:#f43f5e;box-shadow:0 0 10px #f43f5e;}
+@keyframes hudPulse{0%{transform:scale(0.85);opacity:0.7;}50%{transform:scale(1.35);opacity:1;}100%{transform:scale(0.85);opacity:0.7;}}
+.face-results{padding:12px;border:1px solid var(--border);border-radius:12px;background:rgba(255,255,255,.02);min-height:280px;display:flex;flex-direction:column;}
+.face-result-item{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;border:1px solid var(--border);border-radius:9px;background:rgba(255,255,255,.04);font-size:.78rem;color:var(--text);transition:.2s;}
 .dot{display:inline-block;width:8px;height:8px;border-radius:50%;}
 .dot.ok{background:var(--green);box-shadow:0 0 10px rgba(22,163,74,.75);} .dot.warn{background:var(--gold);box-shadow:0 0 10px rgba(245,158,11,.7);} .dot.err{background:var(--coral);box-shadow:0 0 10px rgba(239,68,68,.7);}
 
@@ -445,20 +451,35 @@ body::before{content:'';position:fixed;inset:0;z-index:0;background:transparent;
       <div class="face-layout">
         <div class="face-video-wrap">
           <video id="faceVideo" autoplay muted playsinline></video>
+          <canvas id="faceOverlay"></canvas>
+          <div id="faceHudBadge" class="face-hud-badge rec-active" style="display:none;">
+            <span class="hud-pulse-dot"></span>
+            <span id="faceHudText">LIVE RECOGNITION</span>
+          </div>
         </div>
         <div class="face-results">
-          <div style="font-size:.76rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px;font-weight:700;">Recognized Students</div>
-          <div id="faceRecognizedList" style="display:flex;flex-direction:column;gap:8px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+            <div style="font-size:.76rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;font-weight:700;">Recognized in Session</div>
+            <button class="btn btn-ghost" style="padding:2px 8px;font-size:.7rem;" onclick="clearSessionFaces()" title="Clear session list"><i class="fa fa-trash"></i> Clear</button>
+          </div>
+          <div id="faceRecognizedList" style="display:flex;flex-direction:column;gap:8px;max-height:280px;overflow-y:auto;padding-right:2px;">
             <div class="face-result-item"><span>No recognized students yet</span><span class="dot warn"></span></div>
           </div>
         </div>
       </div>
-      <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap;">
+      <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
         <button class="btn btn-primary" id="faceStartBtn" onclick="startFaceSession()"><i class="fa fa-video"></i> Start Camera</button>
         <button class="btn btn-danger" id="faceStopBtn" onclick="stopFaceSession()" style="display:none;"><i class="fa fa-video-slash"></i> Stop Camera</button>
-        <button class="btn btn-primary" id="faceCaptureBtn" onclick="captureFaceSamples()" disabled><i class="fa fa-camera"></i> Capture Sample</button>
-        <button class="btn btn-primary" id="faceRegisterBtn" onclick="registerFaceSamples()" disabled><i class="fa fa-user-check"></i> Register Face</button>
-        <button class="btn btn-danger" id="faceRecognizeBtn" onclick="recognizeFaceAttendance()" disabled><i class="fa fa-id-badge"></i> Recognize & Mark Present</button>
+        
+        <button class="btn btn-primary" id="faceLiveRecognizeBtn" onclick="startContinuousRecognition()" style="background:#059669;color:#fff;border-color:#059669;" disabled>
+          <i class="fa fa-id-badge"></i> Start Live Recognition
+        </button>
+        <button class="btn btn-danger" id="faceStopRecognizeBtn" onclick="stopContinuousRecognition()" style="display:none;">
+          <i class="fa fa-stop-circle"></i> Stop Recognition
+        </button>
+
+        <button class="btn btn-ghost" id="faceCaptureBtn" onclick="captureFaceSamples()" disabled><i class="fa fa-camera"></i> Capture Sample</button>
+        <button class="btn btn-ghost" id="faceRegisterBtn" onclick="registerFaceSamples()" disabled><i class="fa fa-user-check"></i> Register Face</button>
       </div>
     </div>
   </div>
@@ -1033,6 +1054,10 @@ let attStudents = [];
 let faceStream = null;
 let faceSampleFrames = [];
 let faceRecognitionSessionActive = false;
+let isContinuousRecognizing = false;
+let isRecognitionProcessing = false;
+let sessionRecognizedStudents = new Map();
+let recognitionTimer = null;
 
 async function loadAttendancePage() {
   document.getElementById('todayLbl').textContent = new Date().toLocaleDateString('en-IN',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
@@ -1062,18 +1087,184 @@ async function loadAttendancePage() {
 
 async function loadRegisteredFaceStudents() {
   try {
-    const list = await req('GET', '/api/face/registered');
-    const out = document.getElementById('faceRecognizedList');
-    if (!out) return;
-    if (!list.length) {
-      out.innerHTML = '<div class="face-result-item"><span>No registered face samples yet</span><span class="dot warn"></span></div>';
-      return;
+    await req('GET', '/api/face/registered');
+    if (!sessionRecognizedStudents.size) {
+      renderSessionRecognizedList();
     }
-    out.innerHTML = list.map(item => `<div class="face-result-item"><span>${item.studentId} (${item.sampleCount} samples)</span><span class="dot ok"></span></div>`).join('');
   } catch {
     const out = document.getElementById('faceRecognizedList');
-    if (out) out.innerHTML = '<div class="face-result-item"><span>Face database unavailable</span><span class="dot err"></span></div>';
+    if (out && !sessionRecognizedStudents.size) {
+      out.innerHTML = '<div class="face-result-item"><span>Face database ready</span><span class="dot ok"></span></div>';
+    }
   }
+}
+
+function clearSessionFaces() {
+  sessionRecognizedStudents.clear();
+  renderSessionRecognizedList();
+  toast('Session recognized list cleared.', 'info');
+}
+
+function renderSessionRecognizedList() {
+  const out = document.getElementById('faceRecognizedList');
+  if (!out) return;
+  if (sessionRecognizedStudents.size === 0) {
+    out.innerHTML = '<div class="face-result-item"><span>No recognized students yet</span><span class="dot warn"></span></div>';
+    return;
+  }
+  const items = Array.from(sessionRecognizedStudents.values()).reverse();
+  out.innerHTML = items.map(s => `
+    <div class="face-result-item" style="border-left: 3px solid var(--green);">
+      <div style="display:flex;flex-direction:column;gap:2px;">
+        <span style="font-weight:600;color:var(--text);">${s.name} <code style="font-size:.72rem;color:var(--teal);">${s.studentId}</code></span>
+        <span style="font-size:.7rem;color:var(--muted);">${s.time} • ${s.status}</span>
+      </div>
+      <span class="dot ok"></span>
+    </div>
+  `).join('');
+}
+
+function clearFaceOverlay() {
+  const canvas = document.getElementById('faceOverlay');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+}
+
+function drawFaceOverlay(faces, imgWidth, imgHeight) {
+  const canvas = document.getElementById('faceOverlay');
+  const video = document.getElementById('faceVideo');
+  if (!canvas || !video) return;
+
+  const w = video.videoWidth || imgWidth || 640;
+  const h = video.videoHeight || imgHeight || 480;
+
+  if (canvas.width !== w || canvas.height !== h) {
+    canvas.width = w;
+    canvas.height = h;
+  }
+
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, w, h);
+
+  if (!faces || !faces.length) return;
+
+  faces.forEach(face => {
+    if (!face.box) return;
+    const { top, right, bottom, left } = face.box;
+    const boxW = right - left;
+    const boxH = bottom - top;
+
+    const isRecognized = Boolean(face.recognized && face.studentId);
+    const primaryColor = isRecognized ? '#10b981' : '#f43f5e';
+    const bgColor = isRecognized ? 'rgba(6, 78, 59, 0.90)' : 'rgba(136, 19, 55, 0.90)';
+    const strokeGlow = isRecognized ? 'rgba(16, 185, 129, 0.45)' : 'rgba(244, 63, 94, 0.45)';
+
+    ctx.save();
+    ctx.shadowColor = strokeGlow;
+    ctx.shadowBlur = 10;
+    ctx.strokeStyle = primaryColor;
+    ctx.lineWidth = 3;
+
+    // Rounded rectangle bounding box
+    const radius = 8;
+    ctx.beginPath();
+    ctx.moveTo(left + radius, top);
+    ctx.lineTo(right - radius, top);
+    ctx.quadraticCurveTo(right, top, right, top + radius);
+    ctx.lineTo(right, bottom - radius);
+    ctx.quadraticCurveTo(right, bottom, right - radius, bottom);
+    ctx.lineTo(left + radius, bottom);
+    ctx.quadraticCurveTo(left, bottom, left, bottom - radius);
+    ctx.lineTo(left, top + radius);
+    ctx.quadraticCurveTo(left, top, left + radius, top);
+    ctx.closePath();
+    ctx.stroke();
+
+    // Corner HUD brackets
+    const cornerLen = Math.max(12, Math.min(22, boxW / 4, boxH / 4));
+    ctx.lineWidth = 4;
+    // Top-left
+    ctx.beginPath();
+    ctx.moveTo(left, top + cornerLen);
+    ctx.lineTo(left, top);
+    ctx.lineTo(left + cornerLen, top);
+    ctx.stroke();
+    // Top-right
+    ctx.beginPath();
+    ctx.moveTo(right - cornerLen, top);
+    ctx.lineTo(right, top);
+    ctx.lineTo(right, top + cornerLen);
+    ctx.stroke();
+    // Bottom-left
+    ctx.beginPath();
+    ctx.moveTo(left, bottom - cornerLen);
+    ctx.lineTo(left, bottom);
+    ctx.lineTo(left + cornerLen, bottom);
+    ctx.stroke();
+    // Bottom-right
+    ctx.beginPath();
+    ctx.moveTo(right - cornerLen, bottom);
+    ctx.lineTo(right, bottom);
+    ctx.lineTo(right, bottom - cornerLen);
+    ctx.stroke();
+
+    // Name and status text
+    const titleText = isRecognized 
+      ? `${face.studentName} (${face.studentId})`
+      : 'Unknown (Not Registered)';
+    const subText = isRecognized
+      ? `${face.confidence}% • ${face.duplicate ? 'Already Marked' : 'Marked Present'}`
+      : 'Unregistered Face';
+
+    ctx.font = 'bold 13px Inter, -apple-system, BlinkMacSystemFont, sans-serif';
+    const titleWidth = ctx.measureText(titleText).width;
+    ctx.font = '11px Inter, -apple-system, BlinkMacSystemFont, sans-serif';
+    const subWidth = ctx.measureText(subText).width;
+    const tagWidth = Math.max(titleWidth, subWidth) + 24;
+    const tagHeight = 38;
+
+    let tagX = left;
+    let tagY = top - tagHeight - 8;
+    if (tagY < 8) {
+      tagY = bottom + 8;
+    }
+    if (tagX + tagWidth > w) tagX = w - tagWidth - 8;
+    if (tagX < 8) tagX = 8;
+
+    // Tag background
+    ctx.shadowBlur = 8;
+    ctx.fillStyle = bgColor;
+    ctx.strokeStyle = primaryColor;
+    ctx.lineWidth = 1.5;
+
+    ctx.beginPath();
+    const tagRadius = 6;
+    ctx.moveTo(tagX + tagRadius, tagY);
+    ctx.lineTo(tagX + tagWidth - tagRadius, tagY);
+    ctx.quadraticCurveTo(tagX + tagWidth, tagY, tagX + tagWidth, tagY + tagRadius);
+    ctx.lineTo(tagX + tagWidth, tagY + tagHeight - tagRadius);
+    ctx.quadraticCurveTo(tagX + tagWidth, tagY + tagHeight, tagX + tagWidth - tagRadius, tagY + tagHeight);
+    ctx.lineTo(tagX + tagRadius, tagY + tagHeight);
+    ctx.quadraticCurveTo(tagX, tagY + tagHeight, tagX, tagY + tagHeight - tagRadius);
+    ctx.lineTo(tagX, tagY + tagRadius);
+    ctx.quadraticCurveTo(tagX, tagY, tagX + tagRadius, tagY);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    // Text rendering
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 12px Inter, -apple-system, BlinkMacSystemFont, sans-serif';
+    ctx.fillText(titleText, tagX + 10, tagY + 16);
+
+    ctx.fillStyle = isRecognized ? '#6ee7b7' : '#fca5a5';
+    ctx.font = '10px Inter, -apple-system, BlinkMacSystemFont, sans-serif';
+    ctx.fillText(subText, tagX + 10, tagY + 30);
+
+    ctx.restore();
+  });
 }
 
 async function startFaceSession() {
@@ -1083,7 +1274,7 @@ async function startFaceSession() {
   const stopBtn = document.getElementById('faceStopBtn');
   const captureBtn = document.getElementById('faceCaptureBtn');
   const registerBtn = document.getElementById('faceRegisterBtn');
-  const recognizeBtn = document.getElementById('faceRecognizeBtn');
+  const liveRecognizeBtn = document.getElementById('faceLiveRecognizeBtn');
 
   if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
     status.textContent = 'This browser does not support webcam access on this device.';
@@ -1101,13 +1292,13 @@ async function startFaceSession() {
     video.srcObject = stream;
     video.play();
     faceRecognitionSessionActive = true;
-    status.textContent = 'Camera ready. Choose a student, capture 3–5 samples, then register or recognize.';
+    status.textContent = 'Camera active. Click "Start Live Recognition" for continuous scanning or register new faces.';
     status.style.color = 'var(--teal)';
     startBtn.style.display = 'none';
     stopBtn.style.display = 'inline-flex';
     captureBtn.disabled = false;
     registerBtn.disabled = false;
-    recognizeBtn.disabled = false;
+    if (liveRecognizeBtn) liveRecognizeBtn.disabled = false;
     faceSampleFrames = [];
   } catch (error) {
     status.textContent = 'Unable to access the webcam. Please allow camera permission and try again.';
@@ -1117,13 +1308,15 @@ async function startFaceSession() {
 }
 
 function stopFaceSession() {
+  stopContinuousRecognition();
+
   const video = document.getElementById('faceVideo');
   const status = document.getElementById('faceStatus');
   const startBtn = document.getElementById('faceStartBtn');
   const stopBtn = document.getElementById('faceStopBtn');
   const captureBtn = document.getElementById('faceCaptureBtn');
   const registerBtn = document.getElementById('faceRegisterBtn');
-  const recognizeBtn = document.getElementById('faceRecognizeBtn');
+  const liveRecognizeBtn = document.getElementById('faceLiveRecognizeBtn');
 
   if (faceStream) {
     faceStream.getTracks().forEach(track => track.stop());
@@ -1132,13 +1325,14 @@ function stopFaceSession() {
   
   video.srcObject = null;
   faceRecognitionSessionActive = false;
+  clearFaceOverlay();
   status.textContent = 'Camera offline. Click Start Camera to resume.';
   status.style.color = 'var(--muted)';
   startBtn.style.display = 'inline-flex';
   stopBtn.style.display = 'none';
   captureBtn.disabled = true;
   registerBtn.disabled = true;
-  recognizeBtn.disabled = true;
+  if (liveRecognizeBtn) liveRecognizeBtn.disabled = true;
   faceSampleFrames = [];
 }
 
@@ -1206,8 +1400,7 @@ async function registerFaceSamples() {
   }
 }
 
-async function recognizeFaceAttendance() {
-  const video = document.getElementById('faceVideo');
+function startContinuousRecognition() {
   const status = document.getElementById('faceStatus');
   const date = document.getElementById('attDate').value;
   const className = document.getElementById('attClassFilter').value;
@@ -1216,17 +1409,77 @@ async function recognizeFaceAttendance() {
   const subject = document.getElementById('attSubject').value;
 
   if (!faceRecognitionSessionActive || !faceStream) {
-    status.textContent = 'Start the camera before recognition.';
+    status.textContent = 'Please start the camera before recognizing faces.';
     status.style.color = 'var(--coral)';
     return;
   }
   if (!date || !className || !section || !period || !subject) {
-    status.textContent = 'Select class, section, date, period, and subject before recognizing attendance.';
+    toast('Select Class, Section, Date, Period, and Subject first.', 'err');
+    status.textContent = 'Please select Class, Section, Date, Period, and Subject above before starting recognition.';
     status.style.color = 'var(--coral)';
     return;
   }
 
+  isContinuousRecognizing = true;
+  const liveBtn = document.getElementById('faceLiveRecognizeBtn');
+  const stopRecBtn = document.getElementById('faceStopRecognizeBtn');
+  const hud = document.getElementById('faceHudBadge');
+
+  if (liveBtn) liveBtn.style.display = 'none';
+  if (stopRecBtn) stopRecBtn.style.display = 'inline-flex';
+  if (hud) hud.style.display = 'flex';
+
+  status.textContent = '🟢 Live Continuous Recognition Active. Scanning incoming students in real time...';
+  status.style.color = 'var(--green)';
+
+  runContinuousRecognitionCycle();
+}
+
+function stopContinuousRecognition() {
+  isContinuousRecognizing = false;
+  isRecognitionProcessing = false;
+  if (recognitionTimer) {
+    clearTimeout(recognitionTimer);
+    recognitionTimer = null;
+  }
+  clearFaceOverlay();
+
+  const liveBtn = document.getElementById('faceLiveRecognizeBtn');
+  const stopRecBtn = document.getElementById('faceStopRecognizeBtn');
+  const hud = document.getElementById('faceHudBadge');
+  const status = document.getElementById('faceStatus');
+
+  if (liveBtn) liveBtn.style.display = 'inline-flex';
+  if (stopRecBtn) stopRecBtn.style.display = 'none';
+  if (hud) hud.style.display = 'none';
+
+  if (status && faceRecognitionSessionActive) {
+    status.innerHTML = `Recognition paused. <strong>${sessionRecognizedStudents.size}</strong> student(s) marked Present in this session.`;
+    status.style.color = 'var(--muted)';
+  }
+}
+
+async function runContinuousRecognitionCycle() {
+  if (!isContinuousRecognizing || !faceStream) return;
+  if (isRecognitionProcessing) return;
+
+  isRecognitionProcessing = true;
+  const video = document.getElementById('faceVideo');
+  const date = document.getElementById('attDate').value;
+  const className = document.getElementById('attClassFilter').value;
+  const section = document.getElementById('attSectionFilter').value;
+  const period = document.getElementById('attPeriod').value;
+  const subject = document.getElementById('attSubject').value;
+
   try {
+    if (!video || video.readyState < 2) {
+      isRecognitionProcessing = false;
+      if (isContinuousRecognizing) {
+        recognitionTimer = setTimeout(runContinuousRecognitionCycle, 400);
+      }
+      return;
+    }
+
     const canvas = document.createElement('canvas');
     canvas.width = video.videoWidth || 640;
     canvas.height = video.videoHeight || 480;
@@ -1234,8 +1487,6 @@ async function recognizeFaceAttendance() {
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
     const imageData = canvas.toDataURL('image/png');
 
-    status.textContent = 'Recognizing face and marking attendance...';
-    status.style.color = 'var(--teal)';
     const data = await req('POST', '/api/face/recognize', {
       image: imageData,
       date,
@@ -1246,28 +1497,77 @@ async function recognizeFaceAttendance() {
       status: 'Present',
     });
 
-    const out = document.getElementById('faceRecognizedList');
-    if (out) {
-      const item = data.recognized ? `${data.studentName} (${data.studentId})` : 'Unknown face';
-      const dot = data.recognized ? 'ok' : 'warn';
-      out.innerHTML = `<div class="face-result-item"><span>${item}</span><span class="dot ${dot}"></span></div>` + (data.recognized ? '' : '<div class="face-result-item"><span>Attendance not marked</span><span class="dot warn"></span></div>');
+    if (!isContinuousRecognizing) {
+      clearFaceOverlay();
+      isRecognitionProcessing = false;
+      return;
     }
 
-    if (data.recognized) {
-      toast(data.message || 'Recognized student marked present.', data.duplicate ? 'info' : 'ok');
-      status.textContent = `${data.studentName} (${data.studentId}) recognized. ${data.duplicate ? 'Attendance already exists for this hour.' : 'Marked present.'}`;
-      status.style.color = data.duplicate ? 'var(--gold)' : 'var(--green)';
-      const studentEl = document.getElementById(`att_${data.studentId}`);
-      if (studentEl) studentEl.value = 'Present';
-    } else {
-      toast(data.message || 'Unknown face; not marked present.', 'info');
-      status.textContent = data.message || 'Unknown face. No attendance was marked.';
-      status.style.color = 'var(--gold)';
+    // Draw live bounding boxes and labels
+    drawFaceOverlay(data.faces || [], data.imageWidth, data.imageHeight);
+
+    // Process recognized faces
+    const faces = data.faces || [];
+    for (const face of faces) {
+      if (face.recognized && face.studentId) {
+        const studentId = face.studentId;
+        const studentName = face.studentName || studentId;
+
+        // Auto-select Present in the table row
+        const studentEl = document.getElementById(`att_${studentId}`);
+        if (studentEl) {
+          studentEl.value = 'Present';
+          const tr = studentEl.closest('tr');
+          if (tr) {
+            tr.style.background = 'rgba(16, 185, 129, 0.15)';
+            setTimeout(() => { if (tr) tr.style.background = ''; }, 3000);
+          }
+        }
+
+        // Add to session list & toast if new in this session
+        if (!sessionRecognizedStudents.has(studentId)) {
+          sessionRecognizedStudents.set(studentId, {
+            studentId,
+            name: studentName,
+            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+            status: face.duplicate ? 'Present' : 'Marked Present',
+            duplicate: face.duplicate,
+          });
+          toast(`✓ ${studentName} (${studentId}) recognized & marked Present`, face.duplicate ? 'info' : 'ok');
+        }
+      }
+    }
+
+    renderSessionRecognizedList();
+
+    // Update status text
+    const recognizedCount = faces.filter(f => f.recognized).length;
+    const unknownCount = faces.filter(f => !f.recognized).length;
+    const statusEl = document.getElementById('faceStatus');
+    if (statusEl && isContinuousRecognizing) {
+      if (recognizedCount > 0) {
+        statusEl.innerHTML = `🟢 <strong>${recognizedCount} face(s) recognized</strong>${unknownCount > 0 ? `, ${unknownCount} unknown` : ''}. Total in session: <strong>${sessionRecognizedStudents.size}</strong>.`;
+        statusEl.style.color = 'var(--green)';
+      } else if (unknownCount > 0) {
+        statusEl.innerHTML = `⚠️ <strong>${unknownCount} unknown face(s) detected</strong> (not registered). Total marked: <strong>${sessionRecognizedStudents.size}</strong>.`;
+        statusEl.style.color = 'var(--gold)';
+      } else {
+        statusEl.innerHTML = `🟢 <strong>Live Recognition Active</strong> — Searching for faces in camera... (Session total: <strong>${sessionRecognizedStudents.size}</strong>)`;
+        statusEl.style.color = 'var(--teal)';
+      }
     }
   } catch (error) {
-    status.textContent = error.message || 'Recognition failed.';
-    status.style.color = 'var(--coral)';
-    toast(error.message, 'err');
+    console.error('Recognition cycle error:', error);
+    const statusEl = document.getElementById('faceStatus');
+    if (statusEl && isContinuousRecognizing) {
+      statusEl.textContent = `Recognition error: ${error.message || 'Server busy'}`;
+      statusEl.style.color = 'var(--coral)';
+    }
+  } finally {
+    isRecognitionProcessing = false;
+    if (isContinuousRecognizing) {
+      recognitionTimer = setTimeout(runContinuousRecognitionCycle, 600);
+    }
   }
 }
 

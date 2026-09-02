@@ -41,6 +41,14 @@ const attendanceSchema = new mongoose.Schema({
 // Ensure we don't create duplicates for same student + date + period + subject
 attendanceSchema.index({ studentId: 1, date: 1, period: 1, subject: 1 }, { unique: true });
 
+const faceEmbeddingSchema = new mongoose.Schema({
+  studentId: { type: String, required: true, unique: true },
+  name: { type: String, required: true },
+  encodings: { type: [[Number]], default: [] },
+  sampleCount: { type: Number, default: 0 },
+  registrationDate: { type: Date, default: Date.now },
+}, { timestamps: true });
+
 const marksSchema = new mongoose.Schema({
   studentId: { type: String, required: true },
   subject:   { type: String, required: true },
@@ -134,6 +142,7 @@ module.exports = {
   Student:      mongoose.model('Student', studentSchema),
   User:         mongoose.model('User', userSchema),
   Attendance:   mongoose.model('Attendance', attendanceSchema),
+  FaceEmbedding: mongoose.model('FaceEmbedding', faceEmbeddingSchema),
   Marks:        mongoose.model('Marks', marksSchema),
   FeeStructure: mongoose.model('FeeStructure', feeStructureSchema),
   Fee:          mongoose.model('Fee', feeSchema),

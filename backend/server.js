@@ -80,13 +80,17 @@ app.get('/api/receipts/:receiptId', async (req, res, next) => {
 app.use('/api/receipts', express.static(path.join(__dirname, './uploads')));
 
 // ── MongoDB ───────────────────────────────────────────
+mongoose.connection.on('connected', () => console.log('✅ MongoDB connection established'));
+mongoose.connection.on('disconnected', () => console.warn('⚠️  MongoDB connection disconnected'));
+mongoose.connection.on('reconnected', () => console.log('🔄 MongoDB reconnected'));
+mongoose.connection.on('error', err => console.error('❌ MongoDB error:', err.message));
+
 mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/educonnect')
   .then(() => {
-    console.log('✅ MongoDB connected');
     seedAdmin().catch(err => console.error('⚠️  Admin seed failed:', err.message));
     seedAuthorizedStaffAccounts().catch(err => console.error('⚠️  Staff seed failed:', err.message));
   })
-  .catch(err => console.error('❌ MongoDB error:', err.message));
+  .catch(err => console.error('❌ MongoDB initial connection failed:', err.message));
 
 // ── Routes ────────────────────────────────────────────
 app.use('/api/auth',          require('./routes/auth'));

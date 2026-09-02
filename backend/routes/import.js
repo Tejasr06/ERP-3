@@ -141,7 +141,7 @@ router.post('/students', auth, adminOnly, upload.single('file'), async (req, res
           await Marks.findOneAndUpdate(
             { studentId, subject: markSubject, examType },
             { score, maxScore, remarks, updatedAt: new Date() },
-            { upsert: true, new: true }
+            { upsert: true, returnDocument: 'after' }
           );
           results.marksImported++;
         }
@@ -268,7 +268,7 @@ router.post('/marks', auth, adminOnly, upload.single('file'), async (req, res) =
         await Marks.findOneAndUpdate(
           { studentId, subject, examType },
           { score, maxScore, remarks, updatedAt: new Date() },
-          { upsert: true, new: true }
+          { upsert: true, returnDocument: 'after' }
         );
         results.imported++;
 
