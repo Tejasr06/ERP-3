@@ -26,6 +26,9 @@ python3 -m pip install --upgrade pip setuptools wheel cmake
 # Try installing pre-built binary wheels first to avoid compiling dlib
 python3 -m pip install --prefer-binary --no-cache-dir dlib-bin || true
 
+# Explicitly install face-recognition-models directly from PyPI (with git fallback)
+python3 -m pip install --prefer-binary --no-cache-dir face-recognition-models || python3 -m pip install --no-cache-dir git+https://github.com/ageitgey/face_recognition_models || true
+
 # Install requirements with binary preference and no cache
 if [ -f "requirements.txt" ]; then
   python3 -m pip install --prefer-binary --no-cache-dir -r requirements.txt
@@ -36,7 +39,7 @@ fi
 echo "========================================="
 echo "✅ 3/3 Testing Python OpenCV & Face Recognition..."
 echo "========================================="
-python3 -c "import cv2, numpy, face_recognition; print('🎉 Python Dependencies Verified OK: OpenCV', cv2.__version__)"
+python3 -c "import cv2, numpy, face_recognition, face_recognition_models; print('🎉 Python Dependencies Verified OK: OpenCV', cv2.__version__)"
 
 echo "========================================="
 echo "🚀 Build completed successfully!"

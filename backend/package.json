@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js",
-    "build": "export CMAKE_BUILD_PARALLEL_LEVEL=1 && export MAKEFLAGS='-j1' && python3 -m pip install --prefer-binary --no-cache-dir dlib-bin || true && python3 -m pip install --prefer-binary --no-cache-dir -r requirements.txt || true"
+    "build": "export CMAKE_BUILD_PARALLEL_LEVEL=1 && export MAKEFLAGS='-j1' && python3 -m pip install --prefer-binary --no-cache-dir dlib-bin || true && python3 -m pip install --prefer-binary --no-cache-dir face-recognition-models || true && python3 -m pip install --prefer-binary --no-cache-dir -r requirements.txt || true"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

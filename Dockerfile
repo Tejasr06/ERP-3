@@ -27,7 +27,7 @@ RUN cd backend && npm install --production
 COPY . .
 
 # Test python face recognition imports
-RUN python3 -c "import cv2, numpy, face_recognition; print('Docker Python Verified: OpenCV', cv2.__version__)"
+RUN python3 -c "import cv2, numpy, face_recognition, face_recognition_models; print('Docker Python Verified: OpenCV', cv2.__version__)"
 
 EXPOSE 3000
 
