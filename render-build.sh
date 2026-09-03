@@ -21,8 +21,8 @@ echo "========================================="
 echo "🐍 2/3 Installing Python & OpenCV (Headless)..."
 echo "========================================="
 # Upgrade pip and install build tools
-python3 -m pip install --upgrade pip setuptools wheel cmake
-
+python3 -m pip install --upgrade pip wheel cmake
+python3 -m pip install setuptools<82
 # Try installing pre-built binary wheels first to avoid compiling dlib
 python3 -m pip install --prefer-binary --no-cache-dir dlib-bin || true
 
