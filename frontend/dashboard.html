@@ -169,6 +169,46 @@ body::before{content:'';position:fixed;inset:0;z-index:0;background:transparent;
 .status-pill.late{background:#fef3c7;color:#b45309;}
 .status-pill.holiday{background:#e0e7ff;color:#4338ca;}
 
+/* ── SUBJECT-WISE ATTENDANCE TABLE ── */
+.subj-tbl-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;border-radius:8px;}
+.subj-tbl{border-collapse:collapse;font-size:.78rem;white-space:nowrap;width:100%;min-width:600px;}
+.subj-tbl th,.subj-tbl td{padding:9px 12px;border:1px solid #e2e8f0;text-align:center;}
+.subj-tbl th{background:#f8fafc;font-weight:600;color:#475569;font-size:.69rem;text-transform:uppercase;letter-spacing:.05em;}
+/* Sticky subject column */
+.subj-tbl td:first-child,.subj-tbl th:first-child{text-align:left;position:sticky;left:0;z-index:2;min-width:150px;font-weight:600;}
+.subj-tbl td:first-child{background:#ffffff;}
+.subj-tbl th:first-child{background:#f8fafc;z-index:3;}
+/* Sticky summary columns (last 4) */
+.subj-tbl td.col-total,.subj-tbl th.col-total{position:sticky;right:198px;z-index:2;background:#f8fafc;}
+.subj-tbl td.col-present,.subj-tbl th.col-present{position:sticky;right:132px;z-index:2;background:#f0fdf4;}
+.subj-tbl td.col-absent,.subj-tbl th.col-absent{position:sticky;right:66px;z-index:2;background:#fff5f5;}
+.subj-tbl td.col-pct,.subj-tbl th.col-pct{position:sticky;right:0;z-index:2;background:#f0f9ff;font-weight:700;}
+.subj-tbl tr:hover td{background:#f8fafc;}
+.subj-tbl tr:hover td:first-child{background:#f1f5f9;}
+.subj-tbl tr:hover td.col-total{background:#f0f0f0;}
+.subj-tbl tr:hover td.col-present{background:#dcfce7;}
+.subj-tbl tr:hover td.col-absent{background:#fee2e2;}
+.subj-tbl tr:hover td.col-pct{background:#dbeafe;}
+/* Status icons */
+.att-present{color:#15803d;font-size:.95rem;font-weight:700;}
+.att-absent{color:#b91c1c;font-size:.95rem;font-weight:700;}
+.att-mixed{color:#b45309;font-size:.95rem;font-weight:700;}
+.att-none{color:#cbd5e1;font-size:.85rem;}
+/* Overall summary strip */
+.subj-overall{display:flex;gap:18px;flex-wrap:wrap;padding:14px 16px;background:linear-gradient(135deg,#f0f9ff,#e0f2fe);border:1px solid #bae6fd;border-radius:12px;margin-bottom:16px;align-items:center;}
+.subj-overall-item{display:flex;flex-direction:column;align-items:center;}
+.subj-overall-item .so-val{font-family:var(--font-display);font-size:1.4rem;font-weight:700;line-height:1;}
+.subj-overall-item .so-lbl{font-size:.67rem;color:#64748b;text-transform:uppercase;letter-spacing:.05em;margin-top:3px;}
+.so-present .so-val{color:#15803d;}
+.so-absent .so-val{color:#b91c1c;}
+.so-total .so-val{color:#0369a1;}
+.so-pct .so-val{color:#7c3aed;}
+/* Percentage cell colouring */
+.pct-good{color:#15803d;font-weight:700;}
+.pct-warn{color:#b45309;font-weight:700;}
+.pct-bad{color:#b91c1c;font-weight:700;}
+.subj-tbl-empty{padding:24px;text-align:center;color:#94a3b8;font-size:.85rem;}
+
 /* NOTIF LIST */
 .notif-list{display:flex;flex-direction:column;gap:10px;}
 .notif-item{display:flex;gap:12px;padding:12px;border-radius:10px;background:rgba(255,255,255,.03);border:1px solid var(--border);align-items:flex-start;transition:.2s;}
@@ -324,10 +364,10 @@ body::before{content:'';position:fixed;inset:0;z-index:0;background:transparent;
             <div class="att-progress-labels"><span>0%</span><span style="color:#d97706;font-weight:600">75% required</span><span>100%</span></div>
           </div>
         </div>
-        <div class="att-chart-card">
-          <div class="chart-title">Daily Record</div>
-          <div class="chart-sub" id="attBarSub">Recent school days</div>
-          <div class="att-chart-wrap bar"><canvas id="attBarChart"></canvas></div>
+        <div class="att-chart-card" id="attSubjectWiseCard" style="overflow:hidden;">
+          <div class="chart-title">Subject-wise Attendance</div>
+          <div class="chart-sub" id="attSubjSub">Loading subject data…</div>
+          <div id="attSubjectWiseContent"><div class="loading-p"><span class="loader"></span></div></div>
         </div>
       </div>
       <div class="att-chart-card att-recent">
@@ -541,11 +581,10 @@ async function loadHome() {
 }
 
 // ── ATTENDANCE ───────────────────────────────────────
-let attDonutChart = null, attBarChart = null;
+let attDonutChart = null;
 
 function destroyAttCharts() {
   if (attDonutChart) { attDonutChart.destroy(); attDonutChart = null; }
-  if (attBarChart) { attBarChart.destroy(); attBarChart = null; }
 }
 
 function fmtAttDate(d) {
@@ -593,6 +632,8 @@ async function loadAttendance(sid) {
 
     if (!recs.length) {
       recentEl.innerHTML = '<p style="color:#64748b;font-size:.85rem;padding:12px 0;">No attendance records yet.</p>';
+      document.getElementById('attSubjSub').textContent = 'No attendance data yet.';
+      document.getElementById('attSubjectWiseContent').innerHTML = '<div class="subj-tbl-empty">No attendance records found.</div>';
       return;
     }
 
@@ -617,45 +658,8 @@ async function loadAttendance(sid) {
       }
     });
 
-    const barRecs = recs.slice(-14);
-    document.getElementById('attBarSub').textContent = `Last ${barRecs.length} marked day(s)`;
-    const barCtx = document.getElementById('attBarChart').getContext('2d');
-    const barColors = barRecs.map(r =>
-      r.status === 'Present' ? '#22c55e' : r.status === 'Absent' ? '#ef4444' : r.status === 'Late' ? '#f59e0b' : '#94a3b8'
-    );
-    attBarChart = new Chart(barCtx, {
-      type: 'bar',
-      data: {
-        labels: barRecs.map(r => fmtAttDate(r.date)),
-        datasets: [{
-          label: 'Day',
-          data: barRecs.map(() => 1),
-          backgroundColor: barColors,
-          borderRadius: 8,
-          borderSkipped: false,
-          maxBarThickness: 36
-        }]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: { display: false },
-          tooltip: {
-            callbacks: {
-              label: ctx => barRecs[ctx.dataIndex].status
-            }
-          }
-        },
-        scales: {
-          y: { display: false, max: 1.2 },
-          x: {
-            grid: { display: false },
-            ticks: { font: { size: 11 }, color: '#64748b', maxRotation: 45 }
-          }
-        }
-      }
-    });
+    // Load the subject-wise table
+    loadSubjectWiseTable(sid);
 
     // Aggregate records by date so we show one row per day (day is Present if any period is Present)
     const byDate = {};
@@ -686,6 +690,123 @@ async function loadAttendance(sid) {
     statRow.innerHTML = '';
     recentEl.innerHTML = `<p style="color:#ef4444;font-size:.85rem;">${e.message}</p>`;
     destroyAttCharts();
+  }
+}
+
+// ── SUBJECT-WISE TABLE ──────────────────────────────
+async function loadSubjectWiseTable(sid) {
+  const contentEl = document.getElementById('attSubjectWiseContent');
+  const subEl     = document.getElementById('attSubjSub');
+  contentEl.innerHTML = '<div class="loading-p"><span class="loader"></span></div>';
+
+  try {
+    const data = await req('GET', `/api/attendance/subject-wise/${sid}`);
+
+    if (!data.subjects || !data.subjects.length) {
+      subEl.textContent = 'No subject data yet.';
+      contentEl.innerHTML = '<div class="subj-tbl-empty">No subject-wise attendance records found. Attendance with subject names will appear here once marked.</div>';
+      return;
+    }
+
+    const { dates, subjects, overall } = data;
+
+    // Update subtitle with date range
+    if (dates.length) {
+      const fmt = d => { try { return new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }); } catch { return d; } };
+      subEl.textContent = `${fmt(dates[0])} — ${fmt(dates[dates.length - 1])} · ${dates.length} date${dates.length !== 1 ? 's' : ''}`;
+    }
+
+    // ── Overall Summary Strip ──
+    const pctCls = overall.percentage >= 75 ? 'pct-good' : overall.percentage >= 60 ? 'pct-warn' : 'pct-bad';
+    const overallHtml = `
+      <div class="subj-overall">
+        <div class="subj-overall-item so-present">
+          <span class="so-val">${overall.present}</span>
+          <span class="so-lbl">Present</span>
+        </div>
+        <div class="subj-overall-item so-absent">
+          <span class="so-val">${overall.absent}</span>
+          <span class="so-lbl">Absent</span>
+        </div>
+        <div class="subj-overall-item so-total">
+          <span class="so-val">${overall.totalClasses}</span>
+          <span class="so-lbl">Total Classes</span>
+        </div>
+        <div class="subj-overall-item so-pct">
+          <span class="so-val ${pctCls}">${overall.percentage.toFixed(1)}%</span>
+          <span class="so-lbl">Overall</span>
+        </div>
+      </div>`;
+
+    // ── Table Header (date columns) ──
+    const fmtDateCol = d => {
+      try {
+        const dt = new Date(d);
+        const day = dt.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
+        const wd  = dt.toLocaleDateString('en-IN', { weekday: 'narrow' });
+        return `<span style="display:block">${day}</span><span style="font-size:.63rem;color:#94a3b8;font-weight:400">${wd}</span>`;
+      } catch { return d; }
+    };
+
+    const headerCols = dates.map(d => `<th title="${d}">${fmtDateCol(d)}</th>`).join('');
+    const thead = `
+      <thead>
+        <tr>
+          <th>Subject</th>
+          ${headerCols}
+          <th class="col-total">Total</th>
+          <th class="col-present">Present</th>
+          <th class="col-absent">Absent</th>
+          <th class="col-pct">%</th>
+        </tr>
+      </thead>`;
+
+    // ── Table Body (subject rows) ──
+    const tbody = subjects.map(row => {
+      const dateCells = dates.map(d => {
+        const status = row.dateCells[d];
+        if (status === null || status === undefined) {
+          return `<td><span class="att-none" title="No class">—</span></td>`;
+        } else if (status === 'Present' || status === 'Late') {
+          return `<td><span class="att-present" title="Present">✓</span></td>`;
+        } else if (status === 'Absent') {
+          return `<td><span class="att-absent" title="Absent">✗</span></td>`;
+        } else if (status === 'Mixed') {
+          return `<td><span class="att-mixed" title="Mixed (some present, some absent)">◑</span></td>`;
+        } else if (status === 'Holiday') {
+          return `<td><span style="color:#818cf8;font-size:.78rem" title="Holiday">H</span></td>`;
+        }
+        return `<td><span class="att-none">—</span></td>`;
+      }).join('');
+
+      const pct = row.percentage;
+      const pctClass = pct >= 75 ? 'pct-good' : pct >= 60 ? 'pct-warn' : 'pct-bad';
+      const pctDisplay = pct % 1 === 0 ? pct.toFixed(0) + '%' : pct.toFixed(2) + '%';
+
+      return `
+        <tr>
+          <td title="${row.subject}">${row.subject}</td>
+          ${dateCells}
+          <td class="col-total">${row.totalClasses}</td>
+          <td class="col-present" style="color:#15803d;font-weight:600">${row.present}</td>
+          <td class="col-absent" style="color:#b91c1c;font-weight:600">${row.absent}</td>
+          <td class="col-pct"><span class="${pctClass}">${pctDisplay}</span></td>
+        </tr>`;
+    }).join('');
+
+    const tableHtml = `
+      <div class="subj-tbl-wrap">
+        <table class="subj-tbl">
+          ${thead}
+          <tbody>${tbody}</tbody>
+        </table>
+      </div>`;
+
+    contentEl.innerHTML = overallHtml + tableHtml;
+
+  } catch (e) {
+    subEl.textContent = 'Could not load subject-wise data.';
+    contentEl.innerHTML = `<p style="color:#ef4444;font-size:.85rem;padding:8px 0">${e.message}</p>`;
   }
 }
 

@@ -62,10 +62,15 @@ except Exception as exc:  # pragma: no cover
     sys.exit(1)
 
 
-def _load_image(path):
+def _load_image(path, max_width=640):
+    """Load an image and downscale it to max_width for faster HOG face detection."""
     image = cv2.imread(path)
     if image is None:
         raise ValueError(f"Unable to read image: {path}")
+    h, w = image.shape[:2]
+    if w > max_width:
+        scale = max_width / w
+        image = cv2.resize(image, (max_width, int(h * scale)), interpolation=cv2.INTER_LINEAR)
     rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
     return rgb
 
@@ -210,25 +215,29 @@ def recognize_face(image_path, known_students_source):
         if np_encs:
             parsed_candidates.append({"studentId": student_id, "encodings": np_encs})
 
+    # Build flat arrays for a single batched face_distance call (much faster than one-by-one)
+    all_encodings = []
+    all_ids = []
+    for candidate in parsed_candidates:
+        for enc in candidate["encodings"]:
+            all_encodings.append(enc)
+            all_ids.append(candidate["studentId"])
+
     detected_faces = []
     for loc, face_enc in zip(face_locations, face_encodings):
         best_match = {"studentId": None, "distance": 1.0, "confidence": 0.0}
-        for candidate in parsed_candidates:
-            student_id = candidate["studentId"]
-            for encoding in candidate["encodings"]:
-                try:
-                    dist_arr = face_recognition.face_distance([encoding], face_enc)
-                except Exception:
-                    continue
-                if not dist_arr.size:
-                    continue
-                dist = float(dist_arr[0])
-                if dist < best_match["distance"]:
-                    best_match = {
-                        "studentId": student_id,
-                        "distance": round(dist, 4),
-                        "confidence": round(max(0.0, (1.0 - dist) * 100), 1)
-                    }
+        if all_encodings:
+            try:
+                distances = face_recognition.face_distance(all_encodings, face_enc)
+                min_idx = int(np.argmin(distances))
+                dist = float(distances[min_idx])
+                best_match = {
+                    "studentId": all_ids[min_idx],
+                    "distance": round(dist, 4),
+                    "confidence": round(max(0.0, (1.0 - dist) * 100), 1)
+                }
+            except Exception:
+                pass
 
         is_recognized = bool(best_match["studentId"] and best_match["distance"] <= 0.48)
         detected_faces.append({

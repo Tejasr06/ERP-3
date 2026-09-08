@@ -24,7 +24,11 @@ function runPythonFaceScript(args) {
     cwd: path.join(__dirname, '..'),
     encoding: 'utf8',
     maxBuffer: 1024 * 1024 * 10,
+    timeout: 30000, // 30-second timeout — prevents hanging the Node.js event loop
   });
+  if (result.status === null && result.signal === null) {
+    throw new Error('Face recognition timed out after 30 seconds. Try a clearer image or smaller file.');
+  }
 
   const stdout = (result.stdout || '').trim();
   const stderr = (result.stderr || '').trim();
@@ -787,7 +791,160 @@ router.post('/parents/resend-setup/:email', auth, adminOnly, async (req, res) =>
   }
 });
 
+// ── SUBJECT-WISE ATTENDANCE ──────────────────────────
+// GET /api/attendance/subject-wise/:studentId
+// Returns attendance grouped by subject with date columns for the subject-wise table.
+router.get('/attendance/subject-wise/:studentId', auth, async (req, res) => {
+  // Parents can only access their own child's data
+  if (req.user.role === 'parent' && req.user.studentId !== req.params.studentId)
+    return res.status(403).json({ error: 'Access denied.' });
+
+  const records = await Attendance.find({ studentId: req.params.studentId })
+    .sort({ date: 1, period: 1 })
+    .lean();
+
+  if (!records.length) {
+    return res.json({ dates: [], subjects: [], overall: { totalClasses: 0, present: 0, absent: 0, percentage: 0 } });
+  }
+
+  // ── Step 1: Determine which records are "real" (period-based vs legacy full-day) ──
+  // Group all records by date to detect if a date has period>0 records
+  const byDate = {};
+  records.forEach(r => {
+    byDate[r.date] = byDate[r.date] || [];
+    byDate[r.date].push(r);
+  });
+
+  // Build a filtered flat list: for each date, if period>0 records exist ignore period=0
+  const filteredRecords = [];
+  Object.keys(byDate).forEach(d => {
+    const recs = byDate[d];
+    const hasPeriods = recs.some(x => x.period && Number(x.period) > 0);
+    const recsToUse = hasPeriods ? recs.filter(x => Number(x.period) > 0) : recs;
+    recsToUse.forEach(r => filteredRecords.push(r));
+  });
+
+  // ── Step 2: Determine which records are "real subject" records ──
+  // If a date has records with specific subjects (not 'All'), ignore 'All' subject records for that date
+  const byDateFiltered = {};
+  filteredRecords.forEach(r => {
+    byDateFiltered[r.date] = byDateFiltered[r.date] || [];
+    byDateFiltered[r.date].push(r);
+  });
+
+  const subjectRecords = [];
+  Object.keys(byDateFiltered).forEach(d => {
+    const recs = byDateFiltered[d];
+    const hasNamedSubjects = recs.some(x => x.subject && x.subject !== 'All' && x.subject.trim() !== '');
+    const recsToUse = hasNamedSubjects ? recs.filter(x => x.subject && x.subject !== 'All' && x.subject.trim() !== '') : recs;
+    recsToUse.forEach(r => subjectRecords.push(r));
+  });
+
+  // ── Step 3: Collect all unique subjects and all unique date+period session keys ──
+  const subjectSet = new Set();
+  const dateSet = new Set();
+
+  // sessionKey = "date|period" uniquely identifies one class session
+  // We track sessions per subject
+  subjectRecords.forEach(r => {
+    const subj = (r.subject && r.subject !== 'All') ? r.subject : 'General';
+    subjectSet.add(subj);
+    dateSet.add(r.date);
+  });
+
+  // Sort dates chronologically
+  const sortedDates = [...dateSet].sort((a, b) => new Date(a) - new Date(b));
+  const sortedSubjects = [...subjectSet].sort();
+
+  // ── Step 4: Build per-subject session maps ──
+  // Map: subject -> Map<"date|period", status>
+  const subjectSessionMap = {};
+  sortedSubjects.forEach(s => { subjectSessionMap[s] = {}; });
+
+  subjectRecords.forEach(r => {
+    const subj = (r.subject && r.subject !== 'All') ? r.subject : 'General';
+    const key = `${r.date}|${r.period}`;
+    subjectSessionMap[subj][key] = r.status;
+  });
+
+  // ── Step 5: For each date, find which subjects have a class on that date ──
+  // We build date->subject->sessions mapping to correctly show "-" vs Present/Absent
+  // For the table columns, we use just the date. If a subject has multiple periods on same date,
+  // we pick the "worst" (Absent beats Present for display — but we count each session separately)
+  const dateSubjectStatus = {};
+  sortedDates.forEach(date => {
+    dateSubjectStatus[date] = {};
+  });
+  subjectRecords.forEach(r => {
+    const subj = (r.subject && r.subject !== 'All') ? r.subject : 'General';
+    const d = r.date;
+    if (!dateSubjectStatus[d][subj]) {
+      dateSubjectStatus[d][subj] = { statuses: [], periods: [] };
+    }
+    dateSubjectStatus[d][subj].statuses.push(r.status);
+    dateSubjectStatus[d][subj].periods.push(r.period);
+  });
+
+  // ── Step 6: Compute per-subject summary and build response rows ──
+  let overallTotal = 0, overallPresent = 0, overallAbsent = 0;
+
+  const subjectRows = sortedSubjects.map(subj => {
+    const sessions = subjectSessionMap[subj]; // { "date|period": status }
+    const totalClasses = Object.keys(sessions).length;
+    const presentCount = Object.values(sessions).filter(s => s === 'Present' || s === 'Late').length;
+    const absentCount = Object.values(sessions).filter(s => s === 'Absent').length;
+    const pct = totalClasses > 0 ? Math.round((presentCount / totalClasses) * 10000) / 100 : 0;
+
+    overallTotal += totalClasses;
+    overallPresent += presentCount;
+    overallAbsent += absentCount;
+
+    // Build date-cell display values: if multiple periods on same day show combined status
+    // For display: if any Absent -> show Absent (red); if all Present -> Present; else mixed
+    const dateCells = {};
+    sortedDates.forEach(date => {
+      const info = dateSubjectStatus[date][subj];
+      if (!info) {
+        dateCells[date] = null; // no class on this date for this subject
+      } else if (info.statuses.length === 1) {
+        dateCells[date] = info.statuses[0];
+      } else {
+        // Multiple periods: show 'Mixed' if varied, or the common status
+        const hasAbsent = info.statuses.includes('Absent');
+        const hasPresent = info.statuses.some(s => s === 'Present' || s === 'Late');
+        if (hasAbsent && hasPresent) dateCells[date] = 'Mixed';
+        else if (hasAbsent) dateCells[date] = 'Absent';
+        else dateCells[date] = 'Present';
+      }
+    });
+
+    return {
+      subject: subj,
+      sessions,        // full session map for detailed counting
+      dateCells,       // date -> display status (null = no class)
+      totalClasses,
+      present: presentCount,
+      absent: absentCount,
+      percentage: pct,
+    };
+  });
+
+  const overallPct = overallTotal > 0 ? Math.round((overallPresent / overallTotal) * 10000) / 100 : 0;
+
+  res.json({
+    dates: sortedDates,
+    subjects: subjectRows,
+    overall: {
+      totalClasses: overallTotal,
+      present: overallPresent,
+      absent: overallAbsent,
+      percentage: overallPct,
+    },
+  });
+});
+
 module.exports = router;
+
 
 // POST /api/fees/add — admin adds/updates fee record
 router.post('/fees/add', auth, adminOnly, async (req, res) => {
