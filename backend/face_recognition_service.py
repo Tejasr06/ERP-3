@@ -62,8 +62,12 @@ except Exception as exc:  # pragma: no cover
     sys.exit(1)
 
 
-def _load_image(path, max_width=640):
-    """Load an image and downscale it to max_width for faster HOG face detection."""
+def _load_image(path, max_width=480):
+    """Load an image and downscale it to max_width for faster HOG face detection.
+
+    max_width=480 is the default for recognition frames (webcam snapshots).
+    Pass max_width=640 for registration samples where encoding quality matters.
+    """
     image = cv2.imread(path)
     if image is None:
         raise ValueError(f"Unable to read image: {path}")
@@ -89,11 +93,11 @@ def _load_known_students(data_dir):
             if not sample_file.is_file() or sample_file.suffix.lower() not in {'.jpg', '.jpeg', '.png', '.bmp', '.webp'}:
                 continue
             try:
-                rgb = _load_image(str(sample_file))
+                rgb = _load_image(str(sample_file), max_width=640)
                 locations = face_recognition.face_locations(rgb, model='hog')
                 if not locations:
                     continue
-                enc = face_recognition.face_encodings(rgb, known_face_locations=locations)
+                enc = face_recognition.face_encodings(rgb, known_face_locations=locations, model='small')
                 for item in enc:
                     encodings.append(item)
             except Exception:
@@ -115,11 +119,11 @@ def validate_samples(student_dir):
     valid = 0
     for sample_file in sample_files:
         try:
-            rgb = _load_image(str(sample_file))
+            rgb = _load_image(str(sample_file), max_width=640)
             locations = face_recognition.face_locations(rgb, model='hog')
             if not locations:
                 continue
-            enc = face_recognition.face_encodings(rgb, known_face_locations=locations)
+            enc = face_recognition.face_encodings(rgb, known_face_locations=locations, model='small')
             if enc:
                 valid += 1
         except Exception:
@@ -141,11 +145,13 @@ def encode_samples(dir_path):
         if not sample_file.is_file() or sample_file.suffix.lower() not in {'.jpg', '.jpeg', '.png', '.bmp', '.webp'}:
             continue
         try:
-            rgb = _load_image(str(sample_file))
+            rgb = _load_image(str(sample_file), max_width=640)
             locations = face_recognition.face_locations(rgb, model='hog')
             if not locations:
                 continue
-            items = face_recognition.face_encodings(rgb, known_face_locations=locations)
+            # model='small' uses 5-point landmarks instead of 68 — ~2x faster,
+            # still produces accurate 128-D face embeddings.
+            items = face_recognition.face_encodings(rgb, known_face_locations=locations, model='small')
             for item in items:
                 encodings.append(item.tolist())
         except Exception:
@@ -155,6 +161,38 @@ def encode_samples(dir_path):
         return {"ok": False, "message": "No valid face encodings generated from provided samples."}
 
     return {"ok": True, "sampleCount": len(encodings), "encodings": encodings}
+
+
+def validate_and_encode(dir_path):
+    """Combined validate + encode in a single pass — avoids a second Python cold-start."""
+    student_path = Path(dir_path)
+    if not student_path.exists():
+        return {"ok": False, "valid": False, "message": "Student folder not found."}
+
+    sample_files = [
+        p for p in sorted(student_path.iterdir())
+        if p.is_file() and p.suffix.lower() in {'.jpg', '.jpeg', '.png', '.bmp', '.webp'}
+    ]
+    if len(sample_files) < 3:
+        return {"ok": False, "valid": False, "message": "At least 3 face samples are required for registration."}
+
+    encodings = []
+    for sample_file in sample_files:
+        try:
+            rgb = _load_image(str(sample_file), max_width=640)
+            locations = face_recognition.face_locations(rgb, model='hog')
+            if not locations:
+                continue
+            items = face_recognition.face_encodings(rgb, known_face_locations=locations, model='small')
+            for item in items:
+                encodings.append(item.tolist())
+        except Exception:
+            continue
+
+    if len(encodings) < 3:
+        return {"ok": False, "valid": False, "message": "At least 3 clear face samples with visible faces are required."}
+
+    return {"ok": True, "valid": True, "sampleCount": len(encodings), "encodings": encodings}
 
 
 def recognize_face(image_path, known_students_source):
@@ -178,7 +216,8 @@ def recognize_face(image_path, known_students_source):
             "message": "No face detected."
         }
 
-    face_encodings = face_recognition.face_encodings(rgb, known_face_locations=face_locations)
+    # model='small' uses 5-point landmarks: ~2x faster than the default 68-point model
+    face_encodings = face_recognition.face_encodings(rgb, known_face_locations=face_locations, model='small')
     if not face_encodings:
         return {
             "ok": True,
@@ -288,6 +327,15 @@ def main():
             print(json.dumps({"ok": False, "message": "Missing student directory."}))
             return
         print(json.dumps(encode_samples(args[student_dir_index])))
+        return
+
+    # Combined validate+encode in a single Python process — avoids a second cold-start
+    if '--validate-and-encode' in args:
+        student_dir_index = args.index('--student-dir') + 1 if '--student-dir' in args else -1
+        if student_dir_index <= 0 or student_dir_index >= len(args):
+            print(json.dumps({"ok": False, "valid": False, "message": "Missing student directory."}))
+            return
+        print(json.dumps(validate_and_encode(args[student_dir_index])))
         return
 
     if '--recognize' in args:

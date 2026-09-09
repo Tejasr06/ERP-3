@@ -371,12 +371,11 @@ router.post('/face/register', auth, adminOnly, async (req, res) => {
       fs.writeFileSync(filePath, sample.buffer);
     }
 
-    const validation = runPythonFaceScript(['--validate-samples', '--student-dir', tempDir]);
-    if (!validation.valid) {
-      return res.status(400).json({ error: validation.message || 'Face samples were not valid.' });
+    // Single Python process: validate + encode in one shot (saves a full cold-start)
+    const encoded = runPythonFaceScript(['--validate-and-encode', '--student-dir', tempDir]);
+    if (!encoded.valid) {
+      return res.status(400).json({ error: encoded.message || 'Face samples were not valid.' });
     }
-
-    const encoded = runPythonFaceScript(['--encode-samples', '--student-dir', tempDir]);
     const saved = await saveStudentFaceEncodings(studentId, student.name, encoded.encodings || [], encoded.sampleCount || samples.length);
 
     res.json({

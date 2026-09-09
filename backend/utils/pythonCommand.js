@@ -15,7 +15,7 @@ function isPythonWorking(command, args = []) {
   }
 }
 
-function resolvePythonExecutable() {
+function _doResolvePythonExecutable() {
   const overrides = [
     process.env.FACE_RECOGNITION_PYTHON,
     process.env.PYTHON_PATH,
@@ -62,6 +62,19 @@ function resolvePythonExecutable() {
   } catch {}
 
   return { cmd: 'python', args: [] };
+}
+
+// Cache the resolved executable so the expensive isPythonWorking probe
+// (which imports cv2 + face_recognition, taking 1-2 sec) only runs once
+// at server startup instead of on every API call.
+let _cachedPythonExecutable = null;
+
+function resolvePythonExecutable() {
+  if (!_cachedPythonExecutable) {
+    _cachedPythonExecutable = _doResolvePythonExecutable();
+    console.log(`[face-recognition] Using Python executable: ${_cachedPythonExecutable.cmd}`);
+  }
+  return _cachedPythonExecutable;
 }
 
 module.exports = { resolvePythonExecutable };
