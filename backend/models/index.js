@@ -138,17 +138,104 @@ const achievementSchema = new mongoose.Schema({
   certificateType: { type: String, default: '' },
 }, { timestamps: true });
 
+const assignmentSchema = new mongoose.Schema({
+  assignmentId:   { type: String, required: true, unique: true },
+  title:          { type: String, required: true },
+  subject:        { type: String, required: true },
+  description:    { type: String, default: '' },
+  assignedBy:     { type: String, default: 'Teacher' },
+  class:          { type: String, required: true },
+  section:        { type: String, required: true },
+  assignedDate:   { type: String, default: () => new Date().toISOString().slice(0, 10) },
+  dueDate:        { type: String, required: true },
+  priority:       { type: String, enum: ['Low', 'Medium', 'High'], default: 'Medium' },
+  attachment:     { type: String, default: '' },
+  attachmentName: { type: String, default: '' },
+  attachmentType: { type: String, default: '' },
+  status:         { type: String, enum: ['Active', 'Archived'], default: 'Active' },
+}, { timestamps: true });
+
+assignmentSchema.index({ class: 1, section: 1 });
+assignmentSchema.index({ subject: 1 });
+assignmentSchema.index({ dueDate: 1 });
+
+const assignmentSubmissionSchema = new mongoose.Schema({
+  assignmentId:       { type: mongoose.Schema.Types.ObjectId, ref: 'Assignment', required: true },
+  assignmentCode:     { type: String },
+  studentId:          { type: String, required: true },
+  studentName:        { type: String, default: '' },
+  class:              { type: String },
+  section:            { type: String },
+  submissionFile:     { type: String, default: '' },
+  submissionFileName: { type: String, default: '' },
+  submissionFileType: { type: String, default: '' },
+  submittedAt:        { type: Date, default: Date.now },
+  status:             { type: String, enum: ['Submitted', 'Late', 'Graded'], default: 'Submitted' },
+  remarks:            { type: String, default: '' },
+}, { timestamps: true });
+
+assignmentSubmissionSchema.index({ assignmentId: 1, studentId: 1 }, { unique: true });
+assignmentSubmissionSchema.index({ studentId: 1 });
+
+const eventSchema = new mongoose.Schema({
+  eventId:              { type: String, required: true, unique: true },
+  title:                { type: String, required: true, trim: true },
+  description:          { type: String, default: '', trim: true },
+  eventType:            {
+    type: String,
+    enum: ['Academic', 'Cultural', 'Sports', 'Workshop', 'Seminar', 'Competition', 'Club', 'College/School', 'Other'],
+    required: true,
+    default: 'Academic'
+  },
+  date:                 { type: String, required: true }, // Format: YYYY-MM-DD
+  startTime:            { type: String, required: true }, // e.g., '10:00 AM'
+  endTime:              { type: String, default: '' },     // e.g., '01:00 PM'
+  venue:                { type: String, required: true, trim: true },
+  organizer:            { type: String, required: true, trim: true },
+  class:                { type: String, default: '', trim: true }, // Empty or 'All' indicates general visibility
+  section:              { type: String, default: '', trim: true },
+  registrationRequired: { type: Boolean, default: false },
+  registrationDeadline: { type: String, default: '' },     // Format: YYYY-MM-DD or date-time
+  image:                { type: String, default: '' },     // Path to banner image
+  createdBy:            { type: String, default: 'Admin' },
+}, { timestamps: true });
+
+eventSchema.index({ date: 1 });
+eventSchema.index({ eventType: 1 });
+eventSchema.index({ class: 1, section: 1 });
+
+const eventRegistrationSchema = new mongoose.Schema({
+  eventId:      { type: mongoose.Schema.Types.ObjectId, ref: 'Event', required: true },
+  eventCode:    { type: String },
+  studentId:    { type: String, required: true },
+  studentName:  { type: String, default: '' },
+  parentEmail:  { type: String, default: '' },
+  class:        { type: String, default: '' },
+  section:      { type: String, default: '' },
+  registeredAt: { type: Date, default: Date.now },
+}, { timestamps: true });
+
+eventRegistrationSchema.index({ eventId: 1, studentId: 1 }, { unique: true });
+eventRegistrationSchema.index({ studentId: 1 });
+eventRegistrationSchema.index({ eventId: 1 });
+
 module.exports = {
-  Student:      mongoose.model('Student', studentSchema),
-  User:         mongoose.model('User', userSchema),
-  Attendance:   mongoose.model('Attendance', attendanceSchema),
-  FaceEmbedding: mongoose.model('FaceEmbedding', faceEmbeddingSchema),
-  Marks:        mongoose.model('Marks', marksSchema),
-  FeeStructure: mongoose.model('FeeStructure', feeStructureSchema),
-  Fee:          mongoose.model('Fee', feeSchema),
-  Payment:      mongoose.model('Payment', paymentSchema),
-  Notification: mongoose.model('Notification', notificationSchema),
-  Message:      mongoose.model('Message', messageSchema),
-  AlertLog:     mongoose.model('AlertLog', alertLogSchema),
-  Achievement:  mongoose.model('Achievement', achievementSchema),
+  Student:              mongoose.model('Student', studentSchema),
+  User:                 mongoose.model('User', userSchema),
+  Attendance:           mongoose.model('Attendance', attendanceSchema),
+  FaceEmbedding:        mongoose.model('FaceEmbedding', faceEmbeddingSchema),
+  Marks:                mongoose.model('Marks', marksSchema),
+  FeeStructure:         mongoose.model('FeeStructure', feeStructureSchema),
+  Fee:                  mongoose.model('Fee', feeSchema),
+  Payment:              mongoose.model('Payment', paymentSchema),
+  Notification:         mongoose.model('Notification', notificationSchema),
+  Message:              mongoose.model('Message', messageSchema),
+  AlertLog:             mongoose.model('AlertLog', alertLogSchema),
+  Achievement:          mongoose.model('Achievement', achievementSchema),
+  Assignment:           mongoose.model('Assignment', assignmentSchema),
+  AssignmentSubmission: mongoose.model('AssignmentSubmission', assignmentSubmissionSchema),
+  Event:                mongoose.model('Event', eventSchema),
+  EventRegistration:    mongoose.model('EventRegistration', eventRegistrationSchema),
 };
+
+

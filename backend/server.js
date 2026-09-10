@@ -98,6 +98,8 @@ app.use('/api',               require('./routes/fees'));          // Before api.
 app.use('/api',               require('./routes/api'));
 app.use('/api',               require('./routes/notifications')); // In-app notifications
 app.use('/api',               require('./routes/achievements'));
+app.use('/api',               require('./routes/assignments'));
+app.use('/api',               require('./routes/events'));
 app.use('/api/import',        require('./routes/import'));
 
 // ── Frontend pages ────────────────────────────────────
