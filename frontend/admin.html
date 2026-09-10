@@ -136,6 +136,18 @@ body::before{content:'';position:fixed;inset:0;z-index:0;background:transparent;
 .s-parent{background:rgba(56,189,248,.12);color:var(--sky);}
 .s-admin{background:rgba(167,139,250,.12);color:var(--purple);}
 
+/* EVENT BADGES */
+.evt-badge{display:inline-block;padding:3px 9px;border-radius:14px;font-size:.72rem;font-weight:700;}
+.evt-Academic{background:rgba(0,31,84,.1);color:#001f54;}
+.evt-Cultural{background:rgba(124,58,237,.12);color:#7c3aed;}
+.evt-Sports{background:rgba(22,163,74,.12);color:#16a34a;}
+.evt-Workshop{background:rgba(245,158,11,.14);color:#b45309;}
+.evt-Seminar{background:rgba(6,182,212,.12);color:#0891b2;}
+.evt-Competition{background:rgba(239,68,68,.12);color:#dc2626;}
+.evt-Club{background:rgba(236,72,153,.12);color:#db2777;}
+.evt-College_School,.evt-School{background:rgba(99,102,241,.12);color:#4f46e5;}
+.evt-Other{background:rgba(100,116,139,.12);color:#475569;}
+
 /* UPLOAD ZONE */
 .upload-zone{border:2px dashed var(--border2);border-radius:13px;padding:36px 20px;text-align:center;cursor:pointer;transition:.2s;}
 .upload-zone:hover,.upload-zone.drag{border-color:var(--teal);background:rgba(0,212,170,.04);}
@@ -227,6 +239,8 @@ body::before{content:'';position:fixed;inset:0;z-index:0;background:transparent;
     <div class="nav-item" onclick="go('import',this)"><i class="fa fa-file-excel"></i> <span data-i18n="dashboard.importStudents">Import Data</span></div>
     <div class="nav-item" onclick="go('students',this)"><i class="fa fa-users"></i> <span data-i18n="dashboard.allStudents">All Students</span></div>
     <div class="nav-item" onclick="go('marks',this)"><i class="fa fa-edit"></i> <span data-i18n="dashboard.manageMarks">Manage Marks</span></div>
+    <div class="nav-item" onclick="go('assignments',this)"><i class="fa fa-tasks"></i> <span data-i18n="dashboard.assignments">Assignments</span></div>
+    <div class="nav-item" onclick="go('events',this)"><i class="fa fa-calendar-alt"></i> <span data-i18n="common.events">Events</span></div>
     <div class="nav-item" onclick="go('attendance',this)"><i class="fa fa-calendar-check"></i> <span data-i18n="common.attendance">Attendance</span></div>
     <div class="nav-item" onclick="go('fees',this)"><i class="fa fa-rupee-sign"></i> <span data-i18n="dashboard.feeRecords">Fee Records</span></div>
     <div class="nav-label">Communication</div>
@@ -391,6 +405,162 @@ body::before{content:'';position:fixed;inset:0;z-index:0;background:transparent;
           <button class="tab" onclick="setMarkTab('Unit Test',this)">Unit Test</button>
         </div>
         <div id="viewMarksContent"><div style="color:var(--muted);font-size:.82rem;">Select a student to view marks.</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── ASSIGNMENTS ── -->
+  <div id="page-assignments" class="page">
+    <div class="panel">
+      <div class="panel-hd">
+        <div class="panel-title">Assignment Management</div>
+        <button class="btn btn-primary" onclick="openCreateAssignmentModal()">
+          <i class="fa fa-plus"></i> Create Assignment
+        </button>
+      </div>
+
+      <!-- Stats row -->
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-bottom:18px;">
+        <div style="padding:14px 18px;border-radius:12px;background:#f8faff;border:1px solid var(--border);">
+          <div style="font-size:.72rem;color:var(--muted);text-transform:uppercase;font-weight:600;">Total Assignments</div>
+          <div id="adminTotalAssignments" style="font-family:var(--font-display);font-size:1.8rem;font-weight:700;color:var(--teal);">0</div>
+        </div>
+        <div style="padding:14px 18px;border-radius:12px;background:#f8faff;border:1px solid var(--border);">
+          <div style="font-size:.72rem;color:var(--muted);text-transform:uppercase;font-weight:600;">High Priority</div>
+          <div id="adminHighPriorityAssignments" style="font-family:var(--font-display);font-size:1.8rem;font-weight:700;color:var(--coral);">0</div>
+        </div>
+        <div style="padding:14px 18px;border-radius:12px;background:#f8faff;border:1px solid var(--border);">
+          <div style="font-size:.72rem;color:var(--muted);text-transform:uppercase;font-weight:600;">Total Submissions</div>
+          <div id="adminTotalSubmissions" style="font-family:var(--font-display);font-size:1.8rem;font-weight:700;color:var(--green);">0</div>
+        </div>
+      </div>
+
+      <!-- Filters -->
+      <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;align-items:center;">
+        <div class="search-wrap" style="flex:1;min-width:200px;">
+          <i class="fa fa-search"></i>
+          <input type="text" id="asgnSearch" class="search-box" style="width:100%;" placeholder="Search title, subject, ID…" oninput="filterAssignmentsList()"/>
+        </div>
+        <div style="min-width:130px;">
+          <select id="asgnClassFilter" onchange="onAsgnClassChange()" style="padding:9px 12px;border-radius:8px;border:1px solid var(--border);background:rgba(255,255,255,.04);color:var(--text);font-size:.82rem;outline:none;width:100%;">
+            <option value="">All Classes</option>
+          </select>
+        </div>
+        <div style="min-width:130px;">
+          <select id="asgnSectionFilter" onchange="filterAssignmentsList()" style="padding:9px 12px;border-radius:8px;border:1px solid var(--border);background:rgba(255,255,255,.04);color:var(--text);font-size:.82rem;outline:none;width:100%;">
+            <option value="">All Sections</option>
+          </select>
+        </div>
+        <div style="min-width:140px;">
+          <select id="asgnSubjectFilter" onchange="filterAssignmentsList()" style="padding:9px 12px;border-radius:8px;border:1px solid var(--border);background:rgba(255,255,255,.04);color:var(--text);font-size:.82rem;outline:none;width:100%;">
+            <option value="">All Subjects</option>
+          </select>
+        </div>
+        <button class="btn" onclick="loadAssignmentsPage()"><i class="fa fa-sync-alt"></i></button>
+      </div>
+
+      <!-- Table -->
+      <div style="overflow-x:auto;">
+        <table class="tbl">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Title & Subject</th>
+              <th>Class-Sec</th>
+              <th>Due Date</th>
+              <th>Priority</th>
+              <th>Attachment</th>
+              <th>Submissions</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="assignmentsBody">
+            <tr><td colspan="8" class="loading-p"><span class="loader"></span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── EVENTS ── -->
+  <div id="page-events" class="page">
+    <div class="panel">
+      <div class="panel-hd">
+        <div class="panel-title">Event Management</div>
+        <button class="btn btn-primary" onclick="openCreateEventModal()">
+          <i class="fa fa-plus"></i> Create Event
+        </button>
+      </div>
+
+      <!-- Stats row -->
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-bottom:18px;">
+        <div style="padding:14px 18px;border-radius:12px;background:#f8faff;border:1px solid var(--border);">
+          <div style="font-size:.72rem;color:var(--muted);text-transform:uppercase;font-weight:600;">Total Events</div>
+          <div id="adminTotalEvents" style="font-family:var(--font-display);font-size:1.8rem;font-weight:700;color:var(--teal);">0</div>
+        </div>
+        <div style="padding:14px 18px;border-radius:12px;background:#f8faff;border:1px solid var(--border);">
+          <div style="font-size:.72rem;color:var(--muted);text-transform:uppercase;font-weight:600;">Upcoming Events</div>
+          <div id="adminUpcomingEvents" style="font-family:var(--font-display);font-size:1.8rem;font-weight:700;color:var(--green);">0</div>
+        </div>
+        <div style="padding:14px 18px;border-radius:12px;background:#f8faff;border:1px solid var(--border);">
+          <div style="font-size:.72rem;color:var(--muted);text-transform:uppercase;font-weight:600;">Total Registrations</div>
+          <div id="adminTotalEventRegistrations" style="font-family:var(--font-display);font-size:1.8rem;font-weight:700;color:var(--purple);">0</div>
+        </div>
+      </div>
+
+      <!-- Filters -->
+      <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;align-items:center;">
+        <div class="search-wrap" style="flex:1;min-width:200px;">
+          <i class="fa fa-search"></i>
+          <input type="text" id="eventSearch" class="search-box" style="width:100%;" placeholder="Search title, venue, organizer, type…" oninput="filterEventsList()"/>
+        </div>
+        <div style="min-width:140px;">
+          <select id="eventTypeFilter" onchange="filterEventsList()" style="padding:9px 12px;border-radius:8px;border:1px solid var(--border);background:rgba(255,255,255,.04);color:var(--text);font-size:.82rem;outline:none;width:100%;">
+            <option value="">All Types</option>
+            <option value="Academic">Academic</option>
+            <option value="Cultural">Cultural</option>
+            <option value="Sports">Sports</option>
+            <option value="Workshop">Workshop</option>
+            <option value="Seminar">Seminar</option>
+            <option value="Competition">Competition</option>
+            <option value="Club">Club</option>
+            <option value="College/School">College/School</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+        <div style="min-width:130px;">
+          <select id="eventClassFilter" onchange="onEventClassChange()" style="padding:9px 12px;border-radius:8px;border:1px solid var(--border);background:rgba(255,255,255,.04);color:var(--text);font-size:.82rem;outline:none;width:100%;">
+            <option value="">All Audiences</option>
+          </select>
+        </div>
+        <div style="min-width:130px;">
+          <select id="eventTimeframeFilter" onchange="filterEventsList()" style="padding:9px 12px;border-radius:8px;border:1px solid var(--border);background:rgba(255,255,255,.04);color:var(--text);font-size:.82rem;outline:none;width:100%;">
+            <option value="all">All Events</option>
+            <option value="upcoming" selected>Upcoming Only</option>
+            <option value="past">Past Events</option>
+          </select>
+        </div>
+        <button class="btn" onclick="loadEventsPage()"><i class="fa fa-sync-alt"></i></button>
+      </div>
+
+      <!-- Table -->
+      <div style="overflow-x:auto;">
+        <table class="tbl">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Event & Category</th>
+              <th>Date & Time</th>
+              <th>Venue & Organizer</th>
+              <th>Target Audience</th>
+              <th>Registration</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="eventsBody">
+            <tr><td colspan="7" class="loading-p"><span class="loader"></span></td></tr>
+          </tbody>
+        </table>
       </div>
     </div>
   </div>
@@ -580,6 +750,267 @@ body::before{content:'';position:fixed;inset:0;z-index:0;background:transparent;
   </div>
 </div>
 
+<!-- CREATE / EDIT ASSIGNMENT MODAL -->
+<div class="modal-overlay" id="assignmentModal">
+  <div class="modal" style="max-width:580px;">
+    <div class="modal-hd">
+      <div class="modal-title" id="asgnModalTitle">Create Assignment</div>
+      <button class="modal-close" onclick="closeAssignmentModal()"><i class="fa fa-times"></i></button>
+    </div>
+    <form id="assignmentForm" onsubmit="event.preventDefault(); saveAssignmentForm();">
+      <input type="hidden" id="asgnId" value=""/>
+      
+      <div class="field">
+        <label>Assignment Title *</label>
+        <input type="text" id="asgnTitle" placeholder="e.g. Chapter 5 Practice Problems" required/>
+      </div>
+
+      <div class="form-row">
+        <div class="field">
+          <label>Subject *</label>
+          <input type="text" id="asgnSubject" placeholder="e.g. Mathematics" list="subjectDatalist" required/>
+          <datalist id="subjectDatalist"></datalist>
+        </div>
+        <div class="field">
+          <label>Priority</label>
+          <select id="asgnPriority">
+            <option value="Medium">Medium</option>
+            <option value="High">High</option>
+            <option value="Low">Low</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="field">
+          <label>Class *</label>
+          <select id="asgnClass" required onchange="updateModalSections()">
+            <option value="">Select Class</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Section *</label>
+          <select id="asgnSection" required>
+            <option value="">Select Section</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="field">
+          <label>Assigned Date</label>
+          <input type="date" id="asgnAssignedDate"/>
+        </div>
+        <div class="field">
+          <label>Due Date *</label>
+          <input type="date" id="asgnDueDate" required/>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Description & Instructions</label>
+        <textarea id="asgnDesc" placeholder="Provide guidelines, questions, or chapter notes…"></textarea>
+      </div>
+
+      <div class="field">
+        <label>Optional Attachment / File</label>
+        <input type="file" id="asgnFile" accept=".pdf,.doc,.docx,.txt,.zip,.png,.jpg,.jpeg,.xlsx,.ppt,.pptx"/>
+        <div id="asgnCurrentFile" style="margin-top:6px;font-size:.76rem;color:var(--muted);"></div>
+      </div>
+
+      <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:20px;">
+        <button type="button" class="btn" onclick="closeAssignmentModal()">Cancel</button>
+        <button type="submit" class="btn btn-primary" id="asgnSaveBtn"><i class="fa fa-save"></i> Save Assignment</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- VIEW SUBMISSIONS MODAL -->
+<div class="modal-overlay" id="submissionsModal">
+  <div class="modal" style="max-width:780px;">
+    <div class="modal-hd">
+      <div>
+        <div class="modal-title" id="submModalTitle">Assignment Submissions</div>
+        <div style="font-size:.78rem;color:var(--muted);margin-top:3px;" id="submModalSub"></div>
+      </div>
+      <button class="modal-close" onclick="closeSubmissionsModal()"><i class="fa fa-times"></i></button>
+    </div>
+    
+    <div style="display:flex;gap:12px;margin-bottom:16px;">
+      <div style="padding:12px 18px;border-radius:10px;background:#f0fdf4;border:1px solid #bbf7d0;flex:1;">
+        <div style="font-size:.72rem;color:#166534;font-weight:600;text-transform:uppercase;">Submitted</div>
+        <div id="submCountSubmitted" style="font-family:var(--font-display);font-size:1.5rem;font-weight:700;color:#15803d;">0</div>
+      </div>
+      <div style="padding:12px 18px;border-radius:10px;background:#fef2f2;border:1px solid #fecaca;flex:1;">
+        <div style="font-size:.72rem;color:#991b1b;font-weight:600;text-transform:uppercase;">Pending / Overdue</div>
+        <div id="submCountPending" style="font-family:var(--font-display);font-size:1.5rem;font-weight:700;color:#dc2626;">0</div>
+      </div>
+    </div>
+
+    <div style="overflow-x:auto;max-height:55vh;">
+      <table class="tbl">
+        <thead>
+          <tr>
+            <th>Student</th>
+            <th>Roll No</th>
+            <th>Status</th>
+            <th>Submitted Date</th>
+            <th>Submission File</th>
+            <th>Remarks</th>
+          </tr>
+        </thead>
+        <tbody id="submBody">
+          <tr><td colspan="6" class="loading-p"><span class="loader"></span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- CREATE / EDIT EVENT MODAL -->
+<div class="modal-overlay" id="eventModal">
+  <div class="modal" style="max-width:620px;">
+    <div class="modal-hd">
+      <div class="modal-title" id="evModalTitle">Create Event</div>
+      <button class="modal-close" onclick="closeEventModal()"><i class="fa fa-times"></i></button>
+    </div>
+    <form id="eventForm" onsubmit="event.preventDefault(); saveEventForm();">
+      <input type="hidden" id="evId" value=""/>
+
+      <div class="field">
+        <label>Event Title *</label>
+        <input type="text" id="evTitle" placeholder="e.g. AI & Robotics Innovation Workshop" required/>
+      </div>
+
+      <div class="form-row">
+        <div class="field">
+          <label>Event Type *</label>
+          <select id="evType" required>
+            <option value="Academic">Academic</option>
+            <option value="Cultural">Cultural</option>
+            <option value="Sports">Sports</option>
+            <option value="Workshop">Workshop</option>
+            <option value="Seminar">Seminar</option>
+            <option value="Competition">Competition</option>
+            <option value="Club">Club</option>
+            <option value="College/School">College/School</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Organizer *</label>
+          <input type="text" id="evOrganizer" placeholder="e.g. Department of Computer Science" required/>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="field">
+          <label>Date *</label>
+          <input type="date" id="evDate" required/>
+        </div>
+        <div class="field">
+          <label>Start Time *</label>
+          <input type="text" id="evStartTime" placeholder="e.g. 10:00 AM" required/>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="field">
+          <label>End Time (Optional)</label>
+          <input type="text" id="evEndTime" placeholder="e.g. 01:00 PM"/>
+        </div>
+        <div class="field">
+          <label>Venue *</label>
+          <input type="text" id="evVenue" placeholder="e.g. Main Auditorium / Lab 3" required/>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="field">
+          <label>Class Target</label>
+          <select id="evClass" onchange="updateEventModalSections()">
+            <option value="">All Classes (General Event)</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Section Target</label>
+          <select id="evSection">
+            <option value="">All Sections</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Registration Settings -->
+      <div style="padding:14px;border-radius:10px;background:rgba(0,31,84,.04);border:1px solid var(--border);margin-bottom:14px;">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+          <input type="checkbox" id="evRegRequired" onchange="toggleRegDeadlineVisibility()" style="width:17px;height:17px;cursor:pointer;"/>
+          <label for="evRegRequired" style="cursor:pointer;font-weight:600;font-size:.85rem;color:var(--text);margin:0;">
+            Enable Student Registration
+          </label>
+        </div>
+        <div id="evRegDeadlineWrap" style="display:none;margin-top:10px;">
+          <label style="display:block;font-size:.72rem;color:var(--muted);margin-bottom:6px;text-transform:uppercase;font-weight:600;">Registration Deadline (Optional)</label>
+          <input type="date" id="evRegDeadline" style="width:100%;padding:9px 12px;border-radius:8px;border:1px solid var(--border);font-size:.82rem;background:#fff;"/>
+          <div style="font-size:.7rem;color:var(--muted);margin-top:4px;">Students cannot register after this date.</div>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Description</label>
+        <textarea id="evDesc" placeholder="Provide schedule, agenda, speaker details, rules, and guidelines…"></textarea>
+      </div>
+
+      <div class="field">
+        <label>Event Image / Banner (Optional)</label>
+        <input type="file" id="evBanner" accept="image/*"/>
+        <div id="evCurrentBanner" style="margin-top:6px;font-size:.76rem;color:var(--muted);"></div>
+      </div>
+
+      <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:20px;">
+        <button type="button" class="btn" onclick="closeEventModal()">Cancel</button>
+        <button type="submit" class="btn btn-primary" id="evSaveBtn"><i class="fa fa-save"></i> Save Event</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- EVENT REGISTRATIONS MODAL -->
+<div class="modal-overlay" id="eventRegistrationsModal">
+  <div class="modal" style="max-width:760px;">
+    <div class="modal-hd">
+      <div>
+        <div class="modal-title" id="evRegModalTitle">Event Registrations</div>
+        <div style="font-size:.78rem;color:var(--muted);margin-top:3px;" id="evRegModalSub"></div>
+      </div>
+      <button class="modal-close" onclick="closeEventRegistrationsModal()"><i class="fa fa-times"></i></button>
+    </div>
+
+    <div style="display:flex;gap:12px;margin-bottom:16px;">
+      <div style="padding:12px 18px;border-radius:10px;background:#f0fdf4;border:1px solid #bbf7d0;flex:1;">
+        <div style="font-size:.72rem;color:#166534;font-weight:600;text-transform:uppercase;">Total Registered Students</div>
+        <div id="evRegCount" style="font-family:var(--font-display);font-size:1.6rem;font-weight:700;color:#15803d;">0</div>
+      </div>
+    </div>
+
+    <div style="overflow-x:auto;max-height:55vh;">
+      <table class="tbl">
+        <thead>
+          <tr>
+            <th>Student</th>
+            <th>Class - Sec</th>
+            <th>Registered At</th>
+            <th>Parent Email</th>
+          </tr>
+        </thead>
+        <tbody id="evRegBody">
+          <tr><td colspan="4" class="loading-p"><span class="loader"></span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
 <div id="toast"></div>
 
 <script>
@@ -640,7 +1071,7 @@ function setHtml(id, html) {
 }
 
 // ── NAV ──────────────────────────────────────────────
-const titles = { dashboard:'Dashboard', import:'Import Data', students:'All Students', marks:'Manage Marks', attendance:'Mark Attendance', fees:'Fee Records', contactParent:'Contact Parent', notifications:'Send Notifications' };
+const titles = { dashboard:'Dashboard', import:'Import Data', students:'All Students', marks:'Manage Marks', assignments:'Assignments', attendance:'Mark Attendance', fees:'Fee Records', contactParent:'Contact Parent', notifications:'Send Notifications' };
 function go(page, navEl) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.getElementById('page-' + page).classList.add('active');
@@ -660,7 +1091,7 @@ function toggleSidebar() {
 function logout() { sessionStorage.clear(); location.href='index.html'; }
 
 function loadPage(page) {
-  const fns = { dashboard:loadDashboard, import:()=>{}, students:loadStudents, marks:loadMarksPage, attendance:loadAttendancePage, fees:loadFeesPage, contactParent:loadContactParentPage, notifications:()=>{} };
+  const fns = { dashboard:loadDashboard, import:()=>{}, students:loadStudents, marks:loadMarksPage, assignments:loadAssignmentsPage, events:loadEventsPage, attendance:loadAttendancePage, fees:loadFeesPage, contactParent:loadContactParentPage, notifications:()=>{} };
   if (fns[page]) fns[page]();
 }
 
@@ -1047,6 +1478,702 @@ async function submitMarks() {
     document.getElementById('mRemarks').value='';
     if (document.getElementById('vStudentSel').value===studentId) viewMarks();
   } catch(e) { toast(e.message,'err'); }
+}
+
+// ── ASSIGNMENTS ──────────────────────────────────────
+let assignmentsCache = [];
+let asgnCurrentEditId = null;
+
+async function loadAssignmentsPage() {
+  const body = document.getElementById('assignmentsBody');
+  if (body) body.innerHTML = '<tr><td colspan="8" class="loading-p"><span class="loader"></span></td></tr>';
+
+  try {
+    if (!studentsCache.length) studentsCache = await req('GET', '/api/students');
+    const classes = [...new Set(studentsCache.map(s => s.class))].sort();
+
+    const classFilter = document.getElementById('asgnClassFilter');
+    if (classFilter && classFilter.children.length <= 1) {
+      classFilter.innerHTML = '<option value="">All Classes</option>' + classes.map(c => `<option value="${c}">Class ${c}</option>`).join('');
+    }
+
+    const modalClass = document.getElementById('asgnClass');
+    if (modalClass && modalClass.children.length <= 1) {
+      modalClass.innerHTML = '<option value="">Select Class</option>' + classes.map(c => `<option value="${c}">Class ${c}</option>`).join('');
+    }
+
+    const cfg = window.ATTENDANCE_CONFIG || { subjects: [] };
+    const subjects = (cfg.subjects && cfg.subjects.length)
+      ? cfg.subjects
+      : ['Mathematics', 'Science', 'English', 'Social Science', 'Computer Science', 'Physics', 'Chemistry', 'Biology'];
+
+    const subjFilter = document.getElementById('asgnSubjectFilter');
+    if (subjFilter && subjFilter.children.length <= 1) {
+      subjFilter.innerHTML = '<option value="">All Subjects</option>' + subjects.map(s => `<option value="${s}">${s}</option>`).join('');
+    }
+    const subjDatalist = document.getElementById('subjectDatalist');
+    if (subjDatalist) {
+      subjDatalist.innerHTML = subjects.map(s => `<option value="${s}"></option>`).join('');
+    }
+
+    const data = await req('GET', '/api/assignments');
+    assignmentsCache = data.assignments || [];
+
+    const total = assignmentsCache.length;
+    const high = assignmentsCache.filter(a => a.priority === 'High').length;
+    const totalSubmissions = assignmentsCache.reduce((sum, a) => sum + (a.submissionCount || 0), 0);
+
+    const totalEl = document.getElementById('adminTotalAssignments');
+    const highEl = document.getElementById('adminHighPriorityAssignments');
+    const subsEl = document.getElementById('adminTotalSubmissions');
+    if (totalEl) totalEl.textContent = total;
+    if (highEl) highEl.textContent = high;
+    if (subsEl) subsEl.textContent = totalSubmissions;
+
+    filterAssignmentsList();
+  } catch (err) {
+    toast(err.message, 'err');
+    if (body) body.innerHTML = `<tr><td colspan="8" style="color:var(--coral);padding:16px;">Failed to load assignments: ${err.message}</td></tr>`;
+  }
+}
+
+function onAsgnClassChange() {
+  const cls = document.getElementById('asgnClassFilter').value;
+  const secs = [...new Set((cls ? studentsCache.filter(s => s.class === cls) : studentsCache).map(s => s.section))].sort();
+  const secFilter = document.getElementById('asgnSectionFilter');
+  if (secFilter) {
+    secFilter.innerHTML = '<option value="">All Sections</option>' + secs.map(s => `<option value="${s}">Section ${s}</option>`).join('');
+  }
+  filterAssignmentsList();
+}
+
+function updateModalSections() {
+  const cls = document.getElementById('asgnClass').value;
+  const secs = [...new Set((cls ? studentsCache.filter(s => s.class === cls) : studentsCache).map(s => s.section))].sort();
+  const secEl = document.getElementById('asgnSection');
+  if (secEl) {
+    secEl.innerHTML = '<option value="">Select Section</option>' + secs.map(s => `<option value="${s}">Section ${s}</option>`).join('');
+  }
+}
+
+function filterAssignmentsList() {
+  const search = (document.getElementById('asgnSearch')?.value || '').toLowerCase().trim();
+  const cls = document.getElementById('asgnClassFilter')?.value || '';
+  const sec = document.getElementById('asgnSectionFilter')?.value || '';
+  const subj = document.getElementById('asgnSubjectFilter')?.value || '';
+
+  const filtered = assignmentsCache.filter(a => {
+    if (cls && a.class !== cls) return false;
+    if (sec && a.section !== sec) return false;
+    if (subj && a.subject !== subj) return false;
+    if (search) {
+      const match = (a.title || '').toLowerCase().includes(search) ||
+                    (a.subject || '').toLowerCase().includes(search) ||
+                    (a.assignmentId || '').toLowerCase().includes(search) ||
+                    (a.description || '').toLowerCase().includes(search);
+      if (!match) return false;
+    }
+    return true;
+  });
+
+  renderAssignmentsTable(filtered);
+}
+
+function renderAssignmentsTable(list) {
+  const body = document.getElementById('assignmentsBody');
+  if (!body) return;
+
+  if (!list.length) {
+    body.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:24px;">No assignments found. Click "+ Create Assignment" to add one.</td></tr>';
+    return;
+  }
+
+  body.innerHTML = list.map(a => {
+    const pColor = a.priority === 'High' ? 'var(--coral)' : a.priority === 'Medium' ? 'var(--gold)' : 'var(--sky)';
+    const pBg = a.priority === 'High' ? 'rgba(239,68,68,.12)' : a.priority === 'Medium' ? 'rgba(245,158,11,.12)' : 'rgba(87,132,215,.12)';
+
+    const attachHtml = a.attachment
+      ? `<a href="${a.attachment}" target="_blank" style="color:var(--teal);text-decoration:none;font-weight:600;display:inline-flex;align-items:center;gap:4px;" title="${a.attachmentName || 'Download'}"><i class="fa fa-paperclip"></i> View</a>`
+      : '<span style="color:var(--muted);font-size:.75rem;">None</span>';
+
+    const subCount = a.submissionCount || 0;
+    const totalCount = a.totalStudents || 0;
+    const subPct = totalCount > 0 ? Math.round((subCount / totalCount) * 100) : 0;
+
+    return `
+      <tr>
+        <td><code style="font-size:.75rem;color:var(--teal);font-weight:700;">${a.assignmentId}</code></td>
+        <td>
+          <div style="font-weight:600;color:var(--text);">${a.title}</div>
+          <div style="font-size:.73rem;color:var(--muted);margin-top:2px;">${a.subject}</div>
+        </td>
+        <td><b>${a.class}-${a.section}</b></td>
+        <td>
+          <div style="font-size:.82rem;font-weight:500;">${a.dueDate || '—'}</div>
+          <div style="font-size:.7rem;color:var(--muted);">Assigned: ${a.assignedDate || '—'}</div>
+        </td>
+        <td><span style="display:inline-block;padding:3px 9px;border-radius:20px;font-size:.7rem;font-weight:700;background:${pBg};color:${pColor};">${a.priority}</span></td>
+        <td>${attachHtml}</td>
+        <td>
+          <div style="font-size:.8rem;font-weight:600;color:var(--text);">${subCount} / ${totalCount}</div>
+          <div style="font-size:.68rem;color:var(--muted);">${subPct}% submitted</div>
+        </td>
+        <td>
+          <div style="display:flex;gap:6px;align-items:center;">
+            <button class="btn" style="padding:5px 9px;font-size:.75rem;" title="View Submissions" onclick="viewAssignmentSubmissions('${a._id}')">
+              <i class="fa fa-list-check" style="color:var(--teal);"></i> Submissions
+            </button>
+            <button class="btn" style="padding:5px 8px;font-size:.75rem;" title="Edit Assignment" onclick="openEditAssignmentModal('${a._id}')">
+              <i class="fa fa-pen" style="color:var(--sky);"></i>
+            </button>
+            <button class="btn btn-danger" style="padding:5px 8px;font-size:.75rem;" title="Delete Assignment" onclick="deleteAssignment('${a._id}')">
+              <i class="fa fa-trash"></i>
+            </button>
+          </div>
+        </td>
+      </tr>`;
+  }).join('');
+}
+
+function openCreateAssignmentModal() {
+  asgnCurrentEditId = null;
+  document.getElementById('asgnModalTitle').textContent = 'Create Assignment';
+  document.getElementById('asgnId').value = '';
+  document.getElementById('asgnTitle').value = '';
+  document.getElementById('asgnSubject').value = '';
+  document.getElementById('asgnPriority').value = 'Medium';
+  document.getElementById('asgnClass').value = '';
+  document.getElementById('asgnSection').innerHTML = '<option value="">Select Section</option>';
+  document.getElementById('asgnAssignedDate').value = new Date().toISOString().slice(0, 10);
+  document.getElementById('asgnDueDate').value = '';
+  document.getElementById('asgnDesc').value = '';
+  document.getElementById('asgnFile').value = '';
+  document.getElementById('asgnCurrentFile').textContent = '';
+
+  const modal = document.getElementById('assignmentModal');
+  if (modal) modal.classList.add('open');
+}
+
+async function openEditAssignmentModal(id) {
+  try {
+    const data = await req('GET', `/api/assignments/${id}`);
+    const a = data.assignment;
+    if (!a) return;
+
+    asgnCurrentEditId = a._id;
+    document.getElementById('asgnModalTitle').textContent = 'Edit Assignment';
+    document.getElementById('asgnId').value = a._id;
+    document.getElementById('asgnTitle').value = a.title || '';
+    document.getElementById('asgnSubject').value = a.subject || '';
+    document.getElementById('asgnPriority').value = a.priority || 'Medium';
+    document.getElementById('asgnClass').value = a.class || '';
+
+    updateModalSections();
+    document.getElementById('asgnSection').value = a.section || '';
+    document.getElementById('asgnAssignedDate').value = a.assignedDate || '';
+    document.getElementById('asgnDueDate').value = a.dueDate || '';
+    document.getElementById('asgnDesc').value = a.description || '';
+    document.getElementById('asgnFile').value = '';
+
+    const currFileEl = document.getElementById('asgnCurrentFile');
+    if (a.attachment) {
+      currFileEl.innerHTML = `Current attachment: <a href="${a.attachment}" target="_blank">${a.attachmentName || 'View File'}</a> (Upload new file to replace)`;
+    } else {
+      currFileEl.textContent = 'No current attachment.';
+    }
+
+    const modal = document.getElementById('assignmentModal');
+    if (modal) modal.classList.add('open');
+  } catch (err) {
+    toast(err.message, 'err');
+  }
+}
+
+function closeAssignmentModal() {
+  const modal = document.getElementById('assignmentModal');
+  if (modal) modal.classList.remove('open');
+  asgnCurrentEditId = null;
+}
+
+async function saveAssignmentForm() {
+  const title = document.getElementById('asgnTitle').value.trim();
+  const subject = document.getElementById('asgnSubject').value.trim();
+  const priority = document.getElementById('asgnPriority').value;
+  const className = document.getElementById('asgnClass').value.trim();
+  const section = document.getElementById('asgnSection').value.trim();
+  const assignedDate = document.getElementById('asgnAssignedDate').value;
+  const dueDate = document.getElementById('asgnDueDate').value;
+  const description = document.getElementById('asgnDesc').value.trim();
+  const fileInput = document.getElementById('asgnFile');
+
+  if (!title || !subject || !className || !section || !dueDate) {
+    toast('Please fill all required fields.', 'err');
+    return;
+  }
+
+  const btn = document.getElementById('asgnSaveBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spin"></span> Saving…';
+
+  try {
+    const fd = new FormData();
+    fd.append('title', title);
+    fd.append('subject', subject);
+    fd.append('priority', priority);
+    fd.append('class', className);
+    fd.append('section', section);
+    fd.append('assignedDate', assignedDate);
+    fd.append('dueDate', dueDate);
+    fd.append('description', description);
+
+    if (fileInput && fileInput.files[0]) {
+      fd.append('attachment', fileInput.files[0]);
+    }
+
+    if (asgnCurrentEditId) {
+      await req('PUT', `/api/assignments/${asgnCurrentEditId}`, fd, true);
+      toast('✅ Assignment updated successfully!', 'ok');
+    } else {
+      await req('POST', '/api/assignments', fd, true);
+      toast('✅ Assignment created & students notified!', 'ok');
+    }
+
+    closeAssignmentModal();
+    loadAssignmentsPage();
+  } catch (err) {
+    toast(err.message, 'err');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fa fa-save"></i> Save Assignment';
+  }
+}
+
+async function deleteAssignment(id) {
+  if (!confirm('Are you sure you want to delete this assignment and all student submissions?')) return;
+
+  try {
+    await req('DELETE', `/api/assignments/${id}`);
+    toast('✅ Assignment deleted.', 'ok');
+    loadAssignmentsPage();
+  } catch (err) {
+    toast(err.message, 'err');
+  }
+}
+
+async function viewAssignmentSubmissions(id) {
+  const modal = document.getElementById('submissionsModal');
+  const body = document.getElementById('submBody');
+  if (modal) modal.classList.add('open');
+  if (body) body.innerHTML = '<tr><td colspan="6" class="loading-p"><span class="loader"></span></td></tr>';
+
+  try {
+    const data = await req('GET', `/api/assignments/${id}/submissions`);
+    const a = data.assignment;
+    const subs = data.submissions || [];
+
+    document.getElementById('submModalTitle').textContent = `Submissions: ${a.title}`;
+    document.getElementById('submModalSub').textContent = `${a.subject} • Class ${a.class}-${a.section} • Due: ${a.dueDate}`;
+    document.getElementById('submCountSubmitted').textContent = data.totalSubmitted || 0;
+    document.getElementById('submCountPending').textContent = (data.totalStudents || 0) - (data.totalSubmitted || 0);
+
+    if (!subs.length) {
+      body.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px;">No students enrolled in this class/section.</td></tr>';
+      return;
+    }
+
+    body.innerHTML = subs.map(s => {
+      const isSub = s.hasSubmitted;
+      const statusBadge = isSub
+        ? `<span class="badge-s s-paid" style="background:#dcfce7;color:#15803d;"><i class="fa fa-check"></i> ${s.status}</span>`
+        : (s.status === 'Overdue'
+          ? `<span class="badge-s s-overdue"><i class="fa fa-clock"></i> Overdue</span>`
+          : `<span class="badge-s s-due"><i class="fa fa-hourglass-half"></i> Pending</span>`);
+
+      const dateStr = s.submittedAt ? new Date(s.submittedAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }) : '—';
+      const fileLink = s.submissionFile
+        ? `<a href="${s.submissionFile}" target="_blank" style="color:var(--teal);text-decoration:none;font-weight:600;"><i class="fa fa-file-arrow-down"></i> ${s.submissionFileName || 'Download'}</a>`
+        : '<span style="color:var(--muted);">No file</span>';
+
+      return `
+        <tr>
+          <td>
+            <div style="font-weight:600;color:var(--text);">${s.studentName}</div>
+            <code style="font-size:.72rem;color:var(--teal);">${s.studentId}</code>
+          </td>
+          <td>${s.rollNumber || '—'}</td>
+          <td>${statusBadge}</td>
+          <td style="font-size:.78rem;">${dateStr}</td>
+          <td>${fileLink}</td>
+          <td style="font-size:.78rem;color:var(--muted);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${s.remarks || '—'}</td>
+        </tr>`;
+    }).join('');
+
+  } catch (err) {
+    toast(err.message, 'err');
+    if (body) body.innerHTML = `<tr><td colspan="6" style="color:var(--coral);padding:16px;">Failed to load submissions: ${err.message}</td></tr>`;
+  }
+}
+
+function closeSubmissionsModal() {
+  const modal = document.getElementById('submissionsModal');
+  if (modal) modal.classList.remove('open');
+}
+
+// ── EVENTS ───────────────────────────────────────────
+let eventsCache = [];
+let eventCurrentEditId = null;
+
+async function loadEventsPage() {
+  const body = document.getElementById('eventsBody');
+  if (body) body.innerHTML = '<tr><td colspan="7" class="loading-p"><span class="loader"></span></td></tr>';
+
+  try {
+    if (!studentsCache.length) studentsCache = await req('GET', '/api/students');
+    const classes = [...new Set(studentsCache.map(s => s.class))].sort();
+
+    const classFilter = document.getElementById('eventClassFilter');
+    if (classFilter && classFilter.children.length <= 1) {
+      classFilter.innerHTML = '<option value="">All Audiences</option><option value="General">General (All Classes)</option>' +
+        classes.map(c => `<option value="${c}">Class ${c}</option>`).join('');
+    }
+
+    const modalClass = document.getElementById('evClass');
+    if (modalClass && modalClass.children.length <= 1) {
+      modalClass.innerHTML = '<option value="">All Classes (General Event)</option>' +
+        classes.map(c => `<option value="${c}">Class ${c}</option>`).join('');
+    }
+
+    const timeframe = document.getElementById('eventTimeframeFilter')?.value || 'all';
+    const data = await req('GET', `/api/events?timeframe=${timeframe}`);
+    eventsCache = data.events || [];
+
+    const total = eventsCache.length;
+    const upcoming = eventsCache.filter(e => !e.isPast).length;
+    const totalRegs = eventsCache.reduce((sum, e) => sum + (e.registrationCount || 0), 0);
+
+    const totalEl = document.getElementById('adminTotalEvents');
+    const upEl = document.getElementById('adminUpcomingEvents');
+    const regEl = document.getElementById('adminTotalEventRegistrations');
+    if (totalEl) totalEl.textContent = total;
+    if (upEl) upEl.textContent = upcoming;
+    if (regEl) regEl.textContent = totalRegs;
+
+    filterEventsList();
+  } catch (err) {
+    toast(err.message, 'err');
+    if (body) body.innerHTML = `<tr><td colspan="7" style="color:var(--coral);padding:16px;">Failed to load events: ${err.message}</td></tr>`;
+  }
+}
+
+function onEventClassChange() {
+  filterEventsList();
+}
+
+function updateEventModalSections() {
+  const cls = document.getElementById('evClass').value;
+  const secSelect = document.getElementById('evSection');
+  if (!cls) {
+    secSelect.innerHTML = '<option value="">All Sections</option>';
+    return;
+  }
+  const secs = [...new Set(studentsCache.filter(s => s.class === cls).map(s => s.section))].sort();
+  secSelect.innerHTML = '<option value="">All Sections</option>' + secs.map(s => `<option value="${s}">Section ${s}</option>`).join('');
+}
+
+function toggleRegDeadlineVisibility() {
+  const chk = document.getElementById('evRegRequired');
+  const wrap = document.getElementById('evRegDeadlineWrap');
+  if (wrap) wrap.style.display = chk.checked ? 'block' : 'none';
+}
+
+function filterEventsList() {
+  const q = (document.getElementById('eventSearch')?.value || '').toLowerCase().trim();
+  const type = document.getElementById('eventTypeFilter')?.value || '';
+  const cls = document.getElementById('eventClassFilter')?.value || '';
+  const timeframe = document.getElementById('eventTimeframeFilter')?.value || 'all';
+
+  let list = eventsCache.filter(e => {
+    if (q) {
+      const match = (e.title || '').toLowerCase().includes(q) ||
+        (e.eventType || '').toLowerCase().includes(q) ||
+        (e.venue || '').toLowerCase().includes(q) ||
+        (e.organizer || '').toLowerCase().includes(q) ||
+        (e.eventId || '').toLowerCase().includes(q);
+      if (!match) return false;
+    }
+    if (type && e.eventType !== type) return false;
+    if (cls) {
+      if (cls === 'General') {
+        if (e.class && e.class !== 'All' && e.class !== '') return false;
+      } else {
+        if (e.class !== cls) return false;
+      }
+    }
+    if (timeframe === 'upcoming' && e.isPast) return false;
+    if (timeframe === 'past' && !e.isPast) return false;
+    return true;
+  });
+
+  const body = document.getElementById('eventsBody');
+  if (!body) return;
+
+  if (!list.length) {
+    body.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:32px;">No events found matching criteria.</td></tr>';
+    return;
+  }
+
+  body.innerHTML = list.map(e => {
+    const typeClean = (e.eventType || 'Other').replace(/[^a-zA-Z0-9]/g, '_');
+    const badgeTypeCls = `evt-${typeClean}`;
+    const statusBadge = e.isPast
+      ? '<span style="font-size:.7rem;padding:2px 7px;border-radius:10px;background:#e2e8f0;color:#475569;font-weight:600;">Past</span>'
+      : '<span style="font-size:.7rem;padding:2px 7px;border-radius:10px;background:#dcfce7;color:#15803d;font-weight:600;">Upcoming</span>';
+
+    const targetAudience = (e.class && e.class !== 'All')
+      ? `Class ${e.class}${e.section && e.section !== 'All' ? ' - ' + e.section : ''}`
+      : '<span style="color:#0369a1;font-weight:600;">All Students</span>';
+
+    const regBadge = e.registrationRequired
+      ? `<div style="display:flex;flex-direction:column;gap:2px;">
+           <span style="font-size:.74rem;color:#15803d;font-weight:700;"><i class="fa fa-id-badge"></i> Required</span>
+           <span style="font-size:.68rem;color:var(--muted);">${e.registrationCount || 0} registered</span>
+         </div>`
+      : '<span style="font-size:.74rem;color:var(--muted);">Not Required</span>';
+
+    return `
+      <tr>
+        <td><code style="font-size:.75rem;color:var(--teal);font-weight:700;">${e.eventId}</code></td>
+        <td>
+          <div style="font-weight:600;color:var(--text);">${e.title}</div>
+          <div style="margin-top:4px;display:flex;align-items:center;gap:6px;">
+            <span class="evt-badge ${badgeTypeCls}">${e.eventType}</span>
+            ${statusBadge}
+          </div>
+        </td>
+        <td>
+          <div style="font-size:.82rem;font-weight:600;">${e.date}</div>
+          <div style="font-size:.72rem;color:var(--muted);">${e.startTime}${e.endTime ? ' – ' + e.endTime : ''}</div>
+        </td>
+        <td>
+          <div style="font-size:.82rem;font-weight:500;">${e.venue}</div>
+          <div style="font-size:.72rem;color:var(--muted);">${e.organizer}</div>
+        </td>
+        <td><b>${targetAudience}</b></td>
+        <td>${regBadge}</td>
+        <td>
+          <div style="display:flex;gap:6px;align-items:center;">
+            ${e.registrationRequired ? `
+              <button class="btn" style="padding:5px 9px;font-size:.75rem;" title="View Registered Students" onclick="viewEventRegistrations('${e._id}')">
+                <i class="fa fa-users" style="color:var(--teal);"></i> Regs
+              </button>` : ''}
+            <button class="btn" style="padding:5px 8px;font-size:.75rem;" title="Edit Event" onclick="openEditEventModal('${e._id}')">
+              <i class="fa fa-pen" style="color:var(--sky);"></i>
+            </button>
+            <button class="btn btn-danger" style="padding:5px 8px;font-size:.75rem;" title="Delete Event" onclick="deleteEvent('${e._id}')">
+              <i class="fa fa-trash"></i>
+            </button>
+          </div>
+        </td>
+      </tr>`;
+  }).join('');
+}
+
+function openCreateEventModal() {
+  eventCurrentEditId = null;
+  document.getElementById('evModalTitle').textContent = 'Create Event';
+  document.getElementById('evId').value = '';
+  document.getElementById('evTitle').value = '';
+  document.getElementById('evType').value = 'Academic';
+  document.getElementById('evOrganizer').value = '';
+  document.getElementById('evDate').value = new Date().toISOString().slice(0, 10);
+  document.getElementById('evStartTime').value = '10:00 AM';
+  document.getElementById('evEndTime').value = '01:00 PM';
+  document.getElementById('evVenue').value = '';
+  document.getElementById('evClass').value = '';
+  document.getElementById('evSection').innerHTML = '<option value="">All Sections</option>';
+  document.getElementById('evRegRequired').checked = false;
+  document.getElementById('evRegDeadline').value = '';
+  document.getElementById('evRegDeadlineWrap').style.display = 'none';
+  document.getElementById('evDesc').value = '';
+  document.getElementById('evBanner').value = '';
+  document.getElementById('evCurrentBanner').textContent = '';
+
+  const modal = document.getElementById('eventModal');
+  if (modal) modal.classList.add('open');
+}
+
+async function openEditEventModal(id) {
+  try {
+    const data = await req('GET', `/api/events/${id}`);
+    const e = data.event;
+    if (!e) return;
+
+    eventCurrentEditId = e._id;
+    document.getElementById('evModalTitle').textContent = 'Edit Event';
+    document.getElementById('evId').value = e._id;
+    document.getElementById('evTitle').value = e.title || '';
+    document.getElementById('evType').value = e.eventType || 'Academic';
+    document.getElementById('evOrganizer').value = e.organizer || '';
+    document.getElementById('evDate').value = e.date || '';
+    document.getElementById('evStartTime').value = e.startTime || '';
+    document.getElementById('evEndTime').value = e.endTime || '';
+    document.getElementById('evVenue').value = e.venue || '';
+    document.getElementById('evClass').value = e.class || '';
+
+    updateEventModalSections();
+    document.getElementById('evSection').value = e.section || '';
+
+    const regReq = Boolean(e.registrationRequired);
+    document.getElementById('evRegRequired').checked = regReq;
+    document.getElementById('evRegDeadlineWrap').style.display = regReq ? 'block' : 'none';
+    document.getElementById('evRegDeadline').value = e.registrationDeadline || '';
+
+    document.getElementById('evDesc').value = e.description || '';
+    document.getElementById('evBanner').value = '';
+
+    const currBannerEl = document.getElementById('evCurrentBanner');
+    if (e.image) {
+      currBannerEl.innerHTML = `Current banner: <a href="${e.image}" target="_blank">View image</a> (Upload new image to replace)`;
+    } else {
+      currBannerEl.textContent = 'No current banner.';
+    }
+
+    const modal = document.getElementById('eventModal');
+    if (modal) modal.classList.add('open');
+  } catch (err) {
+    toast(err.message, 'err');
+  }
+}
+
+function closeEventModal() {
+  const modal = document.getElementById('eventModal');
+  if (modal) modal.classList.remove('open');
+  eventCurrentEditId = null;
+}
+
+async function saveEventForm() {
+  const title = document.getElementById('evTitle').value.trim();
+  const eventType = document.getElementById('evType').value.trim();
+  const organizer = document.getElementById('evOrganizer').value.trim();
+  const date = document.getElementById('evDate').value.trim();
+  const startTime = document.getElementById('evStartTime').value.trim();
+  const endTime = document.getElementById('evEndTime').value.trim();
+  const venue = document.getElementById('evVenue').value.trim();
+  const className = document.getElementById('evClass').value.trim();
+  const section = document.getElementById('evSection').value.trim();
+  const registrationRequired = document.getElementById('evRegRequired').checked;
+  const registrationDeadline = document.getElementById('evRegDeadline').value.trim();
+  const description = document.getElementById('evDesc').value.trim();
+  const bannerFile = document.getElementById('evBanner');
+
+  if (!title || !eventType || !organizer || !date || !startTime || !venue) {
+    toast('Please fill all required event fields.', 'err');
+    return;
+  }
+
+  const btn = document.getElementById('evSaveBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spin"></span> Saving…';
+
+  try {
+    const fd = new FormData();
+    fd.append('title', title);
+    fd.append('eventType', eventType);
+    fd.append('organizer', organizer);
+    fd.append('date', date);
+    fd.append('startTime', startTime);
+    fd.append('endTime', endTime);
+    fd.append('venue', venue);
+    fd.append('class', className);
+    fd.append('section', section);
+    fd.append('registrationRequired', registrationRequired);
+    fd.append('registrationDeadline', registrationDeadline);
+    fd.append('description', description);
+
+    if (bannerFile && bannerFile.files[0]) {
+      fd.append('banner', bannerFile.files[0]);
+    }
+
+    if (eventCurrentEditId) {
+      await req('PUT', `/api/events/${eventCurrentEditId}`, fd, true);
+      toast('✅ Event updated successfully!', 'ok');
+    } else {
+      await req('POST', '/api/events', fd, true);
+      toast('✅ Event created & students notified!', 'ok');
+    }
+
+    closeEventModal();
+    loadEventsPage();
+  } catch (err) {
+    toast(err.message, 'err');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fa fa-save"></i> Save Event';
+  }
+}
+
+async function deleteEvent(id) {
+  if (!confirm('Are you sure you want to delete this event and all student registrations?')) return;
+
+  try {
+    await req('DELETE', `/api/events/${id}`);
+    toast('✅ Event deleted.', 'ok');
+    loadEventsPage();
+  } catch (err) {
+    toast(err.message, 'err');
+  }
+}
+
+async function viewEventRegistrations(id) {
+  const modal = document.getElementById('eventRegistrationsModal');
+  const body = document.getElementById('evRegBody');
+  if (modal) modal.classList.add('open');
+  if (body) body.innerHTML = '<tr><td colspan="4" class="loading-p"><span class="loader"></span></td></tr>';
+
+  try {
+    const data = await req('GET', `/api/events/${id}/registrations`);
+    const regs = data.registrations || [];
+
+    document.getElementById('evRegModalTitle').textContent = `Registrations: ${data.eventTitle}`;
+    document.getElementById('evRegModalSub').textContent = `Event Code: ${data.eventId}`;
+    document.getElementById('evRegCount').textContent = data.totalRegistrations || 0;
+
+    if (!regs.length) {
+      body.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:24px;">No students have registered yet.</td></tr>';
+      return;
+    }
+
+    body.innerHTML = regs.map(r => {
+      const regDate = r.registeredAt ? new Date(r.registeredAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }) : '—';
+      return `
+        <tr>
+          <td>
+            <div style="font-weight:600;color:var(--text);">${r.studentName || 'Student'}</div>
+            <code style="font-size:.72rem;color:var(--teal);">${r.studentId}</code>
+          </td>
+          <td><b>${r.class || '—'}-${r.section || '—'}</b></td>
+          <td style="font-size:.78rem;">${regDate}</td>
+          <td><a href="mailto:${r.parentEmail}" style="color:var(--teal);text-decoration:none;">${r.parentEmail || '—'}</a></td>
+        </tr>`;
+    }).join('');
+  } catch (err) {
+    toast(err.message, 'err');
+    if (body) body.innerHTML = `<tr><td colspan="4" style="color:var(--coral);padding:16px;">Failed to load registrations: ${err.message}</td></tr>`;
+  }
+}
+
+function closeEventRegistrationsModal() {
+  const modal = document.getElementById('eventRegistrationsModal');
+  if (modal) modal.classList.remove('open');
+}
+
+const _eventModalEl = document.getElementById('eventModal');
+if (_eventModalEl) {
+  _eventModalEl.addEventListener('click', e => { if (e.target === e.currentTarget) closeEventModal(); });
+}
+const _eventRegModalEl = document.getElementById('eventRegistrationsModal');
+if (_eventRegModalEl) {
+  _eventRegModalEl.addEventListener('click', e => { if (e.target === e.currentTarget) closeEventRegistrationsModal(); });
 }
 
 // ── ATTENDANCE ────────────────────────────────────────

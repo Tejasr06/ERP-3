@@ -265,6 +265,39 @@ body::before{content:'';position:fixed;inset:0;z-index:0;background:transparent;
   .stat-row{grid-template-columns:1fr 1fr;}
 }
 ::-webkit-scrollbar{width:5px;height:5px;}::-webkit-scrollbar-track{background:transparent;}::-webkit-scrollbar-thumb{background:rgba(255,255,255,.08);border-radius:3px;}
+
+/* ASSIGNMENTS MODULE */
+.asgn-card{background:#ffffff;border:1px solid var(--border);border-radius:14px;padding:20px;margin-bottom:16px;transition:.2s;box-shadow:0 2px 10px rgba(15,23,42,.03);}
+.asgn-card:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,31,84,.08);}
+.asgn-badge-pending{background:rgba(245,158,11,.14);color:#b45309;padding:4px 10px;border-radius:20px;font-size:.72rem;font-weight:700;}
+.asgn-badge-submitted{background:rgba(22,163,74,.14);color:#15803d;padding:4px 10px;border-radius:20px;font-size:.72rem;font-weight:700;}
+.asgn-badge-overdue{background:rgba(239,68,68,.14);color:#b91c1c;padding:4px 10px;border-radius:20px;font-size:.72rem;font-weight:700;}
+.dl-badge{display:inline-flex;align-items:center;gap:6px;font-size:.78rem;font-weight:600;}
+.dl-urgent{color:#dc2626;}
+.dl-warn{color:#d97706;}
+.dl-ok{color:#16a34a;}
+.asgn-filter-btn{padding:7px 16px;border-radius:8px;border:1px solid var(--border);background:#ffffff;color:var(--muted);font-size:.8rem;cursor:pointer;transition:.2s;font-weight:500;}
+.asgn-filter-btn:hover{border-color:var(--teal);color:var(--teal);}
+.asgn-filter-btn.active{background:var(--teal);color:#ffffff;border-color:var(--teal);font-weight:600;}
+
+/* EVENTS MODULE */
+.evt-card{background:#ffffff;border:1px solid var(--border);border-radius:14px;overflow:hidden;display:flex;flex-direction:column;transition:.2s;box-shadow:0 2px 10px rgba(15,23,42,.03);}
+.evt-card:hover{transform:translateY(-2px);box-shadow:0 10px 28px rgba(0,31,84,.09);}
+.evt-badge{display:inline-block;padding:3px 9px;border-radius:14px;font-size:.72rem;font-weight:700;}
+.evt-Academic{background:rgba(0,31,84,.1);color:#001f54;}
+.evt-Cultural{background:rgba(124,58,237,.12);color:#7c3aed;}
+.evt-Sports{background:rgba(22,163,74,.12);color:#16a34a;}
+.evt-Workshop{background:rgba(245,158,11,.14);color:#b45309;}
+.evt-Seminar{background:rgba(6,182,212,.12);color:#0891b2;}
+.evt-Competition{background:rgba(239,68,68,.12);color:#dc2626;}
+.evt-Club{background:rgba(236,72,153,.12);color:#db2777;}
+.evt-College_School,.evt-School{background:rgba(99,102,241,.12);color:#4f46e5;}
+.evt-Other{background:rgba(100,116,139,.12);color:#475569;}
+.evt-filter-btn{padding:7px 15px;border-radius:8px;border:1px solid var(--border);background:#ffffff;color:var(--muted);font-size:.8rem;cursor:pointer;transition:.2s;font-weight:500;}
+.evt-filter-btn:hover{border-color:var(--teal);color:var(--teal);}
+.evt-filter-btn.active{background:var(--teal);color:#ffffff;border-color:var(--teal);font-weight:600;}
+.evt-tab-btn{padding:8px 18px;border-radius:8px;border:none;background:transparent;color:var(--muted);font-size:.84rem;cursor:pointer;transition:.2s;font-weight:600;}
+.evt-tab-btn.active{background:#ffffff;color:var(--teal);box-shadow:0 2px 8px rgba(0,31,84,.08);}
 </style>
 </head>
 <body>
@@ -281,6 +314,8 @@ body::before{content:'';position:fixed;inset:0;z-index:0;background:transparent;
     <div class="nav-item active" onclick="go('home',this)"><i class="fa fa-th-large"></i> <span data-i18n="common.dashboard">Dashboard</span></div>
     <div class="nav-label" data-i18n="common.academics">Academics</div>
     <div class="nav-item" onclick="go('attendance',this)"><i class="fa fa-calendar-check"></i> <span data-i18n="common.attendance">Attendance</span></div>
+    <div class="nav-item" onclick="go('assignments',this)"><i class="fa fa-book-open"></i> <span data-i18n="common.assignments">Assignments</span></div>
+    <div class="nav-item" onclick="go('events',this)"><i class="fa fa-calendar-alt"></i> <span data-i18n="common.events">Events</span></div>
     <div class="nav-item" onclick="go('marks',this)"><i class="fa fa-chart-bar"></i> <span data-i18n="common.marks">Marks & Grades</span></div>
     <div class="nav-label" data-i18n="common.finance">Finance</div>
     <div class="nav-item" onclick="go('fees',this)"><i class="fa fa-rupee-sign"></i> <span data-i18n="common.fees">Fee Status</span></div>
@@ -321,19 +356,198 @@ body::before{content:'';position:fixed;inset:0;z-index:0;background:transparent;
       <button onclick="this.parentElement.style.display='none'" style="margin-left:auto;background:none;border:none;color:inherit;cursor:pointer;font-size:1rem;opacity:.6;"><i class="fa fa-times"></i></button>
     </div>
     <div class="stat-row" id="homeStats"><div class="loading-p"><span class="loader"></span></div></div>
-    <div class="panel" style="max-width:420px;">
-      <div class="panel-hd"><div class="panel-title">Attendance</div></div>
-      <div style="text-align:center;padding:20px 0;">
-        <div style="font-family:var(--font-display);font-size:3.5rem;font-weight:700;" id="homeAttPct">—</div>
-        <div style="font-size:.78rem;color:var(--muted);margin-top:4px;" id="homeAttSub">Loading…</div>
-        <div id="homeTodayPeriods" style="margin-top:8px;color:var(--muted);font-size:.9rem"></div>
-        <div class="bar" style="height:8px;margin:14px 0;border-radius:999px;background:rgba(0,31,84,.08);"><div class="bar-fill" id="homeAttBar" style="width:0%"></div></div>
-        <div style="font-size:.75rem;color:var(--muted);"><span data-i18n="dashboard.minimumRequired">Minimum required:</span> <b style="color:var(--gold)">75%</b></div>
+    <div class="grid2">
+      <!-- Attendance Card -->
+      <div class="panel">
+        <div class="panel-hd"><div class="panel-title">Attendance</div></div>
+        <div style="text-align:center;padding:14px 0;">
+          <div style="font-family:var(--font-display);font-size:3.2rem;font-weight:700;" id="homeAttPct">—</div>
+          <div style="font-size:.78rem;color:var(--muted);margin-top:4px;" id="homeAttSub">Loading…</div>
+          <div id="homeTodayPeriods" style="margin-top:8px;color:var(--muted);font-size:.9rem"></div>
+          <div class="bar" style="height:8px;margin:14px 0;border-radius:999px;background:rgba(0,31,84,.08);"><div class="bar-fill" id="homeAttBar" style="width:0%"></div></div>
+          <div style="font-size:.75rem;color:var(--muted);"><span data-i18n="dashboard.minimumRequired">Minimum required:</span> <b style="color:var(--gold)">75%</b></div>
+        </div>
+      </div>
+
+      <!-- Upcoming Deadlines Card (PS4) -->
+      <div class="panel">
+        <div class="panel-hd">
+          <div class="panel-title" style="display:flex;align-items:center;gap:8px;">
+            <i class="fa fa-calendar-alt" style="color:var(--teal);"></i> Upcoming Deadlines
+          </div>
+          <button class="btn" onclick="go('assignments')" style="font-size:.75rem;padding:4px 10px;">
+            View All <i class="fa fa-arrow-right" style="font-size:.7rem;"></i>
+          </button>
+        </div>
+        <div id="homeDeadlinesList" style="display:flex;flex-direction:column;gap:10px;">
+          <div class="loading-p"><span class="loader"></span></div>
+        </div>
       </div>
     </div>
+
+    <!-- Upcoming Events Card (PS4 Student Journey Platform) -->
+    <div class="panel" style="margin-bottom:20px;">
+      <div class="panel-hd" style="flex-wrap:wrap;gap:10px;">
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+          <div class="panel-title" style="display:flex;align-items:center;gap:8px;">
+            <i class="fa fa-calendar-star" style="color:var(--teal);"></i> <span data-i18n="dashboard.upcomingEvents">Upcoming Events</span>
+          </div>
+          <!-- Dynamic Summary Badges -->
+          <div id="homeEventSummaryBadges" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
+        </div>
+        <button class="btn btn-primary" onclick="go('events')" style="font-size:.78rem;padding:6px 14px;">
+          View All Events <i class="fa fa-arrow-right" style="font-size:.7rem;"></i>
+        </button>
+      </div>
+      <div id="homeEventsList" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;">
+        <div class="loading-p"><span class="loader"></span> Loading events…</div>
+      </div>
+    </div>
+
     <div class="panel">
       <div class="panel-hd"><div class="panel-title">Recent Achievements</div></div>
       <div id="recentAchievementsParent" style="display:grid;gap:12px;"></div>
+    </div>
+  </div>
+
+  <!-- ASSIGNMENTS -->
+  <div id="page-assignments" class="page">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:20px;">
+      <div>
+        <h2 style="font-family:var(--font-display);font-size:1.45rem;font-weight:700;color:var(--text);">📚 Assignments</h2>
+        <p style="font-size:.84rem;color:var(--muted);margin-top:4px;">View, submit, and track all your academic coursework and deadlines.</p>
+      </div>
+      <button class="btn btn-primary" onclick="loadStudentAssignments()"><i class="fa fa-sync-alt"></i> Refresh</button>
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="stat-row" style="margin-bottom:22px;">
+      <div class="stat-card" style="--c:var(--teal);cursor:pointer;" onclick="setAsgnFilter('All')">
+        <div class="stat-emo">📚</div>
+        <div class="stat-val" id="stSummaryTotal">0</div>
+        <div class="stat-lbl">Total Assignments</div>
+        <div class="stat-trend" style="color:var(--muted);">All enrolled coursework</div>
+      </div>
+      <div class="stat-card" style="--c:var(--gold);cursor:pointer;" onclick="setAsgnFilter('Pending')">
+        <div class="stat-emo">⏳</div>
+        <div class="stat-val" id="stSummaryPending" style="color:#b45309;">0</div>
+        <div class="stat-lbl">Pending</div>
+        <div class="stat-trend wn">Action required</div>
+      </div>
+      <div class="stat-card" style="--c:var(--green);cursor:pointer;" onclick="setAsgnFilter('Submitted')">
+        <div class="stat-emo">✅</div>
+        <div class="stat-val" id="stSummarySubmitted" style="color:#15803d;">0</div>
+        <div class="stat-lbl">Submitted</div>
+        <div class="stat-trend up">Completed work</div>
+      </div>
+      <div class="stat-card" style="--c:var(--coral);cursor:pointer;" onclick="setAsgnFilter('Overdue')">
+        <div class="stat-emo">⚠️</div>
+        <div class="stat-val" id="stSummaryOverdue" style="color:#dc2626;">0</div>
+        <div class="stat-lbl">Overdue</div>
+        <div class="stat-trend dn">Deadline passed</div>
+      </div>
+    </div>
+
+    <!-- Filters & Search Toolbar -->
+    <div class="panel" style="padding:16px 20px;margin-bottom:20px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;">
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="asgn-filter-btn active" data-filter="All" onclick="setAsgnFilter('All', this)">All</button>
+          <button class="asgn-filter-btn" data-filter="Pending" onclick="setAsgnFilter('Pending', this)">Pending</button>
+          <button class="asgn-filter-btn" data-filter="Submitted" onclick="setAsgnFilter('Submitted', this)">Submitted</button>
+          <button class="asgn-filter-btn" data-filter="Overdue" onclick="setAsgnFilter('Overdue', this)">Overdue</button>
+        </div>
+        <div style="display:flex;gap:10px;align-items:center;flex:1;max-width:520px;justify-content:flex-end;flex-wrap:wrap;">
+          <select id="stAsgnSubjectFilter" onchange="filterStudentAssignments()" style="padding:8px 12px;border-radius:8px;border:1px solid var(--border);background:#fff;color:var(--text);font-size:.8rem;outline:none;min-width:140px;">
+            <option value="">All Subjects</option>
+          </select>
+          <div class="search-wrap" style="flex:1;min-width:180px;">
+            <i class="fa fa-search"></i>
+            <input type="text" id="stAsgnSearch" class="search-box" style="width:100%;" placeholder="Search assignments..." oninput="filterStudentAssignments()"/>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Assignments List -->
+    <div id="stAssignmentsList">
+      <div class="loading-p"><span class="loader"></span> Loading assignments…</div>
+    </div>
+  </div>
+
+  <!-- EVENTS -->
+  <div id="page-events" class="page">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:20px;">
+      <div>
+        <h2 style="font-family:var(--font-display);font-size:1.45rem;font-weight:700;color:var(--text);">🎉 Campus & Academic Events</h2>
+        <p style="font-size:.84rem;color:var(--muted);margin-top:4px;">Explore seminars, workshops, competitions, cultural festivals, and club activities.</p>
+      </div>
+      <button class="btn btn-primary" onclick="loadStudentEvents()"><i class="fa fa-sync-alt"></i> Refresh</button>
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="stat-row" style="margin-bottom:22px;">
+      <div class="stat-card" style="--c:var(--teal);cursor:pointer;" onclick="setEventTab('upcoming'); setEventFilter('All')">
+        <div class="stat-emo">📅</div>
+        <div class="stat-val" id="stEventsSummaryTotal">0</div>
+        <div class="stat-lbl">Upcoming Events</div>
+        <div class="stat-trend" style="color:var(--muted);">Scheduled on campus</div>
+      </div>
+      <div class="stat-card" style="--c:var(--green);cursor:pointer;" onclick="setEventTab('upcoming'); filterEventsByDay('today')">
+        <div class="stat-emo">🌟</div>
+        <div class="stat-val" id="stEventsSummaryToday" style="color:#15803d;">0</div>
+        <div class="stat-lbl">Today</div>
+        <div class="stat-trend up">Happening today</div>
+      </div>
+      <div class="stat-card" style="--c:var(--gold);cursor:pointer;" onclick="setEventTab('upcoming'); filterEventsByDay('tomorrow')">
+        <div class="stat-emo">⏳</div>
+        <div class="stat-val" id="stEventsSummaryTomorrow" style="color:#b45309;">0</div>
+        <div class="stat-lbl">Tomorrow</div>
+        <div class="stat-trend wn">Upcoming tomorrow</div>
+      </div>
+      <div class="stat-card" style="--c:var(--sky);cursor:pointer;" onclick="setEventTab('upcoming'); filterEventsByDay('thisWeek')">
+        <div class="stat-emo">📆</div>
+        <div class="stat-val" id="stEventsSummaryThisWeek" style="color:#0369a1;">0</div>
+        <div class="stat-lbl">This Week</div>
+        <div class="stat-trend" style="color:#0369a1;">Next 7 days</div>
+      </div>
+    </div>
+
+    <!-- View Tabs (Upcoming vs Past Events) -->
+    <div style="display:flex;gap:6px;background:rgba(0,31,84,.06);padding:4px;border-radius:10px;width:fit-content;margin-bottom:18px;">
+      <button class="evt-tab-btn active" id="btnTabUpcoming" onclick="setEventTab('upcoming', this)">
+        <i class="fa fa-calendar-check"></i> Upcoming Events
+      </button>
+      <button class="evt-tab-btn" id="btnTabPast" onclick="setEventTab('past', this)">
+        <i class="fa fa-history"></i> Past Events
+      </button>
+    </div>
+
+    <!-- Filters & Search Toolbar -->
+    <div class="panel" style="padding:16px 20px;margin-bottom:20px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;">
+        <div style="display:flex;gap:8px;flex-wrap:wrap;" id="eventFilterButtons">
+          <button class="evt-filter-btn active" data-filter="All" onclick="setEventFilter('All', this)">All</button>
+          <button class="evt-filter-btn" data-filter="Academic" onclick="setEventFilter('Academic', this)">Academic</button>
+          <button class="evt-filter-btn" data-filter="Cultural" onclick="setEventFilter('Cultural', this)">Cultural</button>
+          <button class="evt-filter-btn" data-filter="Sports" onclick="setEventFilter('Sports', this)">Sports</button>
+          <button class="evt-filter-btn" data-filter="Workshop" onclick="setEventFilter('Workshop', this)">Workshop</button>
+          <button class="evt-filter-btn" data-filter="Seminar" onclick="setEventFilter('Seminar', this)">Seminar</button>
+          <button class="evt-filter-btn" data-filter="Competition" onclick="setEventFilter('Competition', this)">Competition</button>
+          <button class="evt-filter-btn" data-filter="Club" onclick="setEventFilter('Club', this)">Club</button>
+          <button class="evt-filter-btn" data-filter="College/School" onclick="setEventFilter('College/School', this)">School</button>
+          <button class="evt-filter-btn" data-filter="Other" onclick="setEventFilter('Other', this)">Other</button>
+        </div>
+        <div class="search-wrap" style="flex:1;max-width:320px;min-width:200px;">
+          <i class="fa fa-search"></i>
+          <input type="text" id="stEventSearch" class="search-box" style="width:100%;" placeholder="Search events..." oninput="filterStudentEvents()"/>
+        </div>
+      </div>
+    </div>
+
+    <!-- Events Grid -->
+    <div id="stEventsGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(310px,1fr));gap:18px;">
+      <div class="loading-p"><span class="loader"></span> Loading events…</div>
     </div>
   </div>
 
@@ -451,6 +665,108 @@ body::before{content:'';position:fixed;inset:0;z-index:0;background:transparent;
 <!-- Hidden print area for PDF -->
 <div id="reportPrintArea"></div>
 
+<!-- STUDENT ASSIGNMENT SUBMISSION MODAL -->
+<div id="studentSubmitModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);backdrop-filter:blur(4px);z-index:9999;align-items:center;justify-content:center;padding:16px;">
+  <div style="width:100%;max-width:540px;background:#fff;border-radius:16px;padding:24px;box-shadow:0 16px 48px rgba(0,0,0,.25);color:var(--text);animation:fadeUp .25s ease;">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;">
+      <div>
+        <div style="font-family:var(--font-display);font-size:1.25rem;font-weight:700;" id="submModalAsgnTitle">Submit Assignment</div>
+        <div style="font-size:.8rem;color:var(--muted);margin-top:2px;" id="submModalAsgnSub">—</div>
+      </div>
+      <button class="btn" style="padding:6px 10px;" onclick="closeStudentSubmitModal()"><i class="fa fa-times"></i></button>
+    </div>
+
+    <!-- Description / Instructions -->
+    <div id="submModalAsgnDesc" style="font-size:.84rem;color:var(--text);background:#f8fafd;border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:14px;line-height:1.5;"></div>
+
+    <!-- Teacher attachment download if any -->
+    <div id="submModalTeacherAttachment" style="margin-bottom:14px;display:none;"></div>
+
+    <!-- Prior Submission info if already submitted -->
+    <div id="submModalCurrentSubmission" style="display:none;margin-bottom:14px;padding:12px 14px;border-radius:10px;background:#f0fdf4;border:1px solid #bbf7d0;font-size:.82rem;"></div>
+
+    <form id="studentSubmissionForm" onsubmit="event.preventDefault(); submitStudentWork();">
+      <input type="hidden" id="submAsgnId" value=""/>
+
+      <div class="field" style="margin-bottom:14px;">
+        <label style="display:block;font-size:.74rem;color:var(--muted);margin-bottom:6px;font-weight:600;text-transform:uppercase;">Attach Your Answer / File *</label>
+        <input type="file" id="studentFile" accept=".pdf,.doc,.docx,.txt,.zip,.png,.jpg,.jpeg,.xlsx,.ppt,.pptx" required style="width:100%;padding:10px;border-radius:8px;border:1px solid var(--border);font-size:.85rem;"/>
+        <div style="font-size:.72rem;color:var(--muted);margin-top:4px;">Supported: PDF, Word, Images, ZIP, Excel, Code (Max 30MB)</div>
+      </div>
+
+      <div class="field" style="margin-bottom:16px;">
+        <label style="display:block;font-size:.74rem;color:var(--muted);margin-bottom:6px;font-weight:600;text-transform:uppercase;">Remarks or Notes (Optional)</label>
+        <textarea id="studentRemarks" placeholder="Add any comments or notes for your teacher regarding your submission…" style="width:100%;padding:10px;border-radius:8px;border:1px solid var(--border);font-size:.85rem;min-height:70px;"></textarea>
+      </div>
+
+      <div style="display:flex;justify-content:flex-end;gap:10px;">
+        <button type="button" class="btn" onclick="closeStudentSubmitModal()">Cancel</button>
+        <button type="submit" class="btn btn-primary" id="studentSubmitBtn"><i class="fa fa-upload"></i> Submit Assignment</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- STUDENT EVENT DETAILS & REGISTRATION MODAL -->
+<div id="studentEventModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);backdrop-filter:blur(5px);z-index:9999;align-items:center;justify-content:center;padding:16px;">
+  <div style="width:100%;max-width:580px;background:#fff;border-radius:18px;overflow:hidden;box-shadow:0 20px 50px rgba(0,0,0,.3);color:var(--text);animation:fadeUp .25s ease;max-height:90vh;display:flex;flex-direction:column;">
+    
+    <!-- Optional Banner Image -->
+    <div id="evModalBannerWrap" style="width:100%;height:180px;background:linear-gradient(135deg,#001f54,#133c72);position:relative;display:flex;align-items:center;justify-content:center;overflow:hidden;">
+      <img id="evModalBannerImg" src="" style="width:100%;height:100%;object-fit:cover;display:none;"/>
+      <div id="evModalBannerFallback" style="font-size:3.5rem;color:rgba(255,255,255,.3);">🎓</div>
+      <button onclick="closeStudentEventModal()" style="position:absolute;top:14px;right:14px;background:rgba(0,0,0,.5);border:none;color:#fff;border-radius:50%;width:32px;height:32px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:.2s;">
+        <i class="fa fa-times"></i>
+      </button>
+      <div id="evModalCategoryBadge" style="position:absolute;bottom:14px;left:18px;"></div>
+    </div>
+
+    <div style="padding:22px;overflow-y:auto;flex:1;">
+      <h3 style="font-family:var(--font-display);font-size:1.35rem;font-weight:700;color:var(--text);margin-bottom:12px;" id="evModalTitle">Event Title</h3>
+
+      <!-- Key details cards -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;font-size:.82rem;">
+        <div style="padding:10px 12px;border-radius:10px;background:#f8fafd;border:1px solid var(--border);">
+          <div style="font-size:.68rem;color:var(--muted);text-transform:uppercase;font-weight:600;"><i class="fa fa-calendar-day" style="color:var(--teal);"></i> Date</div>
+          <div style="font-weight:600;margin-top:2px;" id="evModalDate">—</div>
+        </div>
+        <div style="padding:10px 12px;border-radius:10px;background:#f8fafd;border:1px solid var(--border);">
+          <div style="font-size:.68rem;color:var(--muted);text-transform:uppercase;font-weight:600;"><i class="fa fa-clock" style="color:var(--teal);"></i> Time</div>
+          <div style="font-weight:600;margin-top:2px;" id="evModalTime">—</div>
+        </div>
+        <div style="padding:10px 12px;border-radius:10px;background:#f8fafd;border:1px solid var(--border);">
+          <div style="font-size:.68rem;color:var(--muted);text-transform:uppercase;font-weight:600;"><i class="fa fa-location-dot" style="color:var(--coral);"></i> Venue</div>
+          <div style="font-weight:600;margin-top:2px;" id="evModalVenue">—</div>
+        </div>
+        <div style="padding:10px 12px;border-radius:10px;background:#f8fafd;border:1px solid var(--border);">
+          <div style="font-size:.68rem;color:var(--muted);text-transform:uppercase;font-weight:600;"><i class="fa fa-user-tie" style="color:var(--sky);"></i> Organizer</div>
+          <div style="font-weight:600;margin-top:2px;" id="evModalOrganizer">—</div>
+        </div>
+      </div>
+
+      <!-- Registration Banner Info -->
+      <div id="evModalRegStatusWrap" style="margin-bottom:16px;padding:12px 14px;border-radius:10px;font-size:.82rem;"></div>
+
+      <!-- Description -->
+      <div style="margin-bottom:16px;">
+        <div style="font-size:.74rem;color:var(--muted);text-transform:uppercase;font-weight:700;margin-bottom:6px;">Event Details & Guidelines</div>
+        <div id="evModalDesc" style="font-size:.85rem;color:#334155;line-height:1.6;background:#f8faff;padding:14px;border-radius:10px;border:1px solid var(--border);white-space:pre-wrap;"></div>
+      </div>
+
+      <!-- Target Audience info -->
+      <div style="font-size:.76rem;color:var(--muted);display:flex;align-items:center;gap:6px;">
+        <i class="fa fa-users"></i> Eligible Audience: <strong id="evModalAudience" style="color:var(--text);">All Students</strong>
+      </div>
+    </div>
+
+    <!-- Modal Footer -->
+    <div style="padding:14px 22px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;background:#fafbfc;">
+      <button type="button" class="btn" onclick="closeStudentEventModal()">Close</button>
+      <div id="evModalActionBtnWrap"></div>
+    </div>
+  </div>
+</div>
+
 <script src="lang.js"></script>
 <script>
 initLanguage({ titleKey: 'app.title.dashboard' });
@@ -471,9 +787,11 @@ if (!TOKEN || !USER || USER.role !== 'parent') {
 
 const API = '';
 
-async function req(method, path, body) {
-  const opts = { method, headers: { Authorization: 'Bearer ' + TOKEN, 'Content-Type': 'application/json' } };
-  if (body) opts.body = JSON.stringify(body);
+async function req(method, path, body, isForm = false) {
+  const headers = { Authorization: 'Bearer ' + TOKEN };
+  if (!isForm) headers['Content-Type'] = 'application/json';
+  const opts = { method, headers };
+  if (body) opts.body = isForm ? body : JSON.stringify(body);
   const r = await fetch(API + path, opts);
   const d = await r.json();
   if (!r.ok) throw new Error(d.error || 'Request failed');
@@ -497,7 +815,7 @@ async function setup() {
 }
 
 // ── NAV ──────────────────────────────────────────────
-const pageTitles = { home:'common.dashboard', attendance:'common.attendance', marks:'common.marks', fees:'common.fees', report:'common.reportCard' };
+const pageTitles = { home:'common.dashboard', attendance:'common.attendance', assignments:'common.assignments', events:'common.events', marks:'common.marks', fees:'common.fees', report:'common.reportCard' };
 function go(page, navEl) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.getElementById('page-' + page).classList.add('active');
@@ -518,7 +836,7 @@ function logout() { sessionStorage.clear(); location.href = 'index.html'; }
 // ── PAGE ROUTER ──────────────────────────────────────
 function loadPage(page) {
   const sid = STUDENT?.studentId || USER.studentId;
-  const fns = { home:loadHome, attendance:()=>loadAttendance(sid), marks:()=>loadMarks('Mid-Term'), fees:()=>loadFees(sid), report:()=>loadReport(sid) };
+  const fns = { home:loadHome, attendance:()=>loadAttendance(sid), assignments:loadStudentAssignments, events:loadStudentEvents, marks:()=>loadMarks('Mid-Term'), fees:()=>loadFees(sid), report:()=>loadReport(sid) };
   if (fns[page]) fns[page]();
 }
 
@@ -562,6 +880,8 @@ async function loadHome() {
       <div class="stat-card" style="--c:var(--gold)"><div class="stat-emo">📊</div><div class="stat-val">${att.summary.present}</div><div class="stat-lbl">Days Present</div><div class="stat-trend">${att.summary.total} total days</div></div>
       <div class="stat-card" style="--c:var(--coral)"><div class="stat-emo">📅</div><div class="stat-val">${att.summary.absent}</div><div class="stat-lbl">Days Absent</div><div class="stat-trend">This academic year</div></div>`;
     loadRecentAchievementsParent();
+    loadHomeDeadlines();
+    loadHomeEvents();
     // Also load today's period-wise attendance for quick view
     try {
       const today = new Date().toISOString().slice(0,10);
@@ -578,6 +898,699 @@ async function loadHome() {
         `<div style="display:flex;flex-direction:column;gap:6px">${(cfg.periods||[]).map(p=>`<div style="display:flex;justify-content:space-between;gap:12px;padding:6px 10px;border-radius:8px;background:rgba(255,255,255,.03);border:1px solid var(--border);"><div>${p.name}${byPeriod[p.id] ? ' — '+(byPeriod[p.id].subject||'') : ''}</div><div style="font-weight:600;color:${(byPeriod[p.id] && (byPeriod[p.id].status==='Present' || byPeriod[p.id].status==='Late'))?'var(--green)':'var(--coral)'}">${byPeriod[p.id]?byPeriod[p.id].status:'—'}</div></div>`).join('')}</div>`;
     } catch(e) { console.warn('Could not load today attendance', e); }
   } catch { document.getElementById('homeStats').innerHTML = '<div style="color:var(--muted)">Could not load stats.</div>'; }
+}
+
+// ── STUDENT ASSIGNMENTS & UPCOMING DEADLINES ─────────
+let stAssignmentsData = [];
+let stCurrentFilter = 'All';
+
+function formatDeadlineBadge(dueDateStr, isSubmitted) {
+  if (isSubmitted) {
+    return { text: 'Submitted', badgeCls: 'dl-ok', dot: '🟢' };
+  }
+  if (!dueDateStr) return { text: 'No due date', badgeCls: 'dl-ok', dot: '⚪' };
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const due = new Date(dueDateStr);
+  due.setHours(0, 0, 0, 0);
+
+  const diffTime = due.getTime() - today.getTime();
+  const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+
+  if (diffDays < 0) {
+    const daysAgo = Math.abs(diffDays);
+    return {
+      text: daysAgo === 1 ? 'Overdue by 1 day' : `Overdue by ${daysAgo} days`,
+      badgeCls: 'dl-urgent',
+      dot: '🔴',
+      isOverdue: true
+    };
+  } else if (diffDays === 0) {
+    return { text: 'Due Today', badgeCls: 'dl-urgent', dot: '🔴', isToday: true };
+  } else if (diffDays === 1) {
+    return { text: 'Due Tomorrow', badgeCls: 'dl-urgent', dot: '🔴', isTomorrow: true };
+  } else if (diffDays <= 3) {
+    return { text: `Due in ${diffDays} days`, badgeCls: 'dl-warn', dot: '🟡', isSoon: true };
+  } else if (diffDays <= 7) {
+    return { text: `Due in ${diffDays} days`, badgeCls: 'dl-ok', dot: '🟢', isUpcoming: true };
+  } else {
+    try {
+      const formatted = new Date(dueDateStr).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+      return { text: `Due: ${formatted}`, badgeCls: 'dl-ok', dot: '🟢' };
+    } catch {
+      return { text: `Due: ${dueDateStr}`, badgeCls: 'dl-ok', dot: '🟢' };
+    }
+  }
+}
+
+async function loadHomeDeadlines() {
+  const container = document.getElementById('homeDeadlinesList');
+  if (!container) return;
+
+  try {
+    const res = await req('GET', '/api/assignments/upcoming');
+    const items = res.upcoming || [];
+
+    if (!items.length) {
+      container.innerHTML = '<div style="color:var(--muted);font-size:.84rem;padding:12px 0;">🎉 No upcoming deadlines! You are all caught up.</div>';
+      return;
+    }
+
+    container.innerHTML = items.map(a => {
+      const dl = formatDeadlineBadge(a.dueDate, a.isSubmitted);
+      const pColor = a.priority === 'High' ? 'var(--coral)' : a.priority === 'Medium' ? 'var(--gold)' : 'var(--sky)';
+      const pBg = a.priority === 'High' ? 'rgba(239,68,68,.1)' : a.priority === 'Medium' ? 'rgba(245,158,11,.1)' : 'rgba(87,132,215,.1)';
+
+      return `
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 14px;border-radius:10px;background:#f8fafd;border:1px solid var(--border);transition:.2s;">
+          <div style="display:flex;align-items:center;gap:10px;overflow:hidden;">
+            <span style="font-size:1rem;flex-shrink:0;">${dl.dot}</span>
+            <div style="overflow:hidden;">
+              <div style="font-size:.85rem;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${a.title}">${a.title}</div>
+              <div style="font-size:.73rem;color:var(--muted);margin-top:2px;">${a.subject} • <span class="${dl.badgeCls}" style="font-weight:600;">${dl.text}</span></div>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
+            <span style="font-size:.68rem;padding:2px 7px;border-radius:12px;font-weight:700;background:${pBg};color:${pColor};">${a.priority}</span>
+            <button class="btn btn-primary" onclick="openStudentSubmitModal('${a._id}')" style="padding:4px 9px;font-size:.72rem;">
+              ${a.isSubmitted ? 'View' : 'Submit'}
+            </button>
+          </div>
+        </div>`;
+    }).join('');
+
+  } catch (err) {
+    console.warn('Failed to load upcoming deadlines:', err);
+    if (container) container.innerHTML = '<div style="color:var(--muted);font-size:.84rem;">No upcoming assignments.</div>';
+  }
+}
+
+async function loadStudentAssignments() {
+  const listEl = document.getElementById('stAssignmentsList');
+  if (listEl) listEl.innerHTML = '<div class="loading-p"><span class="loader"></span> Loading assignments…</div>';
+
+  try {
+    const data = await req('GET', '/api/assignments');
+    stAssignmentsData = data.assignments || [];
+    const summary = data.summary || { total: 0, pending: 0, submitted: 0, overdue: 0 };
+
+    // Update dynamic summary counters
+    const totEl = document.getElementById('stSummaryTotal');
+    const penEl = document.getElementById('stSummaryPending');
+    const subEl = document.getElementById('stSummarySubmitted');
+    const ovrEl = document.getElementById('stSummaryOverdue');
+    if (totEl) totEl.textContent = summary.total;
+    if (penEl) penEl.textContent = summary.pending;
+    if (subEl) subEl.textContent = summary.submitted;
+    if (ovrEl) ovrEl.textContent = summary.overdue;
+
+    // Populate subject filter dropdown if needed
+    const subjFilter = document.getElementById('stAsgnSubjectFilter');
+    if (subjFilter && subjFilter.children.length <= 1) {
+      const subjects = [...new Set(stAssignmentsData.map(a => a.subject).filter(Boolean))].sort();
+      subjFilter.innerHTML = '<option value="">All Subjects</option>' + subjects.map(s => `<option value="${s}">${s}</option>`).join('');
+    }
+
+    filterStudentAssignments();
+  } catch (err) {
+    if (listEl) listEl.innerHTML = `<div style="color:var(--coral);padding:24px;text-align:center;">Failed to load assignments: ${err.message}</div>`;
+  }
+}
+
+function setAsgnFilter(type, btn) {
+  stCurrentFilter = type;
+  document.querySelectorAll('.asgn-filter-btn').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  else {
+    const matchingBtn = document.querySelector(`.asgn-filter-btn[data-filter="${type}"]`);
+    if (matchingBtn) matchingBtn.classList.add('active');
+  }
+  filterStudentAssignments();
+}
+
+function filterStudentAssignments() {
+  const search = (document.getElementById('stAsgnSearch')?.value || '').toLowerCase().trim();
+  const subj = document.getElementById('stAsgnSubjectFilter')?.value || '';
+
+  const filtered = stAssignmentsData.filter(a => {
+    if (stCurrentFilter !== 'All' && a.status.toLowerCase() !== stCurrentFilter.toLowerCase()) {
+      return false;
+    }
+    if (subj && a.subject !== subj) return false;
+    if (search) {
+      const match = (a.title || '').toLowerCase().includes(search) ||
+                    (a.subject || '').toLowerCase().includes(search) ||
+                    (a.description || '').toLowerCase().includes(search);
+      if (!match) return false;
+    }
+    return true;
+  });
+
+  renderStudentAssignmentsList(filtered);
+}
+
+function renderStudentAssignmentsList(items) {
+  const container = document.getElementById('stAssignmentsList');
+  if (!container) return;
+
+  if (!items.length) {
+    container.innerHTML = `
+      <div style="text-align:center;padding:48px 20px;background:#fff;border-radius:14px;border:1px solid var(--border);">
+        <div style="font-size:2.5rem;margin-bottom:10px;">📋</div>
+        <div style="font-size:1.1rem;font-weight:700;color:var(--text);">No assignments found</div>
+        <div style="font-size:.82rem;color:var(--muted);margin-top:4px;">No assignments match your selected filter or search term.</div>
+      </div>`;
+    return;
+  }
+
+  container.innerHTML = items.map(a => {
+    const isSubmitted = a.status === 'Submitted';
+    const isOverdue = a.status === 'Overdue';
+
+    const statusBadge = isSubmitted
+      ? `<span class="asgn-badge-submitted"><i class="fa fa-check-circle"></i> Submitted</span>`
+      : (isOverdue
+        ? `<span class="asgn-badge-overdue"><i class="fa fa-exclamation-circle"></i> Overdue</span>`
+        : `<span class="asgn-badge-pending"><i class="fa fa-hourglass-half"></i> Pending</span>`);
+
+    const pColor = a.priority === 'High' ? 'var(--coral)' : a.priority === 'Medium' ? 'var(--gold)' : 'var(--sky)';
+    const pBg = a.priority === 'High' ? 'rgba(239,68,68,.12)' : a.priority === 'Medium' ? 'rgba(245,158,11,.12)' : 'rgba(87,132,215,.12)';
+    const priorityBadge = `<span style="padding:3px 9px;border-radius:20px;font-size:.7rem;font-weight:700;background:${pBg};color:${pColor};">${a.priority} Priority</span>`;
+
+    const dl = formatDeadlineBadge(a.dueDate, isSubmitted);
+
+    const teacherAttachment = a.attachment
+      ? `<div style="margin-top:10px;padding:8px 12px;border-radius:8px;background:#f1f5f9;display:inline-flex;align-items:center;gap:8px;font-size:.78rem;">
+          <i class="fa fa-paperclip" style="color:var(--teal);"></i>
+          <span style="color:var(--muted);">Assignment Resource:</span>
+          <a href="${a.attachment}" target="_blank" style="color:var(--teal);text-decoration:none;font-weight:600;">${a.attachmentName || 'Download File'}</a>
+        </div>`
+      : '';
+
+    const submissionInfo = a.submission && a.submission.submissionFile
+      ? `<div style="margin-top:10px;padding:8px 12px;border-radius:8px;background:#f0fdf4;border:1px solid #bbf7d0;display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:.78rem;flex-wrap:wrap;">
+          <div>
+            <span style="color:#166534;font-weight:600;"><i class="fa fa-file-check"></i> Your Submission:</span>
+            <a href="${a.submission.submissionFile}" target="_blank" style="color:#15803d;font-weight:600;margin-left:6px;text-decoration:none;">${a.submission.submissionFileName || 'View File'}</a>
+          </div>
+          <span style="color:#166534;font-size:.73rem;">Submitted on ${new Date(a.submission.submittedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+        </div>`
+      : '';
+
+    const actionBtn = isSubmitted
+      ? `<button class="btn" onclick="openStudentSubmitModal('${a._id}')" style="font-size:.8rem;padding:7px 14px;">
+          <i class="fa fa-pen" style="color:var(--teal);"></i> View / Resubmit
+        </button>`
+      : `<button class="btn btn-primary" onclick="openStudentSubmitModal('${a._id}')" style="font-size:.8rem;padding:7px 16px;">
+          <i class="fa fa-upload"></i> Submit Assignment
+        </button>`;
+
+    return `
+      <div class="asgn-card" style="border-left: 4px solid ${isSubmitted ? 'var(--green)' : isOverdue ? 'var(--coral)' : 'var(--gold)'};">
+        <div class="asgn-header">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+            <span class="asgn-subj-pill">${a.subject}</span>
+            ${priorityBadge}
+            ${statusBadge}
+          </div>
+          <div class="dl-badge ${dl.badgeCls}">
+            <span>${dl.dot}</span>
+            <span>${dl.text}</span>
+          </div>
+        </div>
+
+        <h3 style="font-family:var(--font-display);font-size:1.15rem;font-weight:700;color:var(--text);margin-bottom:6px;">${a.title}</h3>
+
+        ${a.description ? `<p style="font-size:.84rem;color:#475569;line-height:1.55;margin-bottom:10px;">${a.description}</p>` : ''}
+
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-top:12px;padding-top:12px;border-top:1px solid #f1f5f9;">
+          <div style="font-size:.75rem;color:var(--muted);">
+            <span>Assigned by: <b>${a.assignedBy || 'Faculty'}</b></span>
+            <span style="margin:0 6px;">•</span>
+            <span>Assigned: ${a.assignedDate || '—'}</span>
+            <span style="margin:0 6px;">•</span>
+            <span>Due: <b>${a.dueDate}</b></span>
+          </div>
+          ${actionBtn}
+        </div>
+
+        ${teacherAttachment}
+        ${submissionInfo}
+      </div>`;
+  }).join('');
+}
+
+function openStudentSubmitModal(id) {
+  const asgn = stAssignmentsData.find(a => String(a._id) === String(id));
+  if (!asgn) {
+    // If opened from home deadlines before stAssignmentsData is loaded
+    req('GET', `/api/assignments/${id}`).then(data => {
+      if (data && data.assignment) {
+        stAssignmentsData.push(data.assignment);
+        openStudentSubmitModal(id);
+      }
+    }).catch(e => alert(e.message));
+    return;
+  }
+
+  document.getElementById('submAsgnId').value = asgn._id;
+  document.getElementById('submModalAsgnTitle').textContent = asgn.title;
+  document.getElementById('submModalAsgnSub').textContent = `${asgn.subject} • Class ${asgn.class}-${asgn.section} • Due: ${asgn.dueDate}`;
+  document.getElementById('submModalAsgnDesc').innerHTML = asgn.description
+    ? `<b>Instructions:</b><br>${asgn.description}`
+    : 'No special instructions provided by teacher.';
+
+  const attachDiv = document.getElementById('submModalTeacherAttachment');
+  if (asgn.attachment) {
+    attachDiv.style.display = 'block';
+    attachDiv.innerHTML = `<div style="padding:8px 12px;border-radius:8px;background:#f8fafd;border:1px solid var(--border);font-size:.82rem;">
+      <i class="fa fa-paperclip" style="color:var(--teal)"></i> Attached Resource: 
+      <a href="${asgn.attachment}" target="_blank" style="color:var(--teal);font-weight:600;margin-left:4px;">${asgn.attachmentName || 'Download Assignment Material'}</a>
+    </div>`;
+  } else {
+    attachDiv.style.display = 'none';
+  }
+
+  const currSubmDiv = document.getElementById('submModalCurrentSubmission');
+  if (asgn.submission && asgn.submission.submissionFile) {
+    currSubmDiv.style.display = 'block';
+    currSubmDiv.innerHTML = `
+      <div style="font-weight:600;color:#15803d;margin-bottom:2px;"><i class="fa fa-check-circle"></i> Already Submitted</div>
+      <div>File: <a href="${asgn.submission.submissionFile}" target="_blank" style="color:#15803d;font-weight:600;">${asgn.submission.submissionFileName || 'View Submitted File'}</a></div>
+      <div style="font-size:.73rem;color:#166534;margin-top:2px;">Submitted at: ${new Date(asgn.submission.submittedAt).toLocaleString('en-IN')}</div>
+      <div style="font-size:.73rem;color:#475569;margin-top:4px;">You may upload a new file below to update your submission.</div>`;
+  } else {
+    currSubmDiv.style.display = 'none';
+  }
+
+  document.getElementById('studentFile').value = '';
+  document.getElementById('studentRemarks').value = asgn.submission?.remarks || '';
+
+  const modal = document.getElementById('studentSubmitModal');
+  if (modal) modal.style.display = 'flex';
+}
+
+function closeStudentSubmitModal() {
+  const modal = document.getElementById('studentSubmitModal');
+  if (modal) modal.style.display = 'none';
+}
+
+async function submitStudentWork() {
+  const asgnId = document.getElementById('submAsgnId').value;
+  const fileInput = document.getElementById('studentFile');
+  const remarks = document.getElementById('studentRemarks').value.trim();
+
+  if (!fileInput || !fileInput.files[0]) {
+    alert('Please select a file to submit.');
+    return;
+  }
+
+  const btn = document.getElementById('studentSubmitBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spin"></span> Uploading…';
+
+  try {
+    const fd = new FormData();
+    fd.append('submissionFile', fileInput.files[0]);
+    if (remarks) fd.append('remarks', remarks);
+
+    await req('POST', `/api/assignments/${asgnId}/submit`, fd, true);
+    alert('✅ Assignment submitted successfully!');
+    closeStudentSubmitModal();
+    loadStudentAssignments();
+    loadHomeDeadlines();
+  } catch (err) {
+    alert('Failed to submit: ' + err.message);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fa fa-upload"></i> Submit Assignment';
+  }
+}
+
+// ── STUDENT EVENTS & REGISTRATIONS (PS4) ──────────────
+let stEventsData = [];
+let stCurrentEventFilter = 'All';
+let stCurrentEventTab = 'upcoming';
+let stCurrentDayFilter = null;
+
+const eventTypeIcons = {
+  Academic: '🎓',
+  Cultural: '🎭',
+  Sports: '🏆',
+  Workshop: '💡',
+  Seminar: '🎙️',
+  Competition: '🏅',
+  Club: '🎪',
+  'College/School': '🏫',
+  Other: '📌',
+};
+
+function formatEventDate(dateStr) {
+  if (!dateStr) return '—';
+  try {
+    return new Date(dateStr).toLocaleDateString('en-IN', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+    });
+  } catch {
+    return dateStr;
+  }
+}
+
+async function loadHomeEvents() {
+  const container = document.getElementById('homeEventsList');
+  const badgeContainer = document.getElementById('homeEventSummaryBadges');
+  if (!container) return;
+
+  try {
+    const res = await req('GET', '/api/events/upcoming');
+    const items = res.upcoming || [];
+
+    if (badgeContainer) {
+      badgeContainer.innerHTML = `
+        <span style="background:rgba(0,31,84,.08);color:var(--teal);padding:2px 8px;border-radius:12px;font-size:.72rem;font-weight:700;">Upcoming: ${res.totalUpcoming || 0}</span>
+        <span style="background:rgba(22,163,74,.1);color:#15803d;padding:2px 8px;border-radius:12px;font-size:.72rem;font-weight:700;">Today: ${res.todayCount || 0}</span>
+        <span style="background:rgba(3,105,161,.1);color:#0369a1;padding:2px 8px;border-radius:12px;font-size:.72rem;font-weight:700;">This Week: ${res.thisWeekCount || 0}</span>
+      `;
+    }
+
+    if (!items.length) {
+      container.innerHTML = '<div style="color:var(--muted);font-size:.84rem;padding:16px 0;grid-column:1/-1;">🎉 No upcoming events right now. Check back soon!</div>';
+      return;
+    }
+
+    container.innerHTML = items.map(e => {
+      const icon = eventTypeIcons[e.eventType] || '📌';
+      const cleanType = (e.eventType || 'Other').replace(/[^a-zA-Z0-9]/g, '_');
+      const badgeTypeCls = `evt-${cleanType}`;
+      const fDate = formatEventDate(e.date);
+
+      let regBadge = '';
+      let regActionBtn = '';
+
+      if (e.isRegistered) {
+        regBadge = '<span style="font-size:.72rem;font-weight:700;color:#15803d;"><i class="fa fa-check-circle"></i> Registered</span>';
+      } else if (e.registrationRequired) {
+        if (e.deadlinePassed) {
+          regBadge = '<span style="font-size:.72rem;color:#dc2626;font-weight:600;"><i class="fa fa-ban"></i> Reg. Closed</span>';
+        } else {
+          regBadge = '<span style="font-size:.72rem;color:#0369a1;font-weight:600;"><i class="fa fa-id-badge"></i> Reg. Required</span>';
+          regActionBtn = `<button class="btn btn-primary" onclick="event.stopPropagation(); registerStudentForEvent('${e._id}')" style="font-size:.74rem;padding:5px 10px;">Register</button>`;
+        }
+      } else {
+        regBadge = '<span style="font-size:.72rem;color:var(--muted);">Open Event</span>';
+      }
+
+      return `
+        <div class="evt-card" onclick="openEventDetailsModal('${e._id}')" style="cursor:pointer;padding:16px;">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:8px;">
+            <span class="evt-badge ${badgeTypeCls}">${icon} ${e.eventType}</span>
+            ${regBadge}
+          </div>
+          <div style="font-weight:700;font-size:.95rem;color:var(--text);margin-bottom:6px;line-height:1.4;">${e.title}</div>
+          <div style="font-size:.78rem;color:var(--muted);display:flex;flex-direction:column;gap:3px;margin-bottom:12px;">
+            <div><i class="fa fa-calendar" style="width:16px;color:var(--teal);"></i> ${fDate} | ${e.startTime}${e.endTime ? ' – ' + e.endTime : ''}</div>
+            <div><i class="fa fa-location-dot" style="width:16px;color:var(--coral);"></i> ${e.venue}</div>
+            <div><i class="fa fa-user-tie" style="width:16px;color:var(--sky);"></i> ${e.organizer}</div>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:auto;padding-top:8px;border-top:1px solid #f1f5f9;">
+            <button class="btn" style="font-size:.72rem;padding:4px 8px;" onclick="event.stopPropagation(); openEventDetailsModal('${e._id}')">Details</button>
+            ${regActionBtn}
+          </div>
+        </div>`;
+    }).join('');
+  } catch (err) {
+    console.warn('Failed to load upcoming events:', err);
+    if (container) container.innerHTML = '<div style="color:var(--muted);font-size:.84rem;grid-column:1/-1;">Could not load upcoming events.</div>';
+  }
+}
+
+async function loadStudentEvents() {
+  const grid = document.getElementById('stEventsGrid');
+  if (grid) grid.innerHTML = '<div class="loading-p"><span class="loader"></span> Loading events…</div>';
+
+  try {
+    const data = await req('GET', `/api/events?timeframe=${stCurrentEventTab}`);
+    stEventsData = data.events || [];
+    const summary = data.summary || { totalUpcoming: 0, todayCount: 0, tomorrowCount: 0, thisWeekCount: 0 };
+
+    const totEl = document.getElementById('stEventsSummaryTotal');
+    const todayEl = document.getElementById('stEventsSummaryToday');
+    const tomEl = document.getElementById('stEventsSummaryTomorrow');
+    const weekEl = document.getElementById('stEventsSummaryThisWeek');
+    if (totEl) totEl.textContent = summary.totalUpcoming;
+    if (todayEl) todayEl.textContent = summary.todayCount;
+    if (tomEl) tomEl.textContent = summary.tomorrowCount;
+    if (weekEl) weekEl.textContent = summary.thisWeekCount;
+
+    filterStudentEvents();
+  } catch (err) {
+    if (grid) grid.innerHTML = `<div style="color:var(--coral);padding:24px;text-align:center;grid-column:1/-1;">Failed to load events: ${err.message}</div>`;
+  }
+}
+
+function setEventTab(tab, btn) {
+  stCurrentEventTab = tab;
+  stCurrentDayFilter = null;
+  document.getElementById('btnTabUpcoming')?.classList.toggle('active', tab === 'upcoming');
+  document.getElementById('btnTabPast')?.classList.toggle('active', tab === 'past');
+  loadStudentEvents();
+}
+
+function setEventFilter(type, btn) {
+  stCurrentEventFilter = type;
+  stCurrentDayFilter = null;
+  document.querySelectorAll('#eventFilterButtons .evt-filter-btn').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  else {
+    const matchingBtn = document.querySelector(`#eventFilterButtons .evt-filter-btn[data-filter="${type}"]`);
+    if (matchingBtn) matchingBtn.classList.add('active');
+  }
+  filterStudentEvents();
+}
+
+function filterEventsByDay(dayKey) {
+  stCurrentDayFilter = dayKey;
+  filterStudentEvents();
+}
+
+function filterStudentEvents() {
+  const search = (document.getElementById('stEventSearch')?.value || '').toLowerCase().trim();
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const tomorrowDate = new Date();
+  tomorrowDate.setDate(tomorrowDate.getDate() + 1);
+  const tomorrowStr = tomorrowDate.toISOString().slice(0, 10);
+  const sevenDaysLaterTime = new Date().getTime() + 7 * 24 * 60 * 60 * 1000;
+  const nowTime = new Date().getTime();
+
+  const filtered = stEventsData.filter(e => {
+    if (stCurrentEventFilter !== 'All' && e.eventType !== stCurrentEventFilter) {
+      return false;
+    }
+
+    if (stCurrentDayFilter === 'today' && e.date !== todayStr) return false;
+    if (stCurrentDayFilter === 'tomorrow' && e.date !== tomorrowStr) return false;
+    if (stCurrentDayFilter === 'thisWeek') {
+      const eDate = new Date(e.date).getTime();
+      if (eDate < nowTime - 24 * 60 * 60 * 1000 || eDate > sevenDaysLaterTime) return false;
+    }
+
+    if (search) {
+      const match = (e.title || '').toLowerCase().includes(search) ||
+        (e.eventType || '').toLowerCase().includes(search) ||
+        (e.venue || '').toLowerCase().includes(search) ||
+        (e.organizer || '').toLowerCase().includes(search) ||
+        (e.description || '').toLowerCase().includes(search);
+      if (!match) return false;
+    }
+
+    return true;
+  });
+
+  renderStudentEventsGrid(filtered);
+}
+
+function renderStudentEventsGrid(items) {
+  const grid = document.getElementById('stEventsGrid');
+  if (!grid) return;
+
+  if (!items.length) {
+    grid.innerHTML = `
+      <div style="grid-column:1/-1;text-align:center;padding:48px 20px;background:#ffffff;border:1px solid var(--border);border-radius:14px;">
+        <div style="font-size:2.5rem;margin-bottom:8px;">📅</div>
+        <div style="font-weight:600;font-size:1.05rem;color:var(--text);">No events found</div>
+        <div style="font-size:.82rem;color:var(--muted);margin-top:4px;">Try selecting a different filter or search term.</div>
+      </div>`;
+    return;
+  }
+
+  grid.innerHTML = items.map(e => {
+    const icon = eventTypeIcons[e.eventType] || '📌';
+    const cleanType = (e.eventType || 'Other').replace(/[^a-zA-Z0-9]/g, '_');
+    const badgeTypeCls = `evt-${cleanType}`;
+    const fDate = formatEventDate(e.date);
+
+    let regBadge = '';
+    let regButton = '';
+
+    if (e.isRegistered) {
+      regBadge = `<span class="badge-s" style="background:#dcfce7;color:#15803d;font-weight:700;"><i class="fa fa-check-circle"></i> Registered</span>`;
+      regButton = `<span style="font-size:.78rem;color:#15803d;font-weight:600;"><i class="fa fa-check"></i> Registered</span>`;
+    } else if (e.registrationRequired) {
+      if (e.isPast || e.deadlinePassed) {
+        regBadge = `<span class="badge-s" style="background:#fef2f2;color:#dc2626;"><i class="fa fa-ban"></i> Closed</span>`;
+        regButton = `<span style="font-size:.78rem;color:var(--muted);">Registration Closed</span>`;
+      } else {
+        regBadge = `<span class="badge-s" style="background:#e0f2fe;color:#0369a1;"><i class="fa fa-id-badge"></i> Reg. Required</span>`;
+        regButton = `<button class="btn btn-primary" onclick="event.stopPropagation(); registerStudentForEvent('${e._id}')" style="font-size:.76rem;padding:6px 12px;">Register Now</button>`;
+      }
+    } else {
+      regBadge = `<span class="badge-s" style="background:#f1f5f9;color:#64748b;">No reg. required</span>`;
+      regButton = `<span style="font-size:.78rem;color:var(--muted);">All Welcome</span>`;
+    }
+
+    const bannerHtml = e.image
+      ? `<div style="width:100%;height:130px;overflow:hidden;background:#001f54;">
+           <img src="${e.image}" style="width:100%;height:100%;object-fit:cover;" onerror="this.style.display='none'"/>
+         </div>`
+      : '';
+
+    return `
+      <div class="evt-card" onclick="openEventDetailsModal('${e._id}')" style="cursor:pointer;">
+        ${bannerHtml}
+        <div style="padding:18px;display:flex;flex-direction:column;flex:1;">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:8px;">
+            <span class="evt-badge ${badgeTypeCls}">${icon} ${e.eventType}</span>
+            ${regBadge}
+          </div>
+
+          <h3 style="font-size:1.02rem;font-weight:700;color:var(--text);margin-bottom:8px;line-height:1.4;">${e.title}</h3>
+
+          <div style="display:flex;flex-direction:column;gap:5px;font-size:.8rem;color:var(--muted);margin-bottom:14px;">
+            <div><i class="fa fa-calendar-day" style="width:18px;color:var(--teal);"></i> <b>${fDate}</b></div>
+            <div><i class="fa fa-clock" style="width:18px;color:var(--teal);"></i> ${e.startTime}${e.endTime ? ' – ' + e.endTime : ''}</div>
+            <div><i class="fa fa-location-dot" style="width:18px;color:var(--coral);"></i> ${e.venue}</div>
+            <div><i class="fa fa-user-tie" style="width:18px;color:var(--sky);"></i> ${e.organizer}</div>
+          </div>
+
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:auto;padding-top:12px;border-top:1px solid #f1f5f9;">
+            <button class="btn" style="font-size:.76rem;padding:6px 12px;" onclick="event.stopPropagation(); openEventDetailsModal('${e._id}')">View Details</button>
+            ${regButton}
+          </div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+async function openEventDetailsModal(id) {
+  const modal = document.getElementById('studentEventModal');
+  if (!modal) return;
+
+  try {
+    let e = stEventsData.find(x => String(x._id) === String(id));
+    if (!e) {
+      const data = await req('GET', `/api/events/${id}`);
+      e = data.event;
+    }
+    if (!e) return;
+
+    document.getElementById('evModalTitle').textContent = e.title;
+    document.getElementById('evModalDate').textContent = formatEventDate(e.date);
+    document.getElementById('evModalTime').textContent = `${e.startTime}${e.endTime ? ' – ' + e.endTime : ''}`;
+    document.getElementById('evModalVenue').textContent = e.venue;
+    document.getElementById('evModalOrganizer').textContent = e.organizer;
+    document.getElementById('evModalDesc').textContent = e.description || 'No detailed instructions provided for this event.';
+    document.getElementById('evModalAudience').textContent = (e.class && e.class !== 'All') ? `Class ${e.class}${e.section && e.section !== 'All' ? ' - ' + e.section : ''}` : 'All Students';
+
+    const icon = eventTypeIcons[e.eventType] || '📌';
+    const cleanType = (e.eventType || 'Other').replace(/[^a-zA-Z0-9]/g, '_');
+    document.getElementById('evModalCategoryBadge').innerHTML = `<span class="evt-badge evt-${cleanType}" style="box-shadow:0 2px 8px rgba(0,0,0,.2);">${icon} ${e.eventType}</span>`;
+
+    const bannerImg = document.getElementById('evModalBannerImg');
+    const bannerFallback = document.getElementById('evModalBannerFallback');
+    if (e.image) {
+      bannerImg.src = e.image;
+      bannerImg.style.display = 'block';
+      bannerFallback.style.display = 'none';
+    } else {
+      bannerImg.style.display = 'none';
+      bannerFallback.textContent = icon;
+      bannerFallback.style.display = 'block';
+    }
+
+    // Registration status wrap
+    const regWrap = document.getElementById('evModalRegStatusWrap');
+    const actionWrap = document.getElementById('evModalActionBtnWrap');
+
+    if (e.isRegistered) {
+      regWrap.style.display = 'block';
+      regWrap.style.background = '#f0fdf4';
+      regWrap.style.border = '1px solid #bbf7d0';
+      regWrap.style.color = '#15803d';
+      regWrap.innerHTML = '<i class="fa fa-check-circle"></i> <b>You are registered!</b> We look forward to seeing you at this event.';
+      actionWrap.innerHTML = '<button class="btn" disabled style="color:#15803d;border-color:#bbf7d0;background:#f0fdf4;"><i class="fa fa-check"></i> Registered</button>';
+    } else if (e.registrationRequired) {
+      if (e.isPast) {
+        regWrap.style.display = 'block';
+        regWrap.style.background = '#f8fafc';
+        regWrap.style.border = '1px solid #e2e8f0';
+        regWrap.style.color = '#64748b';
+        regWrap.innerHTML = '<i class="fa fa-history"></i> This event has already concluded.';
+        actionWrap.innerHTML = '';
+      } else if (e.deadlinePassed) {
+        regWrap.style.display = 'block';
+        regWrap.style.background = '#fef2f2';
+        regWrap.style.border = '1px solid #fecaca';
+        regWrap.style.color = '#dc2626';
+        regWrap.innerHTML = `<i class="fa fa-clock"></i> <b>Registration closed on ${e.registrationDeadline || e.date}</b>. Late registrations are not permitted.`;
+        actionWrap.innerHTML = '<button class="btn" disabled>Registration Closed</button>';
+      } else {
+        regWrap.style.display = 'block';
+        regWrap.style.background = '#eff6ff';
+        regWrap.style.border = '1px solid #bfdbfe';
+        regWrap.style.color = '#1d4ed8';
+        regWrap.innerHTML = `<i class="fa fa-info-circle"></i> <b>Registration required.</b> ${e.registrationDeadline ? 'Deadline: <strong>' + e.registrationDeadline + '</strong>' : 'Reserve your spot now!'}`;
+        actionWrap.innerHTML = `<button class="btn btn-primary" onclick="registerStudentForEvent('${e._id}')"><i class="fa fa-id-badge"></i> Register Now</button>`;
+      }
+    } else {
+      regWrap.style.display = 'block';
+      regWrap.style.background = '#f8fafc';
+      regWrap.style.border = '1px solid #e2e8f0';
+      regWrap.style.color = '#475569';
+      regWrap.innerHTML = '<i class="fa fa-door-open"></i> <b>No registration required.</b> All eligible students may attend directly.';
+      actionWrap.innerHTML = '';
+    }
+
+    modal.style.display = 'flex';
+  } catch (err) {
+    alert('Failed to load event details: ' + err.message);
+  }
+}
+
+function closeStudentEventModal() {
+  const modal = document.getElementById('studentEventModal');
+  if (modal) modal.style.display = 'none';
+}
+
+async function registerStudentForEvent(id) {
+  try {
+    const res = await req('POST', `/api/events/${id}/register`);
+    alert(`✅ ${res.message || 'Successfully registered!'}`);
+    closeStudentEventModal();
+    loadStudentEvents();
+    loadHomeEvents();
+  } catch (err) {
+    alert(`Registration failed: ${err.message}`);
+  }
+}
+
+// Modal outside click
+const _stEvModal = document.getElementById('studentEventModal');
+if (_stEvModal) {
+  _stEvModal.addEventListener('click', e => { if (e.target === e.currentTarget) closeStudentEventModal(); });
 }
 
 // ── ATTENDANCE ───────────────────────────────────────
