@@ -8,6 +8,13 @@ const { Student, Attendance, Marks, Fee, Notification, Message, AlertLog, User, 
 const { auth, adminOnly } = require('../middleware/auth');
 const { sendMail, sendMailToParent, sendMailToParentWithOptions, notificationEmail, attendanceAlertEmail } = require('../middleware/email');
 const { generateReceiptPDF } = require('../utils/pdfGenerator');
+const {
+  buildAttendanceReportData,
+  generateExcelReport,
+  generatePdfReport,
+  generateCsvReport,
+  getSafeReportFilename
+} = require('../utils/attendanceReport');
 const { resolvePythonExecutable } = require('../utils/pythonCommand');
 
 function decodeDataUrl(dataUrl) {
@@ -161,10 +168,10 @@ router.get('/attendance', auth, async (req, res) => {
   if (req.query.subject) q.subject = req.query.subject;
 
   const records = await Attendance.find(q).sort({ date: -1, period: 1 });
-  // Hour-based (period) summary
-  const totalHours = records.length;
+  // Hour-based (period) summary (excluding Pending)
   const presentHours = records.filter(r => r.status === 'Present').length;
   const absentHours = records.filter(r => r.status === 'Absent').length;
+  const totalHours = presentHours + absentHours;
   const hoursPct = totalHours > 0 ? Math.round((presentHours / totalHours) * 100) : 0;
 
   // Day-based summary: count unique dates and mark day present if any period present
@@ -180,7 +187,7 @@ router.get('/attendance', auth, async (req, res) => {
     const recs = byDate[d];
     // If there are per-period records (period > 0) for this date, ignore period 0 legacy records
     const hasPeriods = recs.some(x => x.period && Number(x.period) > 0);
-    const recsFiltered = hasPeriods ? recs.filter(x => Number(x.period) > 0) : recs;
+    const recsFiltered = (hasPeriods ? recs.filter(x => Number(x.period) > 0) : recs).filter(x => x.status !== 'Pending');
     if (recsFiltered.some(x => x.status === 'Present')) presentDays++;
     else if (recsFiltered.length > 0 && recsFiltered.every(x => x.status === 'Absent')) absentDays++;
   });
@@ -201,6 +208,62 @@ router.get('/attendance', auth, async (req, res) => {
   });
 });
 
+// ── ATTENDANCE REPORTS (Admin / Teacher Only) ────────
+// GET /api/attendance/report — structured report data with daily, subject-wise, date-wise breakdowns
+router.get('/attendance/report', auth, adminOnly, async (req, res) => {
+  try {
+    const reportData = await buildAttendanceReportData(req.query);
+    res.json(reportData);
+  } catch (err) {
+    console.error('Error generating attendance report:', err);
+    res.status(500).json({ error: err.message || 'Failed to generate attendance report.' });
+  }
+});
+
+// GET /api/attendance/report/excel — formatted Excel (.xlsx) download
+router.get('/attendance/report/excel', auth, adminOnly, async (req, res) => {
+  try {
+    const reportData = await buildAttendanceReportData(req.query);
+    const buffer = generateExcelReport(reportData);
+    const filename = getSafeReportFilename({ ...req.query, className: req.query.class || req.query.className }, 'xlsx');
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(buffer);
+  } catch (err) {
+    console.error('Error downloading Excel attendance report:', err);
+    res.status(500).json({ error: err.message || 'Failed to download Excel report.' });
+  }
+});
+
+// GET /api/attendance/report/pdf — formatted printable PDF download
+router.get('/attendance/report/pdf', auth, adminOnly, async (req, res) => {
+  try {
+    const reportData = await buildAttendanceReportData(req.query);
+    const filename = getSafeReportFilename({ ...req.query, className: req.query.class || req.query.className }, 'pdf');
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    generatePdfReport(reportData, res);
+  } catch (err) {
+    console.error('Error downloading PDF attendance report:', err);
+    res.status(500).json({ error: err.message || 'Failed to download PDF report.' });
+  }
+});
+
+// GET /api/attendance/report/csv — compatible CSV download with UTF-8 BOM
+router.get('/attendance/report/csv', auth, adminOnly, async (req, res) => {
+  try {
+    const reportData = await buildAttendanceReportData(req.query);
+    const csvContent = generateCsvReport(reportData);
+    const filename = getSafeReportFilename({ ...req.query, className: req.query.class || req.query.className }, 'csv');
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(csvContent);
+  } catch (err) {
+    console.error('Error downloading CSV attendance report:', err);
+    res.status(500).json({ error: err.message || 'Failed to download CSV report.' });
+  }
+});
+
 // GET /api/attendance/:studentId — legacy endpoint (summary across all records)
 router.get('/attendance/:studentId', auth, async (req, res) => {
   // Parents can only see their own child
@@ -208,10 +271,10 @@ router.get('/attendance/:studentId', auth, async (req, res) => {
     return res.status(403).json({ error: 'Access denied.' });
 
   const records = await Attendance.find({ studentId: req.params.studentId }).sort({ date: -1, period: 1 });
-  // Hour-based summary
-  const totalHours = records.length;
+  // Hour-based summary (excluding Pending)
   const presentHours = records.filter(r => r.status === 'Present').length;
   const absentHours = records.filter(r => r.status === 'Absent').length;
+  const totalHours = presentHours + absentHours;
   const hoursPct = totalHours > 0 ? Math.round((presentHours / totalHours) * 100) : 0;
 
   // Day-based summary
@@ -223,7 +286,7 @@ router.get('/attendance/:studentId', auth, async (req, res) => {
   dates.forEach(d => {
     const recs = byDate[d];
     const hasPeriods = recs.some(x => x.period && Number(x.period) > 0);
-    const recsFiltered = hasPeriods ? recs.filter(x => Number(x.period) > 0) : recs;
+    const recsFiltered = (hasPeriods ? recs.filter(x => Number(x.period) > 0) : recs).filter(x => x.status !== 'Pending');
     if (recsFiltered.some(x => x.status === 'Present')) presentDays++;
     else if (recsFiltered.length > 0 && recsFiltered.every(x => x.status === 'Absent')) absentDays++;
   });
@@ -296,6 +359,139 @@ router.post('/attendance', auth, adminOnly, async (req, res) => {
   res.json({ message: `${records.length} attendance records saved or updated.` });
 });
 
+// POST /api/attendance/finalize — finalize face recognition attendance session
+router.post('/attendance/finalize', auth, adminOnly, async (req, res) => {
+  const { date, period, subject, presentStudentIds, confirm } = req.body;
+  const className = req.body.class || req.body.className;
+  const section = req.body.section;
+
+  if (!date) return res.status(400).json({ error: 'date is required.' });
+  if (!className) return res.status(400).json({ error: 'class is required.' });
+  if (!section) return res.status(400).json({ error: 'section is required.' });
+  if (period === undefined || period === null || period === '') {
+    return res.status(400).json({ error: 'period is required.' });
+  }
+  if (!subject) return res.status(400).json({ error: 'subject is required.' });
+
+  const numPeriod = Number(period);
+
+  // 1. Fetch complete student roster for this class and section
+  const students = await Student.find({ class: className, section }).sort({ name: 1 });
+  if (!students.length) {
+    return res.status(404).json({ error: `No students found for Class ${className}-${section}.` });
+  }
+
+  // 2. Check if attendance for this session was already finalized previously
+  const existingRecords = await Attendance.find({
+    class: className,
+    section,
+    date,
+    period: numPeriod,
+    subject,
+  }).lean();
+
+  const hasExistingFinalized = existingRecords.some(r => r.status === 'Absent');
+  if (hasExistingFinalized && confirm !== true) {
+    const existingPresent = existingRecords.filter(r => r.status === 'Present').length;
+    const existingAbsent = existingRecords.filter(r => r.status === 'Absent').length;
+    return res.json({
+      alreadyFinalized: true,
+      message: `Attendance for Class ${className}-${section} (${date}, Period ${numPeriod}, ${subject}) was already finalized previously with ${existingPresent} Present and ${existingAbsent} Absent. Do you want to update it?`,
+      summary: {
+        total: students.length,
+        present: existingPresent,
+        absent: existingAbsent,
+      },
+    });
+  }
+
+  // 3. Determine the set of Present student IDs
+  const presentSet = new Set();
+  if (Array.isArray(presentStudentIds)) {
+    presentStudentIds.forEach(id => {
+      if (id) presentSet.add(String(id).trim());
+    });
+  }
+  existingRecords.forEach(r => {
+    if (r.status === 'Present') {
+      presentSet.add(String(r.studentId).trim());
+    }
+  });
+
+  // 4. Build bulk operations for each student in the roster
+  const markedBy = req.body.markedBy || req.user.email || req.user.name || 'Face Recognition';
+  const now = new Date();
+  const operations = [];
+  const finalizedList = [];
+
+  for (const student of students) {
+    const isPresent = presentSet.has(String(student.studentId).trim());
+    const status = isPresent ? 'Present' : 'Absent';
+
+    finalizedList.push({
+      studentId: student.studentId,
+      name: student.name,
+      class: student.class,
+      section: student.section,
+      date,
+      period: numPeriod,
+      subject,
+      status,
+      markedBy,
+    });
+
+    operations.push({
+      updateOne: {
+        filter: {
+          studentId: student.studentId,
+          date,
+          period: numPeriod,
+          subject,
+        },
+        update: {
+          $set: {
+            studentId: student.studentId,
+            date,
+            class: student.class,
+            section: student.section,
+            period: numPeriod,
+            subject,
+            status,
+            markedBy,
+            updatedAt: now,
+          },
+          $setOnInsert: { createdAt: now },
+        },
+        upsert: true,
+      },
+    });
+  }
+
+  if (operations.length) {
+    await Attendance.bulkWrite(operations);
+  }
+
+  // 5. Trigger low attendance checks for absent students
+  const absentStudentIds = finalizedList.filter(s => s.status === 'Absent').map(s => s.studentId);
+  for (const sid of absentStudentIds) {
+    await checkAttendanceAlert(sid);
+  }
+
+  const presentCount = finalizedList.filter(s => s.status === 'Present').length;
+  const absentCount = finalizedList.filter(s => s.status === 'Absent').length;
+
+  res.json({
+    success: true,
+    message: `Attendance finalized successfully: ${presentCount} Present, ${absentCount} Absent.`,
+    summary: {
+      total: students.length,
+      present: presentCount,
+      absent: absentCount,
+    },
+    records: finalizedList,
+  });
+});
+
 async function checkAttendanceAlert(studentId) {
   const records = await Attendance.find({ studentId });
   if (!records.length) return;
@@ -306,10 +502,11 @@ async function checkAttendanceAlert(studentId) {
   Object.keys(byDate).forEach(d => {
     const recs = byDate[d];
     const hasPeriods = recs.some(x => x.period && Number(x.period) > 0);
-    const recsFiltered = hasPeriods ? recs.filter(x => Number(x.period) > 0) : recs;
+    const recsFiltered = (hasPeriods ? recs.filter(x => Number(x.period) > 0) : recs).filter(x => x.status !== 'Pending');
     recsFiltered.forEach(r => considered.push(r));
   });
-  const pct = considered.length ? Math.round(considered.filter(r => r.status === 'Present').length / considered.length * 100) : 0;
+  const validConsidered = considered.filter(r => r.status === 'Present' || r.status === 'Absent' || r.status === 'Late');
+  const pct = validConsidered.length ? Math.round(validConsidered.filter(r => r.status === 'Present').length / validConsidered.length * 100) : 0;
   if (pct < 75) {
     const student = await Student.findOne({ studentId });
     if (!student) return;
@@ -839,13 +1036,16 @@ router.get('/attendance/subject-wise/:studentId', auth, async (req, res) => {
     recsToUse.forEach(r => subjectRecords.push(r));
   });
 
+  // Filter out any temporary/Pending records so they are not counted in attendance calculations or tables
+  const finalizedSubjectRecords = subjectRecords.filter(r => r.status !== 'Pending');
+
   // ── Step 3: Collect all unique subjects and all unique date+period session keys ──
   const subjectSet = new Set();
   const dateSet = new Set();
 
   // sessionKey = "date|period" uniquely identifies one class session
   // We track sessions per subject
-  subjectRecords.forEach(r => {
+  finalizedSubjectRecords.forEach(r => {
     const subj = (r.subject && r.subject !== 'All') ? r.subject : 'General';
     subjectSet.add(subj);
     dateSet.add(r.date);
@@ -860,7 +1060,7 @@ router.get('/attendance/subject-wise/:studentId', auth, async (req, res) => {
   const subjectSessionMap = {};
   sortedSubjects.forEach(s => { subjectSessionMap[s] = {}; });
 
-  subjectRecords.forEach(r => {
+  finalizedSubjectRecords.forEach(r => {
     const subj = (r.subject && r.subject !== 'All') ? r.subject : 'General';
     const key = `${r.date}|${r.period}`;
     subjectSessionMap[subj][key] = r.status;
@@ -874,7 +1074,7 @@ router.get('/attendance/subject-wise/:studentId', auth, async (req, res) => {
   sortedDates.forEach(date => {
     dateSubjectStatus[date] = {};
   });
-  subjectRecords.forEach(r => {
+  finalizedSubjectRecords.forEach(r => {
     const subj = (r.subject && r.subject !== 'All') ? r.subject : 'General';
     const d = r.date;
     if (!dateSubjectStatus[d][subj]) {
@@ -889,9 +1089,10 @@ router.get('/attendance/subject-wise/:studentId', auth, async (req, res) => {
 
   const subjectRows = sortedSubjects.map(subj => {
     const sessions = subjectSessionMap[subj]; // { "date|period": status }
-    const totalClasses = Object.keys(sessions).length;
     const presentCount = Object.values(sessions).filter(s => s === 'Present' || s === 'Late').length;
     const absentCount = Object.values(sessions).filter(s => s === 'Absent').length;
+    // Total Classes = Present + Absent (do not count pending or no-class records)
+    const totalClasses = presentCount + absentCount;
     const pct = totalClasses > 0 ? Math.round((presentCount / totalClasses) * 10000) / 100 : 0;
 
     overallTotal += totalClasses;

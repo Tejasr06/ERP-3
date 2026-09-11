@@ -35,7 +35,7 @@ const attendanceSchema = new mongoose.Schema({
   section:   { type: String },
   period:    { type: Number, default: 0 }, // 0 = full-day legacy, 1..n = period index
   subject:   { type: String, default: 'All' },
-  status:    { type: String, enum: ['Present','Absent','Late','Holiday'], required: true },
+  status:    { type: String, enum: ['Present','Absent','Late','Holiday','Pending'], required: true },
   markedBy:  { type: String },
 }, { timestamps: true });
 // Ensure we don't create duplicates for same student + date + period + subject
