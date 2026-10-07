@@ -14,6 +14,8 @@ const studentSchema = new mongoose.Schema({
   facultyName:     { type: String },
   facultyEmail:    { type: String },
   address:         { type: String },
+  busId:           { type: String, default: 'BUS-01' },
+  busStop:         { type: String, default: 'City Center' },
 }, { timestamps: true });
 
 const userSchema = new mongoose.Schema({
@@ -215,9 +217,42 @@ const eventRegistrationSchema = new mongoose.Schema({
   registeredAt: { type: Date, default: Date.now },
 }, { timestamps: true });
 
-eventRegistrationSchema.index({ eventId: 1, studentId: 1 }, { unique: true });
-eventRegistrationSchema.index({ studentId: 1 });
-eventRegistrationSchema.index({ eventId: 1 });
+const busRouteSchema = new mongoose.Schema({
+  routeName:       { type: String, required: true },
+  routeNumber:     { type: String, required: true, unique: true },
+  startPoint:      { type: String, default: 'School Campus' },
+  endPoint:        { type: String, default: 'City Station' },
+  stops: [{
+    stopName:      { type: String, required: true },
+    lat:           { type: Number, required: true },
+    lng:           { type: Number, required: true },
+    order:         { type: Number, required: true },
+    scheduledTime: { type: String, default: '' },
+  }],
+  pathCoordinates: { type: [[Number]], default: [] },
+  active:          { type: Boolean, default: true },
+}, { timestamps: true });
+
+const busSchema = new mongoose.Schema({
+  busNumber:          { type: String, required: true, unique: true },
+  vehicleNumber:      { type: String, required: true },
+  driverName:         { type: String, required: true },
+  driverPhone:        { type: String, required: true },
+  capacity:           { type: Number, default: 40 },
+  routeId:            { type: mongoose.Schema.Types.ObjectId, ref: 'BusRoute' },
+  status:             { type: String, enum: ['Idle', 'On Route', 'Completed', 'Maintenance'], default: 'Idle' },
+  currentLocation: {
+    lat:              { type: Number, default: 12.9716 },
+    lng:              { type: Number, default: 77.5946 },
+    speed:            { type: Number, default: 0 },
+    heading:          { type: Number, default: 0 },
+    updatedAt:        { type: Date, default: Date.now },
+  },
+  currentStopIndex:   { type: Number, default: 0 },
+  nextStop:           { type: String, default: '' },
+  estimatedArrival:   { type: String, default: '' },
+  assignedStudents:   [{ type: String }],
+}, { timestamps: true });
 
 module.exports = {
   Student:              mongoose.model('Student', studentSchema),
@@ -236,6 +271,9 @@ module.exports = {
   AssignmentSubmission: mongoose.model('AssignmentSubmission', assignmentSubmissionSchema),
   Event:                mongoose.model('Event', eventSchema),
   EventRegistration:    mongoose.model('EventRegistration', eventRegistrationSchema),
+  BusRoute:             mongoose.model('BusRoute', busRouteSchema),
+  Bus:                  mongoose.model('Bus', busSchema),
 };
+
 
 

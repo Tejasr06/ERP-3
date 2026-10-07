@@ -8,6 +8,9 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script src="/attendance-config.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="/socket.io/socket.io.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;}
 :root{
@@ -321,6 +324,8 @@ body::before{content:'';position:fixed;inset:0;z-index:0;background:transparent;
     <div class="nav-item" onclick="go('fees',this)"><i class="fa fa-rupee-sign"></i> <span data-i18n="common.fees">Fee Status</span></div>
     <div class="nav-label" data-i18n="common.reports">Reports</div>
     <div class="nav-item" onclick="go('report',this)"><i class="fa fa-file-alt"></i> <span data-i18n="common.reportCard">Report Card</span></div>
+    <div class="nav-label">Transit</div>
+    <div class="nav-item" onclick="go('bus',this)"><i class="fa fa-bus"></i> <span>Live Bus Tracker</span></div>
   </nav>
   <div class="sidebar-foot">
     <div class="user-row"><div class="avatar" id="sAvatar">P</div><div><div class="user-name" id="sUserName">—</div><div class="user-role">Parent</div></div></div>
@@ -660,6 +665,105 @@ body::before{content:'';position:fixed;inset:0;z-index:0;background:transparent;
     </div>
   </div>
 
+  <!-- LIVE BUS TRACKER -->
+  <div id="page-bus" class="page">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:18px;">
+      <div>
+        <h2 style="font-family:var(--font-display);font-size:1.45rem;font-weight:700;color:var(--text);display:flex;align-items:center;gap:10px;">
+          🚍 Live School Bus Tracking
+          <span class="bus-badge-pulse badge-onroute" id="pBusStatusBadge" style="display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:999px;font-size:0.76rem;font-weight:700;background:#ecfdf5;color:#059669;border:1px solid #a7f3d0;">
+            <span style="width:8px;height:8px;border-radius:50%;background:currentColor;"></span> <span id="pBusStatusText">Connecting…</span>
+          </span>
+        </h2>
+        <p style="font-size:.84rem;color:var(--muted);margin-top:4px;">Real-time GPS telemetry, estimated arrival, and route progress for your child.</p>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <button class="btn btn-primary" onclick="loadBusTracking()"><i class="fa fa-sync-alt"></i> Refresh</button>
+        <a href="/bus-driver?mode=parent" target="_blank" class="btn" style="background:#001f54;color:#fff;border:none;">
+          <i class="fa fa-expand"></i> Fullscreen Live Tracker
+        </a>
+      </div>
+    </div>
+
+    <!-- Quick Telemetry Stats -->
+    <div class="stat-row" style="margin-bottom:20px;">
+      <div class="stat-card" style="--c:var(--teal)">
+        <div class="stat-emo">🚌</div>
+        <div class="stat-val" id="pBusNumber" style="font-size:1.6rem;">BUS-01</div>
+        <div class="stat-lbl">Assigned Vehicle</div>
+        <div class="stat-trend" id="pBusPlate" style="color:var(--muted); font-weight:600;">KA-01-AB-1234</div>
+      </div>
+      <div class="stat-card" style="--c:var(--green)">
+        <div class="stat-emo">📍</div>
+        <div class="stat-val" id="pYourStopEta" style="font-size:1.6rem;color:#16a34a;">Calculating…</div>
+        <div class="stat-lbl">Time to Your Stop (<span id="pChildStop">Domlur Stop</span>)</div>
+        <div class="stat-trend up" id="pProximityText">Monitoring distance...</div>
+      </div>
+      <div class="stat-card" style="--c:var(--gold)">
+        <div class="stat-emo">⏱️</div>
+        <div class="stat-val" id="pBusEta" style="font-size:1.6rem;">~6 mins</div>
+        <div class="stat-lbl">Time to Next Stop</div>
+        <div class="stat-trend wn" id="pNextStopText">Next: Domlur Flyover</div>
+      </div>
+      <div class="stat-card" style="--c:var(--sky)">
+        <div class="stat-emo">⚡</div>
+        <div class="stat-val" id="pBusSpeed" style="font-size:1.6rem;">32 <small style="font-size:.8rem;color:var(--muted)">km/h</small></div>
+        <div class="stat-lbl">Live Vehicle Speed</div>
+        <div class="stat-trend" style="color:var(--sky);" id="pLastUpdate">Live streaming</div>
+      </div>
+    </div>
+
+    <!-- Geofence Proximity Alert Banner -->
+    <div id="pGeofenceAlert" style="display:none;margin-bottom:18px;padding:14px 18px;border-radius:12px;background:rgba(22,163,74,.12);border:1px solid rgba(22,163,74,.3);color:#15803d;align-items:center;gap:12px;animation:fadeUp .3s ease;">
+      <i class="fa fa-bell" style="font-size:1.2rem;"></i>
+      <div>
+        <b>Proximity Alert!</b> Bus is approaching your designated stop (within 1 km). Please head to the pickup point.
+      </div>
+    </div>
+
+    <!-- Map & Details Grid -->
+    <div class="grid3">
+      <!-- Live Map Card -->
+      <div class="panel" style="padding:0;overflow:hidden;position:relative;border-radius:16px;">
+        <div id="parentBusMap" style="width:100%;height:520px;background:#f8fafc;"></div>
+        <div style="position:absolute;bottom:14px;left:14px;z-index:999;background:rgba(255,255,255,0.92);backdrop-filter:blur(8px);padding:6px 14px;border-radius:999px;font-size:0.75rem;font-weight:600;color:var(--teal);border:1px solid var(--border);display:flex;align-items:center;gap:6px;box-shadow:0 4px 12px rgba(0,0,0,0.08);">
+          <span style="width:8px;height:8px;border-radius:50%;background:#10b981;"></span> <span id="pMapSocketStatus">Socket Connected</span>
+        </div>
+      </div>
+
+      <!-- Right Column: Driver Contact & Stops Timeline -->
+      <div style="display:flex;flex-direction:column;gap:18px;">
+        <!-- Driver Profile Card -->
+        <div class="panel">
+          <div class="panel-hd"><div class="panel-title"><i class="fa fa-id-card" style="color:var(--teal);"></i> Driver Profile</div></div>
+          <div style="display:flex;align-items:center;gap:14px;margin-bottom:14px;">
+            <div style="width:48px;height:48px;border-radius:50%;background:linear-gradient(135deg,#001f54,#5784d7);color:#fff;display:flex;align-items:center;justify-content:center;font-size:1.3rem;font-weight:700;" id="pDrvAvatar">D</div>
+            <div>
+              <div style="font-weight:700;font-size:1rem;" id="pDrvName">Ramesh Kumar</div>
+              <div style="font-size:.78rem;color:var(--muted);" id="pDrvPhone">+91 98765 43210</div>
+            </div>
+          </div>
+          <div style="display:flex;gap:8px;">
+            <a href="tel:+919876543210" id="pCallBtn" class="btn" style="flex:1;justify-content:center;background:#f0fdf4;color:#16a34a;border-color:#bbf7d0;text-decoration:none;">
+              <i class="fa fa-phone"></i> Call Driver
+            </a>
+            <a href="https://wa.me/919876543210" id="pWaBtn" target="_blank" class="btn btn-wa" style="flex:1;justify-content:center;text-decoration:none;">
+              <i class="fab fa-whatsapp"></i> WhatsApp
+            </a>
+          </div>
+        </div>
+
+        <!-- Route Stops Timeline -->
+        <div class="panel" style="flex:1;">
+          <div class="panel-hd"><div class="panel-title"><i class="fa fa-map-marked-alt" style="color:var(--teal);"></i> Route Stops</div></div>
+          <div id="pRouteStopsList" style="display:flex;flex-direction:column;gap:12px;max-height:280px;overflow-y:auto;padding-right:4px;">
+            <div class="loading-p"><span class="loader"></span> Loading stops…</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
 </div><!-- /main -->
 
 <!-- Hidden print area for PDF -->
@@ -815,13 +919,13 @@ async function setup() {
 }
 
 // ── NAV ──────────────────────────────────────────────
-const pageTitles = { home:'common.dashboard', attendance:'common.attendance', assignments:'common.assignments', events:'common.events', marks:'common.marks', fees:'common.fees', report:'common.reportCard' };
+const pageTitles = { home:'common.dashboard', attendance:'common.attendance', assignments:'common.assignments', events:'common.events', marks:'common.marks', fees:'common.fees', report:'common.reportCard', bus:'Live Bus Tracker' };
 function go(page, navEl) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.getElementById('page-' + page).classList.add('active');
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   if (navEl) navEl.classList.add('active');
-  document.getElementById('topbarTitle').textContent = window.t(pageTitles[page] || page);
+  document.getElementById('topbarTitle').textContent = window.t ? window.t(pageTitles[page] || page) : (pageTitles[page] || page);
   loadPage(page);
   if (window.innerWidth <= 768) { document.getElementById('sidebar').classList.remove('open'); document.getElementById('sbOverlay').style.display = 'none'; }
 }
@@ -836,7 +940,7 @@ function logout() { sessionStorage.clear(); location.href = 'index.html'; }
 // ── PAGE ROUTER ──────────────────────────────────────
 function loadPage(page) {
   const sid = STUDENT?.studentId || USER.studentId;
-  const fns = { home:loadHome, attendance:()=>loadAttendance(sid), assignments:loadStudentAssignments, events:loadStudentEvents, marks:()=>loadMarks('Mid-Term'), fees:()=>loadFees(sid), report:()=>loadReport(sid) };
+  const fns = { home:loadHome, attendance:()=>loadAttendance(sid), assignments:loadStudentAssignments, events:loadStudentEvents, marks:()=>loadMarks('Mid-Term'), fees:()=>loadFees(sid), report:()=>loadReport(sid), bus:loadBusTracking };
   if (fns[page]) fns[page]();
 }
 
@@ -2116,6 +2220,309 @@ async function processPayment() {
     const rzp = new Razorpay(options);
     rzp.open();
   } catch (e) { console.error(e); alert(e.message || 'Payment failed to initialize.'); }
+}
+
+// ── LIVE BUS TRACKING (SOCKET.IO + LEAFLET) ──────────
+let pBusSocket = null;
+let pBusMap = null;
+let pBusMarker = null;
+let pBusPolyline = null;
+let pStopMarkers = [];
+let pCurrentBusData = null;
+
+async function loadBusTracking() {
+  const sid = STUDENT?.studentId || USER?.studentId || 'STU001';
+  try {
+    const res = await req('GET', `/api/buses/student/${sid}`);
+    pCurrentBusData = res.bus;
+    const studentStop = res.studentStop || 'Domlur Flyover Stop';
+
+    if (!pCurrentBusData) {
+      document.getElementById('pBusStatusText').textContent = 'No bus assigned';
+      return;
+    }
+
+    // Populate UI
+    document.getElementById('pBusNumber').textContent = pCurrentBusData.busNumber;
+    document.getElementById('pBusPlate').textContent = pCurrentBusData.vehicleNumber || '—';
+    document.getElementById('pChildStop').textContent = studentStop;
+    document.getElementById('pDrvName').textContent = pCurrentBusData.driverName || 'Driver';
+    document.getElementById('pDrvAvatar').textContent = (pCurrentBusData.driverName || 'D')[0].toUpperCase();
+    document.getElementById('pDrvPhone').textContent = pCurrentBusData.driverPhone || '—';
+    if (pCurrentBusData.driverPhone) {
+      document.getElementById('pCallBtn').href = `tel:${pCurrentBusData.driverPhone}`;
+      const cleanPhone = pCurrentBusData.driverPhone.replace(/[^0-9]/g, '');
+      document.getElementById('pWaBtn').href = `https://wa.me/${cleanPhone}`;
+    }
+
+    updateBusStatusDisplay(pCurrentBusData.status || 'On Route');
+
+    // Init Map if not already
+    initParentBusMap(pCurrentBusData, studentStop);
+
+    // Connect Socket if not already
+    connectParentBusSocket(pCurrentBusData.busNumber);
+
+    // Render Stops Timeline
+    renderStopsTimeline(pCurrentBusData.routeId, pCurrentBusData.currentStopIndex, studentStop);
+
+    // Initial Telemetry & ETA calculation
+    const initLat = pCurrentBusData.currentLocation?.lat || 12.9716;
+    const initLng = pCurrentBusData.currentLocation?.lng || 77.5946;
+    const initSpeed = pCurrentBusData.currentLocation?.speed || 0;
+    updateParentDashboardTelemetry(
+      pCurrentBusData,
+      initLat,
+      initLng,
+      initSpeed,
+      pCurrentBusData.nextStop || '',
+      pCurrentBusData.estimatedArrival || '',
+      pCurrentBusData.currentStopIndex || 0
+    );
+  } catch (err) {
+    console.error('Error loading bus data:', err);
+  }
+}
+
+function updateParentDashboardTelemetry(bus, lat, lng, speed, nextStopName, nextStopEta, currentIdx) {
+  if (!bus) return;
+
+  const stops = bus.routeId?.stops || [];
+  const childStopName = document.getElementById('pChildStop')?.textContent || '';
+
+  // Live Speed
+  const speedEl = document.getElementById('pBusSpeed');
+  if (speedEl) speedEl.innerHTML = `${speed} <small style="font-size:.8rem;color:var(--muted)">km/h</small>`;
+
+  const lastUpEl = document.getElementById('pLastUpdate');
+  if (lastUpEl) lastUpEl.textContent = `Updated: ${new Date().toLocaleTimeString()}`;
+
+  // Next Stop calculations
+  let nextIdx = currentIdx || 0;
+  let distToNextKm = 0;
+  if (stops.length > 0) {
+    if (nextIdx >= stops.length) nextIdx = stops.length - 1;
+    distToNextKm = getDistanceBetween(lat, lng, stops[nextIdx].lat, stops[nextIdx].lng);
+    if (!nextStopName) nextStopName = stops[nextIdx].stopName;
+  }
+
+  const effectiveSpeed = Math.max(speed, 22);
+  const etaMinsNext = Math.max(1, Math.round((distToNextKm / effectiveSpeed) * 60));
+  const etaNextStr = nextStopEta || (distToNextKm < 0.2 ? 'Arriving now' : (distToNextKm < 0.6 ? 'Approaching (~1 min)' : `~${etaMinsNext} mins`));
+
+  const nextStopEl = document.getElementById('pNextStopText');
+  if (nextStopEl) nextStopEl.textContent = `Next: ${nextStopName} (${distToNextKm > 0 ? distToNextKm.toFixed(1) + ' km' : 'At stop'})`;
+
+  const busEtaEl = document.getElementById('pBusEta');
+  if (busEtaEl) busEtaEl.textContent = etaNextStr;
+
+  // Child's Stop (Your Stop) calculations
+  const targetIdx = stops.findIndex(s =>
+    s.stopName.toLowerCase().includes(childStopName.toLowerCase()) ||
+    childStopName.toLowerCase().includes(s.stopName.toLowerCase())
+  );
+  const alertEl = document.getElementById('pGeofenceAlert');
+  const yourStopEtaEl = document.getElementById('pYourStopEta');
+  const proxEl = document.getElementById('pProximityText');
+
+  if (targetIdx === -1 || stops.length === 0) {
+    if (yourStopEtaEl) yourStopEtaEl.textContent = '—';
+    if (proxEl) proxEl.textContent = 'Stop not found in route';
+    if (alertEl) alertEl.style.display = 'none';
+  } else if (bus.status === 'Completed') {
+    if (yourStopEtaEl) yourStopEtaEl.textContent = 'Completed';
+    if (proxEl) proxEl.textContent = 'Trip finished';
+    if (alertEl) alertEl.style.display = 'none';
+  } else if (targetIdx < nextIdx) {
+    if (yourStopEtaEl) yourStopEtaEl.textContent = 'Bus Passed';
+    if (proxEl) proxEl.textContent = 'Departed your stop';
+    if (alertEl) alertEl.style.display = 'none';
+  } else if (targetIdx === nextIdx) {
+    if (yourStopEtaEl) yourStopEtaEl.textContent = etaNextStr;
+    if (proxEl) proxEl.textContent = `${distToNextKm.toFixed(1)} km away • Next stop!`;
+    if (distToNextKm <= 1.0) {
+      if (alertEl) alertEl.style.display = 'flex';
+    } else {
+      if (alertEl) alertEl.style.display = 'none';
+    }
+  } else {
+    // targetIdx > nextIdx: compute cumulative distance along route stops
+    let totalDistKm = distToNextKm;
+    for (let k = nextIdx; k < targetIdx; k++) {
+      totalDistKm += getDistanceBetween(stops[k].lat, stops[k].lng, stops[k+1].lat, stops[k+1].lng);
+    }
+    const etaMinsTarget = Math.max(2, Math.round((totalDistKm / effectiveSpeed) * 60));
+    const stopsRemaining = targetIdx - nextIdx;
+
+    if (yourStopEtaEl) yourStopEtaEl.textContent = `~${etaMinsTarget} mins`;
+    if (proxEl) proxEl.textContent = `${totalDistKm.toFixed(1)} km away • ${stopsRemaining} stop${stopsRemaining > 1 ? 's' : ''} away`;
+
+    if (totalDistKm <= 1.0 || etaMinsTarget <= 3) {
+      if (alertEl) alertEl.style.display = 'flex';
+    } else {
+      if (alertEl) alertEl.style.display = 'none';
+    }
+  }
+
+  // Refresh stops timeline
+  renderStopsTimeline(bus.routeId, nextIdx, childStopName);
+}
+
+function initParentBusMap(bus, targetStopName) {
+  const mapEl = document.getElementById('parentBusMap');
+  if (!mapEl) return;
+
+  const initialLat = bus.currentLocation?.lat || 12.9716;
+  const initialLng = bus.currentLocation?.lng || 77.5946;
+
+  if (!pBusMap) {
+    pBusMap = L.map('parentBusMap', { zoomControl: true, attributionControl: false }).setView([initialLat, initialLng], 13);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(pBusMap);
+
+    const busIcon = L.divIcon({
+      className: 'parent-bus-marker-wrapper',
+      html: '<div style="background:#2563eb;border:3px solid #fff;border-radius:50%;width:38px;height:38px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:16px;box-shadow:0 0 16px rgba(37,99,235,0.6);"><i class="fa fa-bus"></i></div>',
+      iconSize: [38, 38],
+      iconAnchor: [19, 19]
+    });
+    pBusMarker = L.marker([initialLat, initialLng], { icon: busIcon }).addTo(pBusMap);
+  } else {
+    setTimeout(() => { pBusMap.invalidateSize(); }, 200);
+  }
+
+  // Draw Route Polyline & Stops
+  const route = bus.routeId;
+  if (route) {
+    if (pBusPolyline) pBusMap.removeLayer(pBusPolyline);
+    pStopMarkers.forEach(m => pBusMap.removeLayer(m));
+    pStopMarkers = [];
+
+    if (route.pathCoordinates && route.pathCoordinates.length > 0) {
+      pBusPolyline = L.polyline(route.pathCoordinates, { color: '#001f54', weight: 4, opacity: 0.8 }).addTo(pBusMap);
+      pBusMap.fitBounds(pBusPolyline.getBounds(), { padding: [40, 40] });
+    }
+
+    if (route.stops && route.stops.length > 0) {
+      route.stops.forEach((s, idx) => {
+        const isTarget = s.stopName.toLowerCase().includes(targetStopName.toLowerCase()) || targetStopName.toLowerCase().includes(s.stopName.toLowerCase());
+        const stopIcon = L.divIcon({
+          className: 'parent-stop-marker-wrapper',
+          html: `<div style="background:${isTarget ? '#16a34a' : '#fff'};color:${isTarget ? '#fff' : '#001f54'};border:2px solid ${isTarget ? '#fff' : '#001f54'};border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;box-shadow:0 2px 6px rgba(0,0,0,0.2);">${isTarget ? '⭐' : (idx + 1)}</div>`,
+          iconSize: [24, 24],
+          iconAnchor: [12, 12]
+        });
+        const m = L.marker([s.lat, s.lng], { icon: stopIcon }).addTo(pBusMap);
+        m.bindPopup(`<b>${isTarget ? '⭐ YOUR STOP: ' : 'Stop: '}${s.stopName}</b><br>Time: ${s.scheduledTime || 'N/A'}`);
+        pStopMarkers.push(m);
+      });
+    }
+  }
+}
+
+function connectParentBusSocket(busNumber) {
+  if (pBusSocket && pBusSocket.connected) {
+    pBusSocket.emit('join_bus', busNumber);
+    return;
+  }
+
+  if (typeof io !== 'undefined') {
+    pBusSocket = io();
+
+    pBusSocket.on('connect', () => {
+      const el = document.getElementById('pMapSocketStatus');
+      if (el) el.textContent = 'Live Socket Active';
+      pBusSocket.emit('join_bus', busNumber);
+    });
+
+    pBusSocket.on('disconnect', () => {
+      const el = document.getElementById('pMapSocketStatus');
+      if (el) el.textContent = 'Socket Reconnecting…';
+    });
+
+    pBusSocket.on('bus_location_update', (data) => {
+      if (data.busNumber !== busNumber) return;
+
+      const { lat, lng, speed } = data.currentLocation;
+      if (pBusMarker) {
+        pBusMarker.setLatLng([lat, lng]);
+      }
+
+      if (data.status) {
+        if (pCurrentBusData) pCurrentBusData.status = data.status;
+        updateBusStatusDisplay(data.status);
+      }
+
+      updateParentDashboardTelemetry(
+        pCurrentBusData,
+        lat,
+        lng,
+        speed,
+        data.nextStop,
+        data.estimatedArrival,
+        data.currentStopIndex
+      );
+    });
+
+    pBusSocket.on('bus_status_change', (data) => {
+      if (data.busNumber === busNumber) {
+        if (pCurrentBusData) pCurrentBusData.status = data.status;
+        updateBusStatusDisplay(data.status);
+      }
+    });
+  }
+}
+
+function updateBusStatusDisplay(status) {
+  const badge = document.getElementById('pBusStatusBadge');
+  const txt = document.getElementById('pBusStatusText');
+  if (!badge || !txt) return;
+  txt.textContent = status;
+  if (status === 'On Route') {
+    badge.style.background = '#ecfdf5';
+    badge.style.color = '#059669';
+    badge.style.borderColor = '#a7f3d0';
+  } else {
+    badge.style.background = '#fffbeb';
+    badge.style.color = '#b45309';
+    badge.style.borderColor = '#fde68a';
+  }
+}
+
+function renderStopsTimeline(route, currentIdx, studentStop) {
+  const container = document.getElementById('pRouteStopsList');
+  if (!container) return;
+  if (!route || !route.stops) {
+    container.innerHTML = '<div style="color:var(--muted);font-size:.82rem;">No route info available.</div>';
+    return;
+  }
+
+  container.innerHTML = route.stops.map((s, idx) => {
+    const isCompleted = idx < currentIdx;
+    const isCurrent = idx === currentIdx;
+    const isTarget = s.stopName.toLowerCase().includes(studentStop.toLowerCase());
+
+    const iconColor = isCompleted ? '#10b981' : isCurrent ? '#2563eb' : '#94a3b8';
+    const icon = isCompleted ? 'fa-check-circle' : isCurrent ? 'fa-bus' : 'fa-circle';
+    const tag = isTarget ? '<span style="background:#fef3c7;color:#b45309;padding:2px 6px;border-radius:4px;font-size:0.68rem;font-weight:700;margin-left:6px;">⭐ YOUR STOP</span>' : '';
+
+    return `
+      <div style="display:flex;align-items:center;gap:12px;padding:8px 10px;border-radius:8px;background:${isCurrent ? 'rgba(37,99,235,0.06)' : 'rgba(0,31,84,0.02)'};border:1px solid ${isCurrent ? 'rgba(37,99,235,0.2)' : 'var(--border)'};">
+        <i class="fa ${icon}" style="color:${iconColor};font-size:0.95rem;"></i>
+        <div style="flex:1;">
+          <div style="font-weight:${isCurrent || isTarget ? '700' : '500'};font-size:0.83rem;">${s.stopName} ${tag}</div>
+          <div style="font-size:0.72rem;color:var(--muted);">${s.scheduledTime || 'Scheduled stop'}</div>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function getDistanceBetween(lat1, lon1, lat2, lon2) {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
 setup();

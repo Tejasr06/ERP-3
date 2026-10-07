@@ -6,6 +6,9 @@
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet"/>
 <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet"/>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="/socket.io/socket.io.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;}
 :root{
@@ -13,7 +16,7 @@
   --teal:#001f54;--sky:#5784d7;--gold:#f59e0b;--coral:#ef4444;--purple:#7c3aed;--green:#16a34a;
   --text:#0f172a;--muted:#5c677c;--muted2:#7a8aa8;
   --border:rgba(0,31,84,.16);--border2:rgba(0,31,84,.12);
-  --font-display:Arial, Helvetica, sans-serif;--font-body:Arial, Helvetica, sans-serif;
+  --font-display:'Outfit', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;--font-body:'Outfit', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 *{font-family:var(--font-body);}
 html,body{min-height:100vh;background:var(--ink);color:var(--text);overflow-x:hidden;}
@@ -162,7 +165,7 @@ body::before{content:'';position:fixed;inset:0;z-index:0;background:transparent;
 .ni-icon.danger{background:rgba(248,113,113,.12);color:var(--coral);}
 .ni-body .ni-title{font-size:.82rem;font-weight:500;}
 .ni-body .ni-sub{font-size:.73rem;color:var(--muted2);margin-top:2px;}
-.ni-body .ni-time{font-size:.68rem;color:var(--muted);margin-top:3px;}
+.ni-body .ni-time{font-size:.68rem;color:var(--muted);}
 
 /* ALERT LOG */
 .alert-log-item{padding:12px;background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:10px;margin-bottom:8px;font-size:.82rem;}
@@ -224,7 +227,782 @@ body::before{content:'';position:fixed;inset:0;z-index:0;background:transparent;
 /* RESPONSIVE */
 @media(max-width:900px){.grid2,.grid3{grid-template-columns:1fr!important;}.form-row{grid-template-columns:1fr;}}
 @media(max-width:768px){.sidebar{transform:translateX(-100%);}.sidebar.open{transform:translateX(0);}.topbar,.main{left:0!important;margin-left:0!important;}.hamburger{display:block;}.stat-row{grid-template-columns:1fr 1fr;}}
-::-webkit-scrollbar{width:5px;height:5px;}::-webkit-scrollbar-track{background:transparent;}::-webkit-scrollbar-thumb{background:rgba(255,255,255,.08);border-radius:3px;}
+::-webkit-scrollbar{width:6px;height:6px;}::-webkit-scrollbar-track{background:transparent;}::-webkit-scrollbar-thumb{background:rgba(0,31,84,.15);border-radius:4px;}
+
+/* ═══════════════════════════════════════════════════════
+   PREMIUM ATTENDANCE REPORTS SUITE
+═══════════════════════════════════════════════════════ */
+#page-attendanceReports {
+  --rep-primary: #001f54;
+  --rep-accent: #3b82f6;
+  --rep-border: rgba(0,31,84,0.12);
+  --rep-present: #059669;
+  --rep-absent: #dc2626;
+  --rep-text-dark: #0f172a;
+  --rep-text-muted: #5c677c;
+}
+
+/* Header & Controls */
+.rep-header-card {
+  background: #ffffff;
+  border: 1px solid var(--rep-border);
+  border-radius: 16px;
+  padding: 22px 24px;
+  margin-bottom: 20px;
+  box-shadow: 0 4px 18px rgba(0, 31, 84, 0.04);
+}
+
+.rep-top-banner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--rep-border);
+}
+
+.rep-title-group {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.rep-title-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(0, 31, 84, 0.08), rgba(59, 130, 246, 0.16));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #001f54;
+  font-size: 1.25rem;
+  border: 1px solid rgba(0, 31, 84, 0.14);
+  flex-shrink: 0;
+}
+
+.rep-title-text h2 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #0f172a;
+  letter-spacing: -0.01em;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.rep-title-text p {
+  font-size: 0.82rem;
+  color: var(--rep-text-muted);
+  margin-top: 3px;
+}
+
+/* Segmented Control Switcher */
+.rep-segmented-tabs {
+  display: inline-flex;
+  background: #f1f5f9;
+  padding: 4px;
+  border-radius: 12px;
+  border: 1px solid rgba(0, 31, 84, 0.08);
+  gap: 4px;
+}
+
+.rep-tab-btn {
+  border: none;
+  background: transparent;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: #64748b;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.rep-tab-btn:hover {
+  color: #0f172a;
+}
+
+.rep-tab-btn.active {
+  background: #ffffff;
+  color: #001f54;
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
+}
+
+/* Filter Section */
+.rep-filter-wrapper {
+  padding-top: 18px;
+}
+
+.rep-filter-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.rep-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.rep-field label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #475569;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.rep-field label i {
+  color: #94a3b8;
+  font-size: 0.78rem;
+}
+
+.rep-select-wrap {
+  position: relative;
+  width: 100%;
+}
+
+.rep-field select,
+.rep-field input[type="date"],
+.rep-field input[type="text"] {
+  width: 100%;
+  padding: 9px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(0,31,84,0.18);
+  background: #f8fafc;
+  color: #0f172a;
+  font-size: 0.84rem;
+  font-weight: 500;
+  outline: none;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+}
+
+.rep-field select:focus,
+.rep-field input:focus {
+  border-color: #3b82f6;
+  background: #ffffff;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.14);
+}
+
+/* Actions Toolbar */
+.rep-actions-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding-top: 14px;
+  border-top: 1px dashed rgba(0, 31, 84, 0.12);
+}
+
+.rep-action-left {
+  display: flex;
+  gap: 8px;
+}
+
+.rep-btn-generate {
+  background: linear-gradient(135deg, #001f54, #1e40af);
+  color: #ffffff;
+  border: none;
+  padding: 9px 18px;
+  border-radius: 10px;
+  font-size: 0.84rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.2s ease;
+  box-shadow: 0 3px 10px rgba(0, 31, 84, 0.18);
+}
+
+.rep-btn-generate:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(0, 31, 84, 0.28);
+}
+
+.rep-btn-reset {
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid rgba(0, 31, 84, 0.14);
+  padding: 9px 14px;
+  border-radius: 10px;
+  font-size: 0.84rem;
+  font-weight: 500;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+}
+
+.rep-btn-reset:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+.rep-export-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.rep-export-label {
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-right: 4px;
+}
+
+.rep-export-btn {
+  padding: 8px 13px;
+  border-radius: 8px;
+  font-size: 0.79rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+  border: 1px solid transparent;
+}
+
+.rep-export-excel {
+  background: #ecfdf5;
+  color: #047857;
+  border-color: #a7f3d0;
+}
+.rep-export-excel:hover {
+  background: #d1fae5;
+  color: #065f46;
+  transform: translateY(-1px);
+}
+
+.rep-export-pdf {
+  background: #fef2f2;
+  color: #b91c1c;
+  border-color: #fecaca;
+}
+.rep-export-pdf:hover {
+  background: #fee2e2;
+  color: #991b1b;
+  transform: translateY(-1px);
+}
+
+.rep-export-csv {
+  background: #f0f9ff;
+  color: #0369a1;
+  border-color: #bae6fd;
+}
+.rep-export-csv:hover {
+  background: #e0f2fe;
+  color: #075985;
+  transform: translateY(-1px);
+}
+
+/* KPI Cards Redesign */
+.rep-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 15px;
+  margin-bottom: 22px;
+}
+
+.rep-kpi-card {
+  background: #ffffff;
+  border: 1px solid var(--rep-border);
+  border-radius: 16px;
+  padding: 18px 20px;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 3px 12px rgba(15, 23, 42, 0.03);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.rep-kpi-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+  border-color: rgba(0,31,84,0.22);
+}
+
+.rep-kpi-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 10px;
+}
+
+.rep-kpi-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #64748b;
+}
+
+.rep-kpi-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.95rem;
+}
+
+.rep-kpi-val {
+  font-size: 2.1rem;
+  font-weight: 700;
+  color: #0f172a;
+  line-height: 1.1;
+  margin-bottom: 6px;
+  font-feature-settings: "tnum";
+}
+
+.rep-kpi-sub {
+  font-size: 0.76rem;
+  color: #64748b;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Specific KPI Colors */
+.kpi-students .rep-kpi-icon { background: #eff6ff; color: #2563eb; }
+.kpi-classes .rep-kpi-icon { background: #f5f3ff; color: #7c3aed; }
+.kpi-present .rep-kpi-icon { background: #ecfdf5; color: #059669; }
+.kpi-present .rep-kpi-val { color: #059669; }
+.kpi-absent .rep-kpi-icon { background: #fef2f2; color: #dc2626; }
+.kpi-absent .rep-kpi-val { color: #dc2626; }
+.kpi-rate .rep-kpi-icon { background: #f0fdf4; color: #0d9488; }
+.kpi-rate .rep-kpi-val { color: #0d9488; }
+
+.rep-progress-track {
+  width: 100%;
+  height: 6px;
+  border-radius: 99px;
+  background: #e2e8f0;
+  overflow: hidden;
+  margin-top: 6px;
+}
+
+.rep-progress-fill {
+  height: 100%;
+  border-radius: 99px;
+  background: linear-gradient(90deg, #10b981, #059669);
+  transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.rep-kpi-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.72rem;
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: #f1f5f9;
+  color: #475569;
+  font-weight: 600;
+}
+.rep-kpi-badge.badge-p { background: #ecfdf5; color: #047857; }
+.rep-kpi-badge.badge-a { background: #fef2f2; color: #b91c1c; }
+
+/* Table Card & Toolbar */
+.rep-table-card {
+  background: #ffffff;
+  border: 1px solid var(--rep-border);
+  border-radius: 16px;
+  box-shadow: 0 4px 18px rgba(0, 31, 84, 0.04);
+  overflow: hidden;
+}
+
+.rep-table-hd {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--rep-border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 14px;
+  background: #ffffff;
+}
+
+.rep-table-title-wrap h3 {
+  font-size: 1.08rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0;
+}
+
+.rep-table-meta-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 5px;
+  flex-wrap: wrap;
+}
+
+.rep-meta-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.74rem;
+  color: #475569;
+  background: #f1f5f9;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-weight: 500;
+  border: 1px solid rgba(0,31,84,0.06);
+}
+
+.rep-table-toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+/* Quick Search */
+.rep-quick-search {
+  position: relative;
+  width: 230px;
+}
+
+.rep-quick-search input {
+  width: 100%;
+  padding: 7px 12px 7px 32px;
+  border-radius: 8px;
+  border: 1px solid rgba(0,31,84,0.18);
+  background: #f8fafc;
+  color: #0f172a;
+  font-size: 0.79rem;
+  outline: none;
+  transition: all 0.2s ease;
+}
+
+.rep-quick-search input:focus {
+  border-color: #3b82f6;
+  background: #ffffff;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+}
+
+.rep-quick-search i {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #94a3b8;
+  font-size: 0.76rem;
+  pointer-events: none;
+}
+
+/* Legend */
+.rep-legend {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.75rem;
+  color: #64748b;
+  background: #f8fafc;
+  padding: 5px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--rep-border);
+}
+
+.rep-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.leg-p {
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  background: #ecfdf5;
+  color: #059669;
+  border: 1px solid #a7f3d0;
+  font-size: 0.68rem;
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.leg-a {
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  background: #fef2f2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+  font-size: 0.68rem;
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.leg-dash {
+  color: #94a3b8;
+  font-weight: 700;
+}
+
+/* Sticky Data Table */
+.rep-table-scroll {
+  overflow-x: auto;
+  max-height: 640px;
+  position: relative;
+  border-top: 1px solid var(--rep-border);
+}
+
+.rep-grid-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 0.81rem;
+}
+
+.rep-grid-table thead tr th {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: #f8fafc;
+  color: #475569;
+  font-weight: 600;
+  font-size: 0.71rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 10px 8px;
+  border-bottom: 2px solid #e2e8f0;
+  border-right: 1px solid #edf2f7;
+  white-space: nowrap;
+}
+
+.rep-sticky-col {
+  position: sticky !important;
+  z-index: 5;
+  background: #ffffff;
+}
+
+.rep-grid-table thead tr th.rep-sticky-col {
+  z-index: 15 !important;
+  background: #f8fafc !important;
+}
+
+.col-num {
+  left: 0;
+  width: 44px;
+  min-width: 44px;
+  max-width: 44px;
+  text-align: center;
+}
+
+.col-id {
+  left: 44px;
+  width: 115px;
+  min-width: 115px;
+}
+
+.col-name {
+  left: 159px;
+  min-width: 180px;
+  border-right: 2px solid #e2e8f0 !important;
+  box-shadow: 4px 0 10px -2px rgba(15, 23, 42, 0.06);
+}
+
+.rep-grid-table tbody tr {
+  transition: background-color 0.15s ease;
+}
+
+.rep-grid-table tbody tr:nth-child(even) td {
+  background: #fbfcfe;
+}
+
+.rep-grid-table tbody tr:hover td {
+  background: #f1f5f9 !important;
+}
+
+.rep-grid-table tbody td {
+  padding: 8px 10px;
+  border-bottom: 1px solid #f1f5f9;
+  border-right: 1px solid #f8fafc;
+  color: #1e293b;
+  vertical-align: middle;
+}
+
+/* Institutional Academic Matrix Table Styling (Matching college department format) */
+.rep-institutional-table {
+  border-collapse: collapse !important;
+  border: 1.5px solid #0f172a !important;
+  background: #ffffff;
+}
+.rep-institutional-table th,
+.rep-institutional-table td {
+  border: 1px solid #334155 !important;
+  font-size: 0.8rem;
+  padding: 6px 8px;
+}
+.rep-institutional-table thead tr.rep-hdr-row-1 th {
+  background: #f1f5f9;
+  color: #0f172a;
+  font-weight: 700;
+  font-size: 0.78rem;
+  text-align: center;
+  border-bottom: 1px solid #0f172a !important;
+}
+.rep-institutional-table thead tr.rep-hdr-row-2 th {
+  background: #ffffff;
+  color: #0f172a;
+  font-weight: 700;
+  font-size: 0.8rem;
+  text-align: center;
+  border-bottom: 1.5px solid #0f172a !important;
+}
+.rep-institutional-table thead tr.rep-hdr-row-3 th {
+  background: #f8fafc;
+  color: #0f172a;
+  font-weight: 700;
+  font-size: 0.74rem;
+  text-align: center;
+  border-bottom: 2px solid #0f172a !important;
+}
+.rep-institutional-table tbody tr td {
+  border-bottom: 1px solid #64748b !important;
+  border-right: 1px solid #64748b !important;
+  font-size: 0.8rem;
+}
+.rep-institutional-table tbody tr:hover td {
+  background: #f0fdf4 !important;
+}
+.rep-institutional-table td.rep-col-avg {
+  font-weight: 700;
+  color: #001f54;
+  background: #f8fafc;
+}
+
+/* Date Session Header Formatting */
+.rep-session-hd {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  white-space: nowrap;
+  padding: 2px 4px;
+}
+
+.rep-session-date {
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: #1e293b;
+  letter-spacing: -0.01em;
+}
+
+.rep-session-badge {
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: #e2e8f0;
+  color: #475569;
+}
+
+/* Attendance Cell Pills */
+.att-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  font-size: 0.76rem;
+  font-weight: 800;
+  transition: transform 0.15s ease;
+}
+
+.att-pill:hover {
+  transform: scale(1.15);
+}
+
+.att-p {
+  background: #ecfdf5;
+  color: #059669;
+  border: 1px solid #a7f3d0;
+}
+
+.att-a {
+  background: #fef2f2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+}
+
+.att-dash {
+  color: #cbd5e1;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+/* Student Badge & Monospace ID */
+.stu-id-tag {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: #334155;
+  background: #f1f5f9;
+  padding: 3px 6px;
+  border-radius: 5px;
+  border: 1px solid #e2e8f0;
+}
+
+.stu-name-wrap {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.stu-avatar-pill {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.72rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+/* Summary stats cells */
+.rep-pct-pill {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-weight: 700;
+  font-size: 0.78rem;
+}
+.pct-high { background: #ecfdf5; color: #047857; }
+.pct-med { background: #fffbeb; color: #b45309; }
+.pct-low { background: #fef2f2; color: #b91c1c; }
 </style>
 </head>
 <body>
@@ -247,6 +1025,8 @@ body::before{content:'';position:fixed;inset:0;z-index:0;background:transparent;
     <div class="nav-label">Communication</div>
     <div class="nav-item" onclick="go('contactParent',this)"><i class="fab fa-whatsapp"></i> <span data-i18n="dashboard.contactParent">Contact Parent</span></div>
     <div class="nav-item" onclick="go('notifications',this)"><i class="fa fa-bell"></i> <span data-i18n="dashboard.sendNotifications">Send Notifications</span></div>
+    <div class="nav-label">Transport</div>
+    <div class="nav-item" onclick="go('buses',this)"><i class="fa fa-bus"></i> <span>Bus Fleet & Tracking</span></div>
   </nav>
   <div class="sidebar-foot">
     <div class="user-row"><div class="avatar" id="sAvatar">A</div><div><div class="user-name" id="sUserName">Admin</div><div class="user-role">Administrator</div></div></div>
@@ -320,6 +1100,225 @@ body::before{content:'';position:fixed;inset:0;z-index:0;background:transparent;
         <div class="stat-card" style="--c:var(--gold)"><div class="stat-val">₹0K</div><div class="stat-lbl">Fees Pending</div><div class="stat-trend wn">Outstanding fees total</div></div>
         <div class="stat-card" style="--c:var(--purple)"><div class="stat-val">0</div><div class="stat-lbl">Alerts Sent</div><div class="stat-trend">Notifications delivered</div></div>
       </div>
+    </div>
+  </div>
+
+  <!-- ── BUS FLEET & LIVE TRACKING ── -->
+  <div id="page-buses" class="page">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:18px;">
+      <div>
+        <h2 style="font-family:var(--font-display);font-size:1.4rem;font-weight:700;color:var(--text);display:flex;align-items:center;gap:10px;">
+          🚍 Bus Fleet & Live GPS Tracking
+        </h2>
+        <p style="font-size:.82rem;color:var(--muted);margin-top:3px;">Monitor real-time school bus locations, manage driver routes, and assign students.</p>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn" onclick="reseedDemoBuses()"><i class="fa fa-database"></i> Re-Seed Demo Fleet</button>
+        <button class="btn btn-primary" onclick="openAssignBusModal()"><i class="fa fa-user-plus"></i> Assign Student to Bus</button>
+        <a href="/bus-driver?mode=driver" target="_blank" class="btn" style="background:#001f54;color:#fff;border:none;">
+          <i class="fa fa-satellite-dish"></i> Open Driver GPS Console
+        </a>
+      </div>
+    </div>
+
+    <!-- Sub-Navigation Tabs: Fleet vs Routes -->
+    <div style="display:flex;gap:10px;margin-bottom:18px;">
+      <button class="btn btn-primary" id="busTabFleetBtn" onclick="switchBusTab('fleet')">
+        <i class="fa fa-bus"></i> Fleet Vehicles & Radar
+      </button>
+      <button class="btn" id="busTabRoutesBtn" onclick="switchBusTab('routes')" style="background:rgba(255,255,255,.06);color:var(--text);">
+        <i class="fa fa-route"></i> Manage Routes & Stops
+      </button>
+    </div>
+
+    <!-- VIEW 1: FLEET & LIVE RADAR -->
+    <div id="busViewFleet">
+      <!-- Summary KPI cards -->
+      <div class="stat-row" style="margin-bottom:20px;">
+        <div class="stat-card" style="--c:var(--teal)">
+          <div class="stat-val" id="adminBusTotal">2</div>
+          <div class="stat-lbl">Total Vehicles</div>
+          <div class="stat-trend up">All operational</div>
+        </div>
+        <div class="stat-card" style="--c:var(--green)">
+          <div class="stat-val" id="adminBusActive">1</div>
+          <div class="stat-lbl">Buses On Route</div>
+          <div class="stat-trend up" style="color:#10b981;">Broadcasting GPS</div>
+        </div>
+        <div class="stat-card" style="--c:var(--sky)">
+          <div class="stat-val" id="adminRoutesTotal">2</div>
+          <div class="stat-lbl">Active Routes</div>
+          <div class="stat-trend">Configured in system</div>
+        </div>
+        <div class="stat-card" style="--c:var(--purple)">
+          <div class="stat-val">Real-Time</div>
+          <div class="stat-lbl">WebSocket Status</div>
+          <div class="stat-trend up" id="adminSocketBadge">Socket.io Connected</div>
+        </div>
+      </div>
+
+      <!-- Grid: Table + Live Fleet Map -->
+      <div class="grid3">
+        <!-- Fleet Table -->
+        <div class="panel" style="padding:0;overflow:hidden;">
+          <div class="panel-hd" style="padding:16px 20px;border-bottom:1px solid var(--border);margin-bottom:0;">
+            <div class="panel-title">Active Fleet Vehicles</div>
+            <button class="btn" style="font-size:0.75rem;padding:4px 10px;" onclick="loadAdminBuses()"><i class="fa fa-sync-alt"></i> Refresh</button>
+          </div>
+          <div style="overflow-x:auto;">
+            <table class="tbl">
+              <thead>
+                <tr>
+                  <th>Bus #</th>
+                  <th>Plate</th>
+                  <th>Driver & Contact</th>
+                  <th>Assigned Route</th>
+                  <th>Status</th>
+                  <th>Speed</th>
+                  <th>Next Stop</th>
+                </tr>
+              </thead>
+              <tbody id="adminBusesTbody">
+                <tr><td colspan="7" class="loading-p"><span class="loader"></span></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Live Fleet Map -->
+        <div class="panel" style="padding:0;overflow:hidden;border-radius:14px;position:relative;">
+          <div class="panel-hd" style="padding:14px 18px;border-bottom:1px solid var(--border);margin-bottom:0;background:#fff;">
+            <div class="panel-title" style="font-size:0.95rem;"><i class="fa fa-map-location-dot" style="color:var(--teal);"></i> Live Fleet Radar</div>
+          </div>
+          <div id="adminFleetMap" style="width:100%;height:380px;background:#f8fafc;"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- VIEW 2: ROUTES & STOPS MANAGER -->
+    <div id="busViewRoutes" style="display:none;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;flex-wrap:wrap;gap:10px;">
+        <div>
+          <div style="font-weight:700;font-size:1.15rem;color:var(--text);">Active Bus Routes (<span id="adminRoutesCount">0</span>)</div>
+          <div style="font-size:0.8rem;color:var(--muted);margin-top:2px;">Customize routes, add or reorder stops, and link buses.</div>
+        </div>
+        <button class="btn btn-primary" onclick="openRouteModal()"><i class="fa fa-plus-circle"></i> + Create New Route & Stops</button>
+      </div>
+
+      <div id="adminRoutesCardsList" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:16px;">
+        <div class="loading-p"><span class="loader"></span> Loading routes…</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ASSIGN STUDENT TO BUS MODAL -->
+  <div class="modal-overlay" id="assignBusModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);backdrop-filter:blur(4px);z-index:9999;align-items:center;justify-content:center;padding:16px;">
+    <div class="modal" style="max-width:500px;background:#fff;border-radius:16px;padding:22px;box-shadow:0 16px 48px rgba(0,0,0,.25);color:var(--text);width:100%;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+        <div style="font-family:var(--font-display);font-size:1.2rem;font-weight:700;">Assign Student to Bus Route</div>
+        <button class="btn" style="padding:6px 10px;" onclick="closeAssignBusModal()"><i class="fa fa-times"></i></button>
+      </div>
+      <form onsubmit="event.preventDefault(); submitAssignBusForm();">
+        <div class="field" style="margin-bottom:14px;">
+          <label style="font-size:.74rem;color:var(--muted);font-weight:600;display:block;margin-bottom:6px;">Select Student *</label>
+          <select id="assignStudentSelect" required style="width:100%;padding:10px;border-radius:8px;border:1px solid var(--border);font-size:.85rem;">
+            <option value="">Loading students…</option>
+          </select>
+        </div>
+        <div class="field" style="margin-bottom:14px;">
+          <label style="font-size:.74rem;color:var(--muted);font-weight:600;display:block;margin-bottom:6px;">Select Bus Vehicle *</label>
+          <select id="assignBusSelect" required onchange="onAssignBusChanged()" style="width:100%;padding:10px;border-radius:8px;border:1px solid var(--border);font-size:.85rem;">
+            <option value="">Loading buses…</option>
+          </select>
+        </div>
+        <div class="field" style="margin-bottom:16px;">
+          <label style="font-size:.74rem;color:var(--muted);font-weight:600;display:block;margin-bottom:6px;">Designated Pickup / Drop Stop *</label>
+          <input type="text" id="assignBusStopInput" list="assignBusStopsList" placeholder="Select from route stops or type custom stop" required style="width:100%;padding:10px;border-radius:8px;border:1px solid var(--border);font-size:.85rem;"/>
+          <datalist id="assignBusStopsList"></datalist>
+          <div style="font-size:0.72rem;color:var(--muted);margin-top:4px;" id="assignBusStopHint">Select a bus above to auto-load its configured route stops.</div>
+        </div>
+        <div style="display:flex;justify-content:flex-end;gap:10px;">
+          <button type="button" class="btn" onclick="closeAssignBusModal()">Cancel</button>
+          <button type="submit" class="btn btn-primary"><i class="fa fa-check"></i> Save Assignment</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- CREATE / EDIT ROUTE & STOPS MODAL -->
+  <div class="modal-overlay" id="routeModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);backdrop-filter:blur(5px);z-index:9999;align-items:center;justify-content:center;padding:16px;">
+    <div class="modal" style="max-width:740px;background:#fff;border-radius:18px;padding:24px;box-shadow:0 20px 50px rgba(0,0,0,.3);color:var(--text);width:100%;max-height:90vh;display:flex;flex-direction:column;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;border-bottom:1px solid var(--border);padding-bottom:12px;">
+        <div>
+          <div style="font-family:var(--font-display);font-size:1.3rem;font-weight:700;" id="routeModalTitle">Create Bus Route & Stops</div>
+          <div style="font-size:0.78rem;color:var(--muted);margin-top:2px;">Configure route waypoints, timing, and stops sequence</div>
+        </div>
+        <button class="btn" style="padding:6px 10px;" onclick="closeRouteModal()"><i class="fa fa-times"></i></button>
+      </div>
+
+      <form id="routeForm" onsubmit="event.preventDefault(); submitRouteForm();" style="overflow-y:auto;flex:1;padding-right:4px;">
+        <input type="hidden" id="rfRouteId" value=""/>
+
+        <div class="form-row" style="margin-bottom:12px;">
+          <div class="field">
+            <label style="font-size:.72rem;font-weight:600;color:var(--muted);text-transform:uppercase;">Route Code *</label>
+            <input type="text" id="rfRouteNumber" placeholder="e.g. R-303" required style="width:100%;padding:9px;border-radius:8px;border:1px solid var(--border);"/>
+          </div>
+          <div class="field">
+            <label style="font-size:.72rem;font-weight:600;color:var(--muted);text-transform:uppercase;">Route Name *</label>
+            <input type="text" id="rfRouteName" placeholder="e.g. Route 303 - Tech Park Express" required style="width:100%;padding:9px;border-radius:8px;border:1px solid var(--border);"/>
+          </div>
+        </div>
+
+        <div class="form-row" style="margin-bottom:12px;">
+          <div class="field">
+            <label style="font-size:.72rem;font-weight:600;color:var(--muted);text-transform:uppercase;">Start Station / Area</label>
+            <input type="text" id="rfStartPoint" placeholder="e.g. Silk Board Metro" style="width:100%;padding:9px;border-radius:8px;border:1px solid var(--border);"/>
+          </div>
+          <div class="field">
+            <label style="font-size:.72rem;font-weight:600;color:var(--muted);text-transform:uppercase;">End Point / Campus Gate</label>
+            <input type="text" id="rfEndPoint" placeholder="e.g. EduConnect Campus Gate" style="width:100%;padding:9px;border-radius:8px;border:1px solid var(--border);"/>
+          </div>
+        </div>
+
+        <div class="field" style="margin-bottom:16px;">
+          <label style="font-size:.72rem;font-weight:600;color:var(--muted);text-transform:uppercase;">Assign Bus Vehicle To This Route</label>
+          <select id="rfAssignBusSelect" style="width:100%;padding:9px;border-radius:8px;border:1px solid var(--border);">
+            <option value="">— Unassigned (Select Bus) —</option>
+          </select>
+        </div>
+
+        <!-- STOPS BUILDER -->
+        <div style="background:#f8fafd;border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:16px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+            <div>
+              <div style="font-weight:700;font-size:0.95rem;color:var(--teal);display:flex;align-items:center;gap:8px;">
+                <i class="fa fa-map-pin"></i> Route Stops Sequence
+              </div>
+              <div style="font-size:0.75rem;color:var(--muted);margin-top:2px;">Add designated student pickup & drop stops with scheduled arrival times</div>
+            </div>
+            <button type="button" class="btn btn-primary" style="font-size:0.75rem;padding:5px 12px;" onclick="addStopRow()">
+              <i class="fa fa-plus"></i> + Add Stop
+            </button>
+          </div>
+          <div style="display:grid;grid-template-columns:30px 1.4fr 1fr 1fr 1fr 34px;gap:8px;font-size:0.7rem;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:6px;padding:0 10px;">
+            <span>#</span>
+            <span>Stop Name *</span>
+            <span>Time</span>
+            <span>Latitude *</span>
+            <span>Longitude *</span>
+            <span></span>
+          </div>
+          <div id="rfStopsContainer" style="display:flex;flex-direction:column;gap:10px;">
+            <!-- Stop Rows Rendered Dynamically -->
+          </div>
+        </div>
+
+        <div style="display:flex;justify-content:flex-end;gap:10px;padding-top:12px;border-top:1px solid var(--border);">
+          <button type="button" class="btn" onclick="closeRouteModal()">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="rfSaveBtn"><i class="fa fa-save"></i> Save Route & Stops</button>
+        </div>
+      </form>
     </div>
   </div>
 
@@ -708,128 +1707,191 @@ body::before{content:'';position:fixed;inset:0;z-index:0;background:transparent;
 
   <!-- ── ATTENDANCE REPORTS ── -->
   <div id="page-attendanceReports" class="page">
-    <div class="panel">
-      <div class="panel-hd">
-        <div>
-          <div class="panel-title" style="display:flex;align-items:center;gap:8px;">
-            <i class="fa fa-chart-bar" style="color:var(--teal);"></i> Attendance Reports
+    <!-- Header & Query Parameters Card -->
+    <div class="rep-header-card">
+      <div class="rep-top-banner">
+        <div class="rep-title-group">
+          <div class="rep-title-icon">
+            <i class="fa fa-chart-column"></i>
           </div>
-          <div style="font-size:.78rem;color:var(--muted);margin-top:3px;">
-            Filter attendance records, view daily / subject-wise / date-wise summaries, and export reports.
+          <div class="rep-title-text">
+            <h2>Attendance Intelligence &amp; Reports</h2>
+            <p>Roster attendance matrices, multi-period session logs, and institutional compliance exports.</p>
           </div>
         </div>
-        <!-- View switcher buttons -->
-        <div style="display:flex;gap:6px;background:rgba(0,31,84,.06);padding:4px;border-radius:10px;border:1px solid var(--border);">
-          <button class="btn btn-primary" id="repViewDailyBtn" onclick="setReportView('daily')" style="font-size:.75rem;padding:6px 12px;">Daily Grid</button>
-          <button class="btn" id="repViewSubjectBtn" onclick="setReportView('subject')" style="font-size:.75rem;padding:6px 12px;">Subject-Wise</button>
-          <button class="btn" id="repViewDateBtn" onclick="setReportView('date')" style="font-size:.75rem;padding:6px 12px;">Date-Wise Summary</button>
+
+        <!-- View Switcher (Segmented Control) -->
+        <div class="rep-segmented-tabs">
+          <button class="rep-tab-btn active" id="repViewDailyBtn" onclick="setReportView('daily')">
+            <i class="fa fa-table-cells"></i> Daily Grid
+          </button>
+          <button class="rep-tab-btn" id="repViewSubjectBtn" onclick="setReportView('subject')" title="Consolidated academic subject matrix with attended classes and %">
+            <i class="fa fa-table-columns"></i> Subject-Wise (Consolidated)
+          </button>
+          <button class="rep-tab-btn" id="repViewDateBtn" onclick="setReportView('date')">
+            <i class="fa fa-calendar-day"></i> Session Summary
+          </button>
         </div>
       </div>
 
-      <!-- Filters row -->
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:16px;">
-        <div class="field" style="margin:0;"><label>Class</label>
-          <select id="repClassFilter" onchange="onRepClassChange();" style="padding:9px 12px;border-radius:8px;border:1px solid var(--border);background:rgba(255,255,255,.04);color:var(--text);font-size:.82rem;outline:none;width:100%;">
-            <option value="">All Classes</option>
-          </select>
-        </div>
-        <div class="field" style="margin:0;"><label>Section</label>
-          <select id="repSectionFilter" style="padding:9px 12px;border-radius:8px;border:1px solid var(--border);background:rgba(255,255,255,.04);color:var(--text);font-size:.82rem;outline:none;width:100%;">
-            <option value="">All Sections</option>
-          </select>
-        </div>
-        <div class="field" style="margin:0;"><label>Subject</label>
-          <select id="repSubjectFilter" style="padding:9px 12px;border-radius:8px;border:1px solid var(--border);background:rgba(255,255,255,.04);color:var(--text);font-size:.82rem;outline:none;width:100%;">
-            <option value="">All Subjects</option>
-          </select>
-        </div>
-        <div class="field" style="margin:0;"><label>Period</label>
-          <select id="repPeriodFilter" style="padding:9px 12px;border-radius:8px;border:1px solid var(--border);background:rgba(255,255,255,.04);color:var(--text);font-size:.82rem;outline:none;width:100%;">
-            <option value="">All Periods</option>
-          </select>
-        </div>
-        <div class="field" style="margin:0;"><label>Start Date</label>
-          <input type="date" id="repStartDate" style="padding:9px 12px;border-radius:8px;border:1px solid var(--border);background:rgba(255,255,255,.04);color:var(--text);font-size:.82rem;outline:none;width:100%;"/>
-        </div>
-        <div class="field" style="margin:0;"><label>End Date</label>
-          <input type="date" id="repEndDate" style="padding:9px 12px;border-radius:8px;border:1px solid var(--border);background:rgba(255,255,255,.04);color:var(--text);font-size:.82rem;outline:none;width:100%;"/>
-        </div>
-      </div>
+      <!-- Filters Grid -->
+      <div class="rep-filter-wrapper">
+        <div class="rep-filter-grid">
+          <div class="rep-field">
+            <label for="repClassFilter"><i class="fa fa-chalkboard"></i> Class</label>
+            <div class="rep-select-wrap">
+              <select id="repClassFilter" onchange="onRepClassChange();">
+                <option value="">All Classes</option>
+              </select>
+            </div>
+          </div>
 
-      <!-- Action & Download Buttons -->
-      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;padding-top:6px;border-top:1px solid var(--border);">
-        <div style="display:flex;gap:8px;">
-          <button class="btn btn-primary" onclick="generateAttendanceReport()" id="repGenerateBtn">
-            <i class="fa fa-search"></i> Generate Report
-          </button>
-          <button class="btn btn-ghost" onclick="resetReportFilters()" title="Reset Filters">
-            <i class="fa fa-redo"></i> Reset
-          </button>
+          <div class="rep-field">
+            <label for="repSectionFilter"><i class="fa fa-users-rectangle"></i> Section</label>
+            <div class="rep-select-wrap">
+              <select id="repSectionFilter">
+                <option value="">All Sections</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="rep-field">
+            <label for="repSubjectFilter"><i class="fa fa-book-bookmark"></i> Subject</label>
+            <div class="rep-select-wrap">
+              <select id="repSubjectFilter">
+                <option value="">All Subjects</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="rep-field">
+            <label for="repPeriodFilter"><i class="fa fa-clock"></i> Period</label>
+            <div class="rep-select-wrap">
+              <select id="repPeriodFilter">
+                <option value="">All Periods</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="rep-field">
+            <label for="repStartDate"><i class="fa fa-calendar-plus"></i> Start Date</label>
+            <input type="date" id="repStartDate"/>
+          </div>
+
+          <div class="rep-field">
+            <label for="repEndDate"><i class="fa fa-calendar-check"></i> End Date</label>
+            <input type="date" id="repEndDate"/>
+          </div>
         </div>
 
-        <div style="display:flex;gap:8px;flex-wrap:wrap;">
-          <button class="btn" onclick="downloadAttendanceReport('excel')" style="background:#107c41;color:#fff;border-color:#107c41;font-weight:600;">
-            <i class="fa fa-file-excel"></i> Download Excel
-          </button>
-          <button class="btn" onclick="downloadAttendanceReport('pdf')" style="background:#dc2626;color:#fff;border-color:#dc2626;font-weight:600;">
-            <i class="fa fa-file-pdf"></i> Download PDF
-          </button>
-          <button class="btn" onclick="downloadAttendanceReport('csv')" style="background:#0284c7;color:#fff;border-color:#0284c7;font-weight:600;">
-            <i class="fa fa-file-csv"></i> Download CSV
-          </button>
+        <!-- Action & Export Bar -->
+        <div class="rep-actions-bar">
+          <div class="rep-action-left">
+            <button class="rep-btn-generate" onclick="generateAttendanceReport()" id="repGenerateBtn">
+              <i class="fa fa-arrows-rotate"></i> Generate Report
+            </button>
+            <button class="rep-btn-reset" onclick="resetReportFilters()" title="Reset all filters to defaults">
+              <i class="fa fa-rotate-left"></i> Reset
+            </button>
+          </div>
+
+          <div class="rep-export-group">
+            <span class="rep-export-label"><i class="fa fa-file-export"></i> Export:</span>
+            <button class="rep-export-btn rep-export-excel" onclick="downloadAttendanceReport('excel')" title="Download formatted Microsoft Excel spreadsheet">
+              <i class="fa fa-file-excel"></i> Excel (.xlsx)
+            </button>
+            <button class="rep-export-btn rep-export-pdf" onclick="downloadAttendanceReport('pdf')" title="Download printable PDF report">
+              <i class="fa fa-file-pdf"></i> PDF
+            </button>
+            <button class="rep-export-btn rep-export-csv" onclick="downloadAttendanceReport('csv')" title="Download CSV data">
+              <i class="fa fa-file-csv"></i> CSV
+            </button>
+          </div>
         </div>
       </div>
     </div>
 
     <!-- Summary KPI Cards -->
-    <div id="repSummaryGrid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-bottom:18px;">
-      <div class="stat-card" style="--c:#0284c7;padding:18px 22px;">
-        <div class="stat-val" id="repStatStudents" style="font-size:2.2rem;">0</div>
-        <div class="stat-lbl" style="font-size:.8rem;margin-top:6px;">Total Students</div>
-        <div class="stat-trend" style="font-size:.76rem;margin-top:6px;">In selected roster</div>
+    <div id="repSummaryGrid" class="rep-kpi-grid">
+      <div class="rep-kpi-card kpi-students">
+        <div class="rep-kpi-top">
+          <span class="rep-kpi-label">Total Students</span>
+          <div class="rep-kpi-icon"><i class="fa fa-user-graduate"></i></div>
+        </div>
+        <div class="rep-kpi-val" id="repStatStudents">0</div>
+        <div class="rep-kpi-sub"><span class="rep-kpi-badge"><i class="fa fa-id-card"></i> In selected roster</span></div>
       </div>
-      <div class="stat-card" style="--c:#7c3aed;padding:18px 22px;">
-        <div class="stat-val" id="repStatClasses" style="font-size:2.2rem;">0</div>
-        <div class="stat-lbl" style="font-size:.8rem;margin-top:6px;">Classes Conducted</div>
-        <div class="stat-trend" style="font-size:.76rem;margin-top:6px;">Recorded sessions</div>
+
+      <div class="rep-kpi-card kpi-classes">
+        <div class="rep-kpi-top">
+          <span class="rep-kpi-label">Classes Conducted</span>
+          <div class="rep-kpi-icon"><i class="fa fa-calendar-check"></i></div>
+        </div>
+        <div class="rep-kpi-val" id="repStatClasses">0</div>
+        <div class="rep-kpi-sub"><span class="rep-kpi-badge"><i class="fa fa-clock"></i> Recorded sessions</span></div>
       </div>
-      <div class="stat-card" style="--c:#16a34a;padding:18px 22px;">
-        <div class="stat-val" id="repStatPresent" style="font-size:2.2rem;color:#16a34a;">0</div>
-        <div class="stat-lbl" style="font-size:.8rem;margin-top:6px;">Total Present</div>
-        <div class="stat-trend" style="font-size:.76rem;margin-top:6px;">Present marks</div>
+
+      <div class="rep-kpi-card kpi-present">
+        <div class="rep-kpi-top">
+          <span class="rep-kpi-label">Total Present</span>
+          <div class="rep-kpi-icon"><i class="fa fa-circle-check"></i></div>
+        </div>
+        <div class="rep-kpi-val" id="repStatPresent">0</div>
+        <div class="rep-kpi-sub"><span class="rep-kpi-badge badge-p"><i class="fa fa-arrow-trend-up"></i> Present marks</span></div>
       </div>
-      <div class="stat-card" style="--c:#dc2626;padding:18px 22px;">
-        <div class="stat-val" id="repStatAbsent" style="font-size:2.2rem;color:#dc2626;">0</div>
-        <div class="stat-lbl" style="font-size:.8rem;margin-top:6px;">Total Absent</div>
-        <div class="stat-trend" style="font-size:.76rem;margin-top:6px;">Absent marks</div>
+
+      <div class="rep-kpi-card kpi-absent">
+        <div class="rep-kpi-top">
+          <span class="rep-kpi-label">Total Absent</span>
+          <div class="rep-kpi-icon"><i class="fa fa-circle-xmark"></i></div>
+        </div>
+        <div class="rep-kpi-val" id="repStatAbsent">0</div>
+        <div class="rep-kpi-sub"><span class="rep-kpi-badge badge-a"><i class="fa fa-user-xmark"></i> Absent marks</span></div>
       </div>
-      <div class="stat-card" style="--c:#0f766e;padding:18px 22px;">
-        <div class="stat-val" id="repStatPercentage" style="font-size:2.2rem;color:#0f766e;">0%</div>
-        <div class="stat-lbl" style="font-size:.8rem;margin-top:6px;">Overall Attendance</div>
-        <div class="stat-trend" style="font-size:.76rem;margin-top:6px;">Present / (Present + Absent)</div>
+
+      <div class="rep-kpi-card kpi-rate">
+        <div class="rep-kpi-top">
+          <span class="rep-kpi-label">Overall Attendance</span>
+          <div class="rep-kpi-icon"><i class="fa fa-chart-pie"></i></div>
+        </div>
+        <div class="rep-kpi-val" id="repStatPercentage">0%</div>
+        <div class="rep-progress-track">
+          <div class="rep-progress-fill" id="repStatProgress" style="width:0%;"></div>
+        </div>
+        <div class="rep-kpi-sub" style="margin-top:8px;">
+          <span class="rep-kpi-badge" id="repStatHealth"><i class="fa fa-shield-halved"></i> Present / Total</span>
+        </div>
       </div>
     </div>
 
     <!-- Report Table Panel -->
-    <div class="panel">
-      <div class="panel-hd">
-        <div>
-          <div class="panel-title" id="repTableTitle">Attendance Report Table</div>
-          <div id="repTableSubtitle" style="font-size:.78rem;color:var(--muted);margin-top:3px;">Select filters and generate report.</div>
+    <div class="rep-table-card">
+      <div class="rep-table-hd">
+        <div class="rep-table-title-wrap">
+          <h3 id="repTableTitle">Daily Attendance Grid</h3>
+          <div class="rep-table-meta-bar" id="repTableSubtitle">
+            <span class="rep-meta-chip"><i class="fa fa-sliders"></i> Select filters and generate report</span>
+          </div>
         </div>
-        <div id="repBadgeLegend" style="display:flex;gap:12px;font-size:.75rem;align-items:center;">
-          <span style="display:inline-flex;align-items:center;gap:4px;"><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#16a34a;"></span> <strong>P</strong> = Present</span>
-          <span style="display:inline-flex;align-items:center;gap:4px;"><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#dc2626;"></span> <strong>A</strong> = Absent</span>
-          <span style="display:inline-flex;align-items:center;gap:4px;"><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#94a3b8;"></span> <strong>—</strong> = No Class</span>
+
+        <div class="rep-table-toolbar-right">
+          <div class="rep-quick-search" id="repSearchWrap" style="display:none;">
+            <i class="fa fa-search"></i>
+            <input type="text" id="repStudentSearch" placeholder="Search student name or ID..." oninput="onRepStudentSearch(this.value)"/>
+          </div>
+
+          <div id="repBadgeLegend" class="rep-legend">
+            <span class="rep-legend-item"><span class="leg-p">P</span> Present</span>
+            <span class="rep-legend-item"><span class="leg-a">A</span> Absent</span>
+            <span class="rep-legend-item"><span class="leg-dash">—</span> No Class</span>
+          </div>
         </div>
       </div>
 
-      <div style="overflow-x:auto;">
-        <div id="repTableContainer">
-          <div style="text-align:center;padding:40px;color:var(--muted);font-size:.9rem;">
-            <i class="fa fa-table" style="font-size:2rem;margin-bottom:10px;display:block;opacity:.4;"></i>
-            Click <strong>Generate Report</strong> to preview attendance data.
-          </div>
+      <div id="repTableContainer" class="rep-table-scroll">
+        <div style="text-align:center;padding:50px 20px;color:var(--muted);font-size:.9rem;">
+          <i class="fa fa-table-cells" style="font-size:2.2rem;margin-bottom:12px;display:block;opacity:.35;color:#001f54;"></i>
+          Click <strong>Generate Report</strong> to load attendance data.
         </div>
       </div>
     </div>
@@ -1272,7 +2334,7 @@ function toggleSidebar() {
 function logout() { sessionStorage.clear(); location.href='index.html'; }
 
 function loadPage(page) {
-  const fns = { dashboard:loadDashboard, import:()=>{}, students:loadStudents, marks:loadMarksPage, assignments:loadAssignmentsPage, events:loadEventsPage, attendance:loadAttendancePage, attendanceReports:loadAttendanceReportsPage, fees:loadFeesPage, contactParent:loadContactParentPage, notifications:()=>{} };
+  const fns = { dashboard:loadDashboard, import:()=>{}, students:loadStudents, marks:loadMarksPage, assignments:loadAssignmentsPage, events:loadEventsPage, attendance:loadAttendancePage, attendanceReports:loadAttendanceReportsPage, fees:loadFeesPage, contactParent:loadContactParentPage, notifications:()=>{}, buses:loadAdminBuses };
   if (fns[page]) fns[page]();
 }
 
@@ -3235,20 +4297,72 @@ function onRepClassChange() {
   if (secs.length) secSel.value = secs[0];
 }
 
+// Roster avatar helper
+const REP_AVATAR_PALETTES = [
+  { bg: '#eff6ff', text: '#1d4ed8' },
+  { bg: '#f5f3ff', text: '#6d28d9' },
+  { bg: '#ecfdf5', text: '#047857' },
+  { bg: '#fff7ed', text: '#c2410c' },
+  { bg: '#fdf2f8', text: '#be185d' },
+  { bg: '#f0fdfa', text: '#0f766e' },
+  { bg: '#eef2ff', text: '#4338ca' }
+];
+
+function getRepStudentAvatar(name) {
+  if (!name) return { initials: '??', bg: '#f1f5f9', text: '#64748b' };
+  const parts = name.trim().split(/\s+/);
+  const initials = parts.length === 1 ? parts[0].slice(0, 2).toUpperCase() : (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) hash = (hash << 5) - hash + name.charCodeAt(i);
+  const palette = REP_AVATAR_PALETTES[Math.abs(hash) % REP_AVATAR_PALETTES.length];
+  return { initials, bg: palette.bg, text: palette.text };
+}
+
+function formatSessionColHeader(col) {
+  let dText = '';
+  let pText = '';
+
+  if (col.period) {
+    pText = `P${col.period}`;
+  }
+
+  if (col.date) {
+    const parts = col.date.split('-');
+    if (parts.length === 3) {
+      const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      const m = months[parseInt(parts[1], 10) - 1] || '';
+      dText = `${parts[2]} ${m}`;
+    }
+  }
+
+  if (!dText && col.label) {
+    const dm = col.label.match(/^(\d{1,2}\s+[A-Za-z]{3})/);
+    dText = dm ? dm[1] : col.label;
+    const pm = col.label.match(/\(P(\d+)\)/);
+    if (pm && !pText) pText = `P${pm[1]}`;
+  }
+
+  const tooltip = col.fullLabel || col.label || `${dText} ${pText}`;
+
+  return `<div class="rep-session-hd" title="${tooltip}">
+    <span class="rep-session-date">${dText || col.label}</span>
+    ${pText ? `<span class="rep-session-badge">${pText}</span>` : ''}
+  </div>`;
+}
+
 function setReportView(view) {
   currentReportView = view;
   const dailyBtn = document.getElementById('repViewDailyBtn');
   const subBtn = document.getElementById('repViewSubjectBtn');
   const dateBtn = document.getElementById('repViewDateBtn');
 
-  if (dailyBtn) {
-    dailyBtn.className = view === 'daily' ? 'btn btn-primary' : 'btn btn-ghost';
-  }
-  if (subBtn) {
-    subBtn.className = view === 'subject' ? 'btn btn-primary' : 'btn btn-ghost';
-  }
-  if (dateBtn) {
-    dateBtn.className = view === 'date' ? 'btn btn-primary' : 'btn btn-ghost';
+  if (dailyBtn) dailyBtn.classList.toggle('active', view === 'daily');
+  if (subBtn) subBtn.classList.toggle('active', view === 'subject');
+  if (dateBtn) dateBtn.classList.toggle('active', view === 'date');
+
+  const searchWrap = document.getElementById('repSearchWrap');
+  if (searchWrap) {
+    searchWrap.style.display = view === 'date' ? 'none' : 'block';
   }
 
   if (currentReportData) {
@@ -3280,8 +4394,14 @@ function getReportQueryParams() {
 async function generateAttendanceReport() {
   const btn = document.getElementById('repGenerateBtn');
   const container = document.getElementById('repTableContainer');
-  if (btn) btn.disabled = true;
-  if (container) container.innerHTML = '<div style="text-align:center;padding:40px;"><span class="loader"></span><div style="margin-top:10px;color:var(--muted);font-size:.85rem;">Generating report from MongoDB...</div></div>';
+  const searchWrap = document.getElementById('repSearchWrap');
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<span class="loader"></span> Generating...';
+  }
+  if (container) {
+    container.innerHTML = '<div style="text-align:center;padding:50px 20px;"><span class="loader"></span><div style="margin-top:12px;color:var(--muted);font-size:.85rem;font-weight:500;">Retrieving attendance records from database...</div></div>';
+  }
 
   try {
     const params = getReportQueryParams();
@@ -3289,24 +4409,60 @@ async function generateAttendanceReport() {
     currentReportData = data;
 
     // Update Summary KPI Cards
-    document.getElementById('repStatStudents').textContent = data.summary.totalStudents || 0;
-    document.getElementById('repStatClasses').textContent = data.summary.totalClassesConducted || 0;
-    document.getElementById('repStatPresent').textContent = data.summary.totalPresent || 0;
-    document.getElementById('repStatAbsent').textContent = data.summary.totalAbsent || 0;
-    document.getElementById('repStatPercentage').textContent = data.summary.overallPercentage || '0%';
+    const totalStudents = data.summary.totalStudents || 0;
+    const totalClasses = data.summary.totalClassesConducted || 0;
+    const totalPresent = data.summary.totalPresent || 0;
+    const totalAbsent = data.summary.totalAbsent || 0;
+    const pctStr = data.summary.overallPercentage || '0%';
+    const rawPct = typeof data.summary.rawPercentage === 'number' ? data.summary.rawPercentage : parseFloat(pctStr) || 0;
 
-    // Update Subtitles
-    document.getElementById('repTableSubtitle').textContent = `${data.meta.class} (${data.meta.section}) • ${data.meta.subject} • ${data.meta.period} • ${data.meta.dateRange}`;
+    document.getElementById('repStatStudents').textContent = totalStudents;
+    document.getElementById('repStatClasses').textContent = totalClasses;
+    document.getElementById('repStatPresent').textContent = totalPresent;
+    document.getElementById('repStatAbsent').textContent = totalAbsent;
+    document.getElementById('repStatPercentage').textContent = pctStr;
+
+    // KPI Progress fill & Health indicator
+    const prog = document.getElementById('repStatProgress');
+    if (prog) prog.style.width = Math.min(100, Math.max(0, rawPct)) + '%';
+    const health = document.getElementById('repStatHealth');
+    if (health) {
+      if (rawPct >= 75) {
+        health.className = 'rep-kpi-badge badge-p';
+        health.innerHTML = '<i class="fa fa-shield-check"></i> Compliant (&ge;75%)';
+      } else {
+        health.className = 'rep-kpi-badge badge-a';
+        health.innerHTML = '<i class="fa fa-triangle-exclamation"></i> Low Attendance (&lt;75%)';
+      }
+    }
+
+    // Update Meta Bar Chips
+    const metaBar = document.getElementById('repTableSubtitle');
+    if (metaBar) {
+      metaBar.innerHTML = `
+        <span class="rep-meta-chip"><i class="fa fa-layer-group"></i> Class: <strong>${data.meta.class} (${data.meta.section})</strong></span>
+        <span class="rep-meta-chip"><i class="fa fa-book"></i> <strong>${data.meta.subject}</strong></span>
+        <span class="rep-meta-chip"><i class="fa fa-clock"></i> <strong>${data.meta.period}</strong></span>
+        <span class="rep-meta-chip"><i class="fa fa-calendar-alt"></i> <strong>${data.meta.dateRange}</strong></span>
+      `;
+    }
+
+    if (searchWrap) {
+      searchWrap.style.display = currentReportView === 'date' ? 'none' : 'block';
+    }
 
     renderAttendanceReportTable(data);
   } catch (err) {
     console.error('Error fetching attendance report:', err);
     if (container) {
-      container.innerHTML = `<div style="text-align:center;padding:30px;color:var(--coral);"><i class="fa fa-exclamation-triangle" style="font-size:1.8rem;margin-bottom:8px;"></i><div>Failed to generate report: ${err.message}</div></div>`;
+      container.innerHTML = `<div style="text-align:center;padding:40px;color:var(--coral);"><i class="fa fa-exclamation-triangle" style="font-size:2rem;margin-bottom:10px;"></i><div style="font-weight:600;">Failed to generate report</div><div style="font-size:.82rem;color:var(--muted);margin-top:4px;">${err.message}</div></div>`;
     }
     toast(err.message, 'err');
   } finally {
-    if (btn) btn.disabled = false;
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fa fa-arrows-rotate"></i> Generate Report';
+    }
   }
 }
 
@@ -3314,18 +4470,26 @@ function renderAttendanceReportTable(data) {
   const container = document.getElementById('repTableContainer');
   const title = document.getElementById('repTableTitle');
   const legend = document.getElementById('repBadgeLegend');
+  const searchWrap = document.getElementById('repSearchWrap');
+
+  // Reset search box if any
+  const searchInput = document.getElementById('repStudentSearch');
+  if (searchInput) searchInput.value = '';
 
   if (currentReportView === 'subject') {
-    title.textContent = 'Subject-Wise Attendance Percentage';
+    title.textContent = 'Subject-Wise Attendance Breakdown';
     if (legend) legend.style.display = 'none';
+    if (searchWrap) searchWrap.style.display = 'block';
     renderSubjectWiseReport(data, container);
   } else if (currentReportView === 'date') {
-    title.textContent = 'Date-Wise Attendance Sessions';
+    title.textContent = 'Session-By-Session Attendance Log';
     if (legend) legend.style.display = 'none';
+    if (searchWrap) searchWrap.style.display = 'none';
     renderDateWiseReport(data, container);
   } else {
     title.textContent = 'Daily Attendance Grid';
     if (legend) legend.style.display = 'flex';
+    if (searchWrap) searchWrap.style.display = 'block';
     renderDailyGridReport(data, container);
   }
 }
@@ -3333,51 +4497,59 @@ function renderAttendanceReportTable(data) {
 function renderDailyGridReport(data, container) {
   const { columns, rows } = data.dailyGrid || { columns: [], rows: [] };
   if (!rows.length) {
-    container.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted);font-size:.9rem;">No students found for this class and section.</div>';
+    container.innerHTML = '<div style="text-align:center;padding:50px 20px;color:var(--muted);font-size:.9rem;"><i class="fa fa-user-slash" style="font-size:2rem;margin-bottom:10px;display:block;opacity:.4;"></i>No enrolled students found for the selected Class and Section.</div>';
     return;
   }
 
-  let html = `<table class="tbl" style="min-width:700px;border-collapse:collapse;">
+  let html = `<table class="rep-grid-table" id="repMainTable">
     <thead>
-      <tr style="background:#f8fafc;border-bottom:2px solid var(--border);">
-        <th style="width:40px;text-align:center;">#</th>
-        <th style="min-width:110px;">Student ID</th>
-        <th style="min-width:160px;">Student Name</th>`;
+      <tr>
+        <th class="rep-sticky-col col-num">#</th>
+        <th class="rep-sticky-col col-id">Student ID</th>
+        <th class="rep-sticky-col col-name">Student Name</th>`;
 
   columns.forEach(col => {
-    html += `<th style="text-align:center;min-width:64px;" title="${col.fullLabel || col.label}">${col.label}</th>`;
+    html += `<th>${formatSessionColHeader(col)}</th>`;
   });
 
-  html += `<th style="text-align:center;color:#16a34a;min-width:65px;font-weight:700;">Present</th>
-        <th style="text-align:center;color:#dc2626;min-width:65px;font-weight:700;">Absent</th>
-        <th style="text-align:center;min-width:65px;font-weight:700;">Total</th>
-        <th style="text-align:center;color:#0284c7;min-width:85px;font-weight:700;">Attendance %</th>
+  html += `<th style="text-align:center;color:#059669;min-width:65px;">Present</th>
+        <th style="text-align:center;color:#dc2626;min-width:65px;">Absent</th>
+        <th style="text-align:center;color:#475569;min-width:65px;">Total</th>
+        <th style="text-align:center;color:#001f54;min-width:95px;">Attendance %</th>
       </tr>
     </thead>
     <tbody>`;
 
-  rows.forEach((r, idx) => {
-    const zebra = idx % 2 === 0 ? '#ffffff' : '#f8fafc';
-    html += `<tr style="background:${zebra};">
-      <td style="text-align:center;color:var(--muted);font-size:.75rem;">${r.index}</td>
-      <td style="font-family:monospace;font-weight:600;font-size:.8rem;">${r.studentId}</td>
-      <td style="font-weight:600;">${r.name}</td>`;
+  rows.forEach((r) => {
+    const avatar = getRepStudentAvatar(r.name);
+    const pctVal = r.rawPercentage != null ? r.rawPercentage : parseFloat(r.percentage) || 0;
+    const pctClass = pctVal >= 75 ? 'pct-high' : 'pct-low';
+
+    html += `<tr class="rep-row-item" data-name="${(r.name || '').toLowerCase()}" data-id="${(r.studentId || '').toLowerCase()}">
+      <td class="rep-sticky-col col-num" style="color:var(--muted);font-size:.76rem;font-weight:600;">${r.index}</td>
+      <td class="rep-sticky-col col-id"><span class="stu-id-tag">${r.studentId}</span></td>
+      <td class="rep-sticky-col col-name">
+        <div class="stu-name-wrap">
+          <div class="stu-avatar-pill" style="background:${avatar.bg};color:${avatar.text};">${avatar.initials}</div>
+          <span style="font-weight:600;color:#0f172a;">${r.name}</span>
+        </div>
+      </td>`;
 
     columns.forEach(col => {
       const status = r.attendance[col.key] || '-';
       if (status === 'P') {
-        html += `<td style="text-align:center;"><span style="display:inline-block;padding:2px 7px;border-radius:4px;background:rgba(22,163,74,.15);color:#16a34a;font-weight:800;font-size:.78rem;">P</span></td>`;
+        html += `<td style="text-align:center;"><span class="att-pill att-p" title="Present">P</span></td>`;
       } else if (status === 'A') {
-        html += `<td style="text-align:center;"><span style="display:inline-block;padding:2px 7px;border-radius:4px;background:rgba(220,38,38,.15);color:#dc2626;font-weight:800;font-size:.78rem;">A</span></td>`;
+        html += `<td style="text-align:center;"><span class="att-pill att-a" title="Absent">A</span></td>`;
       } else {
-        html += `<td style="text-align:center;color:#94a3b8;font-weight:600;">—</td>`;
+        html += `<td style="text-align:center;"><span class="att-dash">—</span></td>`;
       }
     });
 
-    html += `<td style="text-align:center;font-weight:700;color:#16a34a;">${r.presentCount}</td>
+    html += `<td style="text-align:center;font-weight:700;color:#059669;">${r.presentCount}</td>
       <td style="text-align:center;font-weight:700;color:#dc2626;">${r.absentCount}</td>
-      <td style="text-align:center;font-weight:600;color:var(--muted);">${r.totalMarked}</td>
-      <td style="text-align:center;font-weight:800;color:#0284c7;">${r.percentage}</td>
+      <td style="text-align:center;font-weight:600;color:#64748b;">${r.totalMarked}</td>
+      <td style="text-align:center;"><span class="rep-pct-pill ${pctClass}">${r.percentage}</span></td>
     </tr>`;
   });
 
@@ -3386,43 +4558,121 @@ function renderDailyGridReport(data, container) {
 }
 
 function renderSubjectWiseReport(data, container) {
-  const { subjects, rows } = data.subjectWise || { subjects: [], rows: [] };
-  if (!rows.length) {
-    container.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted);font-size:.9rem;">No students found for this class and section.</div>';
+  const { subjects, conductedMap, rows } = data.subjectWise || { subjects: [], conductedMap: {}, rows: [] };
+  if (!rows || !rows.length) {
+    container.innerHTML = '<div style="text-align:center;padding:50px 20px;color:var(--muted);font-size:.9rem;"><i class="fa fa-user-slash" style="font-size:2rem;margin-bottom:10px;display:block;opacity:.4;"></i>No enrolled students found for the selected Class and Section.</div>';
     return;
   }
 
-  let html = `<table class="tbl" style="min-width:650px;border-collapse:collapse;">
+  let html = `
+  <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px;padding:8px 12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;font-size:.78rem;color:#334155;flex-wrap:wrap;">
+    <div style="display:flex;align-items:center;gap:8px;">
+      <span style="background:#e0f2fe;color:#0369a1;font-weight:700;padding:2px 8px;border-radius:4px;border:1px solid #bae6fd;">
+        <i class="fa fa-calculator" style="margin-right:4px;"></i>Formula
+      </span>
+      <span style="font-weight:600;">Attendance % = (Classes Attended / Classes Taken) × 100</span>
+    </div>
+    <div style="color:#64748b;font-size:.74rem;">
+      <i class="fa fa-info-circle" style="margin-right:4px;color:#0284c7;"></i>
+      Row 2 shows <strong>Classes Taken</strong>; each subject displays <strong>Classes Attended</strong> and calculated <strong>Attendance %</strong>.
+    </div>
+  </div>
+  <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;border-radius:6px;box-shadow:0 1px 3px rgba(0,0,0,0.08);">
+    <table class="rep-grid-table rep-institutional-table" id="repMainTable" style="margin-bottom:0;">
     <thead>
-      <tr style="background:#f8fafc;border-bottom:2px solid var(--border);">
-        <th style="width:40px;text-align:center;">#</th>
-        <th style="min-width:110px;">Student ID</th>
-        <th style="min-width:160px;">Student Name</th>`;
+      <!-- Header Row 1: Subject Code -->
+      <tr class="rep-hdr-row-1">
+        <th colspan="3" style="text-align:center;font-weight:700;letter-spacing:0.02em;">Subject Code</th>`;
 
   subjects.forEach(sub => {
-    html += `<th style="text-align:center;min-width:90px;">${sub} %</th>`;
+    html += `<th colspan="2" style="text-align:center;font-weight:700;letter-spacing:0.02em;font-size:.78rem;">${sub}</th>`;
   });
 
-  html += `<th style="text-align:center;color:#0284c7;min-width:90px;font-weight:700;">Overall %</th>
+  html += `<th rowspan="2" style="text-align:center;vertical-align:middle;min-width:68px;font-weight:700;line-height:1.2;" title="Overall Average Attendance %">Att<br/>Avg</th>
+      </tr>
+      <!-- Header Row 2: No. of Classes Taken -->
+      <tr class="rep-hdr-row-2">
+        <th colspan="3" style="text-align:center;font-weight:700;">No. of Classes Taken</th>`;
+
+  subjects.forEach(sub => {
+    const conducted = (conductedMap && conductedMap[sub] != null) ? conductedMap[sub] : 0;
+    html += `<th colspan="2" style="text-align:center;font-weight:700;font-size:.85rem;" title="Total Classes Taken in ${sub}">${conducted}</th>`;
+  });
+
+  html += `</tr>
+      <!-- Header Row 3: Column Sub-Headers -->
+      <tr class="rep-hdr-row-3">
+        <th class="rep-sticky-col col-num" style="width:45px;text-align:center;font-weight:700;">S. No.</th>
+        <th class="rep-sticky-col col-id" style="width:115px;text-align:center;font-weight:700;">USN</th>
+        <th class="rep-sticky-col col-name" style="min-width:180px;text-align:left;font-weight:700;">Name of the Student</th>`;
+
+  subjects.forEach(sub => {
+    html += `<th style="text-align:center;min-width:60px;font-weight:600;font-size:.72rem;" title="Classes Attended in ${sub}">Attended</th>
+             <th style="text-align:center;min-width:60px;font-weight:600;font-size:.72rem;" title="Attendance % = (Classes Attended / Classes Taken) × 100">Att %</th>`;
+  });
+
+  html += `<th style="text-align:center;min-width:68px;font-weight:700;font-size:.74rem;" title="Overall Average Attendance %">Att Avg</th>
       </tr>
     </thead>
     <tbody>`;
 
-  rows.forEach((r, idx) => {
-    const zebra = idx % 2 === 0 ? '#ffffff' : '#f8fafc';
-    html += `<tr style="background:${zebra};">
-      <td style="text-align:center;color:var(--muted);font-size:.75rem;">${r.index}</td>
-      <td style="font-family:monospace;font-weight:600;font-size:.8rem;">${r.studentId}</td>
-      <td style="font-weight:600;">${r.name}</td>`;
+  rows.forEach((r) => {
+    html += `<tr class="rep-row-item" data-name="${(r.name || '').toLowerCase()}" data-id="${(r.studentId || '').toLowerCase()}">
+      <td class="rep-sticky-col col-num" style="text-align:center;color:#475569;font-weight:600;font-size:.8rem;">${r.sNo || r.index}</td>
+      <td class="rep-sticky-col col-id" style="text-align:center;font-weight:700;font-family:monospace;letter-spacing:0.4px;color:#0f172a;font-size:.8rem;">${r.usn || r.studentId}</td>
+      <td class="rep-sticky-col col-name" style="font-weight:600;color:#0f172a;text-align:left;font-size:.82rem;">${r.name}</td>`;
 
     subjects.forEach(sub => {
-      const pct = r.subjects[sub]?.percentage || '-';
-      const color = pct === '-' ? '#94a3b8' : (parseFloat(pct) >= 75 ? '#16a34a' : '#dc2626');
-      html += `<td style="text-align:center;font-weight:700;color:${color};">${pct}</td>`;
+      const sInfo = r.subjects && r.subjects[sub];
+      const att = sInfo ? (sInfo.classesAttended ?? sInfo.present ?? 0) : 0;
+      const pct = sInfo && sInfo.pctFormatted !== '-' ? sInfo.pctFormatted : '-';
+      html += `<td style="text-align:center;font-weight:600;color:#1e293b;font-size:.8rem;" title="Classes Attended: ${att}">${att}</td>
+               <td style="text-align:center;font-weight:600;color:#1e293b;font-size:.8rem;" title="Attendance: ${pct}%">${pct}</td>`;
     });
 
-    const overallColor = r.overallPercentage === '-' ? '#94a3b8' : (parseFloat(r.overallPercentage) >= 75 ? '#0284c7' : '#dc2626');
-    html += `<td style="text-align:center;font-weight:800;color:${overallColor};">${r.overallPercentage}</td>
+    html += `<td class="rep-col-avg" style="text-align:center;font-weight:700;color:#001f54;font-size:.82rem;" title="Overall Att Avg: ${r.attAvg != null ? r.attAvg : '-'}%">${r.attAvg != null ? r.attAvg : '-'}</td>
+    </tr>`;
+  });
+
+  html += `</tbody></table></div>`;
+  container.innerHTML = html;
+}
+
+function renderDateWiseReport(data, container) {
+  const rows = data.dateWise?.rows || [];
+  if (!rows.length) {
+    container.innerHTML = '<div style="text-align:center;padding:50px 20px;color:var(--muted);font-size:.9rem;"><i class="fa fa-calendar-xmark" style="font-size:2rem;margin-bottom:10px;display:block;opacity:.4;"></i>No recorded attendance sessions found for the selected query filters.</div>';
+    return;
+  }
+
+  let html = `<table class="rep-grid-table">
+    <thead>
+      <tr>
+        <th style="width:48px;text-align:center;">#</th>
+        <th style="min-width:130px;">Date</th>
+        <th style="min-width:140px;">Subject</th>
+        <th style="min-width:100px;text-align:center;">Period</th>
+        <th style="text-align:center;color:#059669;min-width:80px;">Present</th>
+        <th style="text-align:center;color:#dc2626;min-width:80px;">Absent</th>
+        <th style="text-align:center;color:#475569;min-width:80px;">Total</th>
+        <th style="text-align:center;color:#001f54;min-width:100px;">Attendance %</th>
+      </tr>
+    </thead>
+    <tbody>`;
+
+  rows.forEach((r) => {
+    const pctVal = parseFloat(r.percentage) || 0;
+    const pctClass = pctVal >= 75 ? 'pct-high' : 'pct-low';
+
+    html += `<tr>
+      <td style="text-align:center;color:var(--muted);font-size:.76rem;font-weight:600;">${r.index}</td>
+      <td style="font-weight:600;color:#0f172a;"><i class="fa fa-calendar" style="margin-right:6px;color:#94a3b8;"></i>${r.formattedDate}</td>
+      <td><span class="rep-meta-chip"><i class="fa fa-book-bookmark"></i>${r.subject}</span></td>
+      <td style="text-align:center;"><span class="rep-session-badge">${r.period}</span></td>
+      <td style="text-align:center;font-weight:700;color:#059669;">${r.present}</td>
+      <td style="text-align:center;font-weight:700;color:#dc2626;">${r.absent}</td>
+      <td style="text-align:center;font-weight:600;color:#64748b;">${r.total}</td>
+      <td style="text-align:center;"><span class="rep-pct-pill ${pctClass}">${r.percentage}</span></td>
     </tr>`;
   });
 
@@ -3430,44 +4680,18 @@ function renderSubjectWiseReport(data, container) {
   container.innerHTML = html;
 }
 
-function renderDateWiseReport(data, container) {
-  const rows = data.dateWise?.rows || [];
-  if (!rows.length) {
-    container.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted);font-size:.9rem;">No attendance sessions found for selected filters.</div>';
-    return;
-  }
-
-  let html = `<table class="tbl" style="min-width:600px;border-collapse:collapse;">
-    <thead>
-      <tr style="background:#f8fafc;border-bottom:2px solid var(--border);">
-        <th style="width:40px;text-align:center;">#</th>
-        <th style="min-width:120px;">Date</th>
-        <th style="min-width:140px;">Subject</th>
-        <th style="min-width:90px;">Period</th>
-        <th style="text-align:center;color:#16a34a;min-width:70px;font-weight:700;">Present</th>
-        <th style="text-align:center;color:#dc2626;min-width:70px;font-weight:700;">Absent</th>
-        <th style="text-align:center;min-width:70px;font-weight:700;">Total</th>
-        <th style="text-align:center;color:#0284c7;min-width:90px;font-weight:700;">Attendance %</th>
-      </tr>
-    </thead>
-    <tbody>`;
-
-  rows.forEach((r, idx) => {
-    const zebra = idx % 2 === 0 ? '#ffffff' : '#f8fafc';
-    html += `<tr style="background:${zebra};">
-      <td style="text-align:center;color:var(--muted);font-size:.75rem;">${r.index}</td>
-      <td style="font-weight:600;">${r.formattedDate}</td>
-      <td>${r.subject}</td>
-      <td>${r.period}</td>
-      <td style="text-align:center;font-weight:700;color:#16a34a;">${r.present}</td>
-      <td style="text-align:center;font-weight:700;color:#dc2626;">${r.absent}</td>
-      <td style="text-align:center;font-weight:600;color:var(--muted);">${r.total}</td>
-      <td style="text-align:center;font-weight:800;color:#0284c7;">${r.percentage}</td>
-    </tr>`;
+function onRepStudentSearch(query) {
+  const q = (query || '').toLowerCase().trim();
+  const rows = document.querySelectorAll('.rep-row-item');
+  rows.forEach(r => {
+    const name = r.getAttribute('data-name') || '';
+    const id = r.getAttribute('data-id') || '';
+    if (!q || name.includes(q) || id.includes(q)) {
+      r.style.display = '';
+    } else {
+      r.style.display = 'none';
+    }
   });
-
-  html += `</tbody></table>`;
-  container.innerHTML = html;
 }
 
 function resetReportFilters() {
@@ -3475,6 +4699,8 @@ function resetReportFilters() {
   document.getElementById('repSectionFilter').value = '';
   document.getElementById('repSubjectFilter').value = '';
   document.getElementById('repPeriodFilter').value = '';
+  const searchInput = document.getElementById('repStudentSearch');
+  if (searchInput) searchInput.value = '';
   const today = new Date();
   const yyyy = today.getFullYear();
   const mm = String(today.getMonth() + 1).padStart(2, '0');
@@ -3482,6 +4708,7 @@ function resetReportFilters() {
   document.getElementById('repStartDate').value = `${yyyy}-${mm}-01`;
   document.getElementById('repEndDate').value = `${yyyy}-${mm}-${dd}`;
   setReportView('daily');
+  generateAttendanceReport();
 }
 
 async function downloadAttendanceReport(format) {
@@ -3617,16 +4844,550 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 
-// Add fee POST route not in api.js — patch via fetch to POST /api/fees
-// (This is handled client-side since we need to add it to the backend routes)
-// Fee POST is added directly here as a helper that calls our endpoint
-const origReq = req;
-window.req = async function(method, path, body, isForm) {
-  if (method==='POST' && path==='/api/fees') {
-    path = '/api/fees/add';
+// ── ADMIN BUS FLEET & TRACKING ───────────────────────
+let adminFleetMap = null;
+let adminFleetMarkers = {};
+let adminFleetSocket = null;
+let adminBusesData = [];
+let adminRoutesData = [];
+
+async function loadAdminBuses() {
+  try {
+    const [busesRes, routesRes] = await Promise.all([
+      req('GET', '/api/buses'),
+      req('GET', '/api/bus-routes')
+    ]);
+    adminBusesData = busesRes || [];
+    adminRoutesData = routesRes || [];
+    renderAdminBusesTable(adminBusesData);
+    initAdminFleetMap(adminBusesData);
+    connectAdminFleetSocket();
+
+    const routesCountKpi = document.getElementById('adminRoutesTotal');
+    if (routesCountKpi) routesCountKpi.textContent = adminRoutesData.length;
+    const routesCountHeader = document.getElementById('adminRoutesCount');
+    if (routesCountHeader) routesCountHeader.textContent = adminRoutesData.length;
+  } catch (err) {
+    console.error('Error loading admin buses:', err);
+    toast('Error loading bus fleet: ' + err.message, 'err');
   }
-  return origReq(method, path, body, isForm);
-};
+}
+
+function renderAdminBusesTable(buses) {
+  const tbody = document.getElementById('adminBusesTbody');
+  if (!tbody) return;
+  if (!buses || buses.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:18px;color:var(--muted);">No buses configured yet. Click "Re-Seed Demo Fleet".</td></tr>';
+    return;
+  }
+
+  let onRouteCount = 0;
+  tbody.innerHTML = buses.map(b => {
+    if (b.status === 'On Route') onRouteCount++;
+    const isOnline = b.status === 'On Route';
+    const statusPill = isOnline
+      ? '<span style="display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:99px;font-size:0.72rem;font-weight:700;background:#ecfdf5;color:#059669;border:1px solid #a7f3d0;"><span style="width:6px;height:6px;border-radius:50%;background:#10b981;"></span> On Route</span>'
+      : '<span style="display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:99px;font-size:0.72rem;font-weight:600;background:#fef3c7;color:#b45309;border:1px solid #fde68a;">Idle</span>';
+
+    return `
+      <tr>
+        <td><b>${b.busNumber}</b></td>
+        <td><code>${b.vehicleNumber}</code></td>
+        <td>
+          <div style="font-weight:600;">${b.driverName}</div>
+          <div style="font-size:0.72rem;color:var(--muted);">${b.driverPhone}</div>
+        </td>
+        <td>
+          <span style="font-weight:600;color:var(--teal);">${b.routeId ? (b.routeId.routeName || b.routeId.routeNumber || 'Custom Route') : '<span style="color:var(--muted);font-weight:normal;">Unassigned</span>'}</span>
+          ${b.routeId && b.routeId.stops ? `<div style="font-size:0.72rem;color:var(--muted);">${b.routeId.stops.length} stops configured</div>` : ''}
+        </td>
+        <td id="admStatus_${b.busNumber}">${statusPill}</td>
+        <td id="admSpeed_${b.busNumber}">${b.currentLocation?.speed || 0} km/h</td>
+        <td id="admStop_${b.busNumber}">${b.nextStop || '—'}</td>
+      </tr>
+    `;
+  }).join('');
+
+  const totalEl = document.getElementById('adminBusTotal');
+  if (totalEl) totalEl.textContent = buses.length;
+  const activeEl = document.getElementById('adminBusActive');
+  if (activeEl) activeEl.textContent = onRouteCount;
+}
+
+function initAdminFleetMap(buses) {
+  const mapEl = document.getElementById('adminFleetMap');
+  if (!mapEl) return;
+
+  if (!adminFleetMap) {
+    adminFleetMap = L.map('adminFleetMap', { zoomControl: true, attributionControl: false }).setView([12.9716, 77.5946], 12);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(adminFleetMap);
+  } else {
+    setTimeout(() => adminFleetMap.invalidateSize(), 200);
+  }
+
+  // Add / update marker for each bus
+  buses.forEach(b => {
+    const lat = b.currentLocation?.lat || 12.9716;
+    const lng = b.currentLocation?.lng || 77.5946;
+
+    if (!adminFleetMarkers[b.busNumber]) {
+      const busIcon = L.divIcon({
+        className: 'admin-bus-pin',
+        html: `<div style="background:#001f54;border:2px solid #fff;border-radius:50%;width:30px;height:30px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;font-weight:700;box-shadow:0 2px 8px rgba(0,0,0,0.3);"><i class="fa fa-bus"></i></div>`,
+        iconSize: [30, 30],
+        iconAnchor: [15, 15]
+      });
+      const marker = L.marker([lat, lng], { icon: busIcon }).addTo(adminFleetMap);
+      marker.bindPopup(`<b>${b.busNumber}</b> (${b.vehicleNumber})<br>Driver: ${b.driverName}<br>Route: ${b.routeId ? b.routeId.routeName : 'Default'}`);
+      adminFleetMarkers[b.busNumber] = marker;
+    } else {
+      adminFleetMarkers[b.busNumber].setLatLng([lat, lng]);
+    }
+  });
+}
+
+function connectAdminFleetSocket() {
+  if (adminFleetSocket && adminFleetSocket.connected) return;
+  if (typeof io !== 'undefined') {
+    adminFleetSocket = io();
+    adminFleetSocket.on('connect', () => {
+      adminFleetSocket.emit('join_admin_fleet');
+      const badge = document.getElementById('adminSocketBadge');
+      if (badge) {
+        badge.textContent = 'Socket.io Active';
+        badge.className = 'stat-trend up';
+      }
+    });
+
+    adminFleetSocket.on('bus_location_update', (data) => {
+      const { busNumber, currentLocation, status, nextStop } = data;
+      if (adminFleetMarkers[busNumber] && currentLocation) {
+        adminFleetMarkers[busNumber].setLatLng([currentLocation.lat, currentLocation.lng]);
+      }
+
+      // Update table cells
+      const speedEl = document.getElementById('admSpeed_' + busNumber);
+      if (speedEl) speedEl.textContent = `${currentLocation?.speed || 0} km/h`;
+      const stopEl = document.getElementById('admStop_' + busNumber);
+      if (stopEl && nextStop) stopEl.textContent = nextStop;
+    });
+
+    adminFleetSocket.on('bus_status_change', (data) => {
+      const statusEl = document.getElementById('admStatus_' + data.busNumber);
+      if (statusEl) {
+        statusEl.innerHTML = data.status === 'On Route'
+          ? '<span style="display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:99px;font-size:0.72rem;font-weight:700;background:#ecfdf5;color:#059669;border:1px solid #a7f3d0;"><span style="width:6px;height:6px;border-radius:50%;background:#10b981;"></span> On Route</span>'
+          : '<span style="display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:99px;font-size:0.72rem;font-weight:600;background:#fef3c7;color:#b45309;border:1px solid #fde68a;">Idle</span>';
+      }
+    });
+  }
+}
+
+// ── SUB-TABS: FLEET vs ROUTES ────────────────────────
+function switchBusTab(tab) {
+  const fleetView = document.getElementById('busViewFleet');
+  const routesView = document.getElementById('busViewRoutes');
+  const fleetBtn = document.getElementById('busTabFleetBtn');
+  const routesBtn = document.getElementById('busTabRoutesBtn');
+
+  if (tab === 'routes') {
+    fleetView.style.display = 'none';
+    routesView.style.display = 'block';
+    routesBtn.className = 'btn btn-primary';
+    routesBtn.style.background = '';
+    routesBtn.style.color = '';
+    fleetBtn.className = 'btn';
+    fleetBtn.style.background = 'rgba(255,255,255,.06)';
+    fleetBtn.style.color = 'var(--text)';
+    loadAdminRoutes();
+  } else {
+    fleetView.style.display = 'block';
+    routesView.style.display = 'none';
+    fleetBtn.className = 'btn btn-primary';
+    fleetBtn.style.background = '';
+    fleetBtn.style.color = '';
+    routesBtn.className = 'btn';
+    routesBtn.style.background = 'rgba(255,255,255,.06)';
+    routesBtn.style.color = 'var(--text)';
+    if (adminFleetMap) {
+      setTimeout(() => adminFleetMap.invalidateSize(), 150);
+    }
+  }
+}
+
+// ── LOAD & RENDER ROUTES ──────────────────────────────
+async function loadAdminRoutes() {
+  const container = document.getElementById('adminRoutesCardsList');
+  if (container) {
+    container.innerHTML = '<div class="loading-p"><span class="loader"></span> Loading routes…</div>';
+  }
+  try {
+    const routes = await req('GET', '/api/bus-routes');
+    adminRoutesData = routes || [];
+    renderAdminRoutesCards(adminRoutesData);
+    const countEl = document.getElementById('adminRoutesCount');
+    if (countEl) countEl.textContent = adminRoutesData.length;
+    const totalKpi = document.getElementById('adminRoutesTotal');
+    if (totalKpi) totalKpi.textContent = adminRoutesData.length;
+  } catch (err) {
+    console.error('Error loading routes:', err);
+    if (container) {
+      container.innerHTML = `<div style="grid-column:1/-1;color:#ef4444;padding:20px;background:#fef2f2;border:1px solid #fecaca;border-radius:10px;">Failed to load routes: ${err.message}</div>`;
+    }
+  }
+}
+
+function renderAdminRoutesCards(routes) {
+  const container = document.getElementById('adminRoutesCardsList');
+  if (!container) return;
+
+  if (!routes || routes.length === 0) {
+    container.innerHTML = `
+      <div style="grid-column:1/-1;text-align:center;padding:40px;background:#fff;border:1px dashed var(--border);border-radius:14px;">
+        <i class="fa fa-route" style="font-size:2.5rem;color:var(--muted);margin-bottom:12px;display:block;"></i>
+        <div style="font-weight:700;font-size:1.1rem;color:var(--text);margin-bottom:6px;">No Routes Configured Yet</div>
+        <div style="font-size:0.85rem;color:var(--muted);margin-bottom:16px;">Create your first bus route or re-seed the default demo routes.</div>
+        <button class="btn btn-primary" onclick="openRouteModal()"><i class="fa fa-plus-circle"></i> + Create Route & Stops</button>
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = routes.map(r => {
+    // Find buses assigned to this route
+    const assignedBuses = (adminBusesData || []).filter(b => b.routeId && (b.routeId._id === r._id || b.routeId === r._id));
+    const assignedBusesHtml = assignedBuses.length > 0
+      ? assignedBuses.map(b => `<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:99px;font-size:0.72rem;background:#e0f2fe;color:#0369a1;font-weight:700;"><i class="fa fa-bus"></i> ${b.busNumber} (${b.driverName})</span>`).join(' ')
+      : '<span style="color:var(--muted);font-style:italic;font-size:0.75rem;">No bus currently assigned</span>';
+
+    const stopsList = (r.stops || []).slice().sort((a, b) => (a.order || 0) - (b.order || 0));
+
+    return `
+      <div class="panel" style="display:flex;flex-direction:column;justify-content:space-between;padding:20px;border-radius:14px;border:1px solid var(--border);background:#fff;box-shadow:0 2px 10px rgba(0,0,0,0.03);">
+        <div>
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;">
+            <div>
+              <span style="display:inline-block;padding:3px 8px;border-radius:6px;background:rgba(0,31,84,0.08);color:#001f54;font-weight:700;font-size:0.75rem;margin-bottom:4px;">
+                ${r.routeNumber}
+              </span>
+              <h3 style="margin:0;font-size:1.05rem;font-weight:700;color:var(--text);">${r.routeName}</h3>
+            </div>
+            <span style="font-size:0.75rem;font-weight:700;padding:3px 10px;border-radius:99px;background:#ecfdf5;color:#059669;border:1px solid #a7f3d0;white-space:nowrap;">
+              ${stopsList.length} Stops
+            </span>
+          </div>
+
+          <div style="font-size:0.8rem;color:var(--muted);margin-bottom:12px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+            <span><i class="fa fa-map-pin" style="color:#0284c7;"></i> <b>Origin:</b> ${r.startPoint || 'Start'}</span>
+            <span>➔</span>
+            <span><i class="fa fa-flag-checkered" style="color:#10b981;"></i> <b>Destination:</b> ${r.endPoint || 'Campus Gate'}</span>
+          </div>
+
+          <div style="margin-bottom:14px;padding:8px 12px;background:#f8fafc;border-radius:8px;border:1px solid var(--border);">
+            <div style="color:var(--muted);font-weight:600;font-size:0.72rem;margin-bottom:4px;text-transform:uppercase;">Assigned Bus Vehicles:</div>
+            <div style="display:flex;flex-wrap:wrap;gap:6px;">${assignedBusesHtml}</div>
+          </div>
+
+          <div style="margin-bottom:16px;">
+            <div style="font-size:0.74rem;font-weight:700;text-transform:uppercase;color:var(--muted);margin-bottom:8px;letter-spacing:0.04em;">Stops & Schedule Sequence</div>
+            <div style="display:flex;flex-direction:column;gap:6px;max-height:160px;overflow-y:auto;padding-right:4px;">
+              ${stopsList.map((s, idx) => `
+                <div style="display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:6px;background:rgba(241,245,249,0.8);font-size:0.78rem;">
+                  <span style="width:20px;height:20px;border-radius:50%;background:#001f54;color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:0.68rem;font-weight:700;flex-shrink:0;">
+                    ${s.order || idx + 1}
+                  </span>
+                  <div style="font-weight:600;color:var(--text);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${s.stopName}">
+                    ${s.stopName}
+                  </div>
+                  <span style="color:#0284c7;font-weight:600;font-size:0.72rem;background:#e0f2fe;padding:2px 6px;border-radius:4px;flex-shrink:0;">
+                    ${s.scheduledTime || 'N/A'}
+                  </span>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        </div>
+
+        <div style="display:flex;gap:8px;border-top:1px solid var(--border);padding-top:12px;margin-top:auto;">
+          <button class="btn btn-outline" style="flex:1;font-size:0.78rem;padding:7px;display:flex;align-items:center;justify-content:center;gap:6px;" onclick="openRouteModal('${r._id}')">
+            <i class="fa fa-edit"></i> Edit Route & Stops
+          </button>
+          <button class="btn" style="color:#ef4444;border-color:#fca5a5;padding:7px 12px;font-size:0.78rem;" onclick="deleteRoute('${r._id}', '${(r.routeName || '').replace(/'/g, "\\'")}')" title="Delete Route">
+            <i class="fa fa-trash"></i>
+          </button>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+// ── ROUTE MODAL (CREATE / EDIT) ──────────────────────
+async function openRouteModal(routeId = null) {
+  const modal = document.getElementById('routeModal');
+  const titleEl = document.getElementById('routeModalTitle');
+  const busSelect = document.getElementById('rfAssignBusSelect');
+  const stopsContainer = document.getElementById('rfStopsContainer');
+
+  // Populate bus vehicles dropdown
+  busSelect.innerHTML = '<option value="">— Unassigned (Select Bus) —</option>' + (adminBusesData || []).map(b => {
+    return `<option value="${b.busNumber}">${b.busNumber} (${b.driverName} — ${b.vehicleNumber})</option>`;
+  }).join('');
+
+  stopsContainer.innerHTML = '';
+
+  if (routeId) {
+    titleEl.textContent = 'Edit Bus Route & Stops';
+    document.getElementById('rfSaveBtn').innerHTML = '<i class="fa fa-save"></i> Update Route & Stops';
+    try {
+      const r = await req('GET', '/api/bus-routes/' + routeId);
+      document.getElementById('rfRouteId').value = r._id;
+      document.getElementById('rfRouteNumber').value = r.routeNumber || '';
+      document.getElementById('rfRouteName').value = r.routeName || '';
+      document.getElementById('rfStartPoint').value = r.startPoint || '';
+      document.getElementById('rfEndPoint').value = r.endPoint || '';
+
+      // Check if a bus is currently assigned to this route
+      const assignedBus = (adminBusesData || []).find(b => b.routeId && (b.routeId._id === r._id || b.routeId === r._id));
+      if (assignedBus) {
+        busSelect.value = assignedBus.busNumber;
+      }
+
+      const stops = (r.stops || []).slice().sort((a, b) => (a.order || 0) - (b.order || 0));
+      if (stops.length > 0) {
+        stops.forEach(s => addStopRow(s.stopName, s.scheduledTime, s.lat, s.lng));
+      } else {
+        addStopRow('Starting Station', '07:15 AM', 12.9716, 77.5946);
+        addStopRow('EduConnect Campus', '08:15 AM', 12.9250, 77.6850);
+      }
+    } catch (err) {
+      toast('Failed to load route: ' + err.message, 'err');
+      return;
+    }
+  } else {
+    titleEl.textContent = 'Create Bus Route & Stops';
+    document.getElementById('rfSaveBtn').innerHTML = '<i class="fa fa-plus-circle"></i> Create Route & Stops';
+    document.getElementById('rfRouteId').value = '';
+    document.getElementById('rfRouteNumber').value = 'R-' + Math.floor(100 + Math.random() * 900);
+    document.getElementById('rfRouteName').value = '';
+    document.getElementById('rfStartPoint').value = '';
+    document.getElementById('rfEndPoint').value = 'EduConnect Campus Gate';
+    busSelect.value = '';
+
+    // Add 2 default initial stops
+    addStopRow('Origin Station', '07:15 AM', 12.9716, 77.5946);
+    addStopRow('EduConnect Campus Gate', '08:25 AM', 12.9250, 77.6850);
+  }
+
+  modal.style.display = 'flex';
+}
+
+function closeRouteModal() {
+  document.getElementById('routeModal').style.display = 'none';
+}
+
+function addStopRow(name = '', time = '', lat = '', lng = '') {
+  const container = document.getElementById('rfStopsContainer');
+  if (!container) return;
+
+  const currentCount = container.querySelectorAll('.rf-stop-row').length;
+  const newOrder = currentCount + 1;
+
+  // Set default coordinates if empty (Bangalore center offset)
+  const defaultLat = (lat !== '' && lat !== undefined) ? lat : Number((12.9716 - (newOrder * 0.008)).toFixed(5));
+  const defaultLng = (lng !== '' && lng !== undefined) ? lng : Number((77.5946 + (newOrder * 0.012)).toFixed(5));
+
+  const row = document.createElement('div');
+  row.className = 'rf-stop-row';
+  row.style.cssText = 'display:grid;grid-template-columns:30px 1.4fr 1fr 1fr 1fr 34px;gap:8px;align-items:center;background:#fff;padding:8px 10px;border:1px solid var(--border);border-radius:8px;';
+
+  row.innerHTML = `
+    <div class="rf-stop-order" style="width:24px;height:24px;border-radius:50%;background:#001f54;color:#fff;display:flex;align-items:center;justify-content:center;font-size:0.72rem;font-weight:700;">${newOrder}</div>
+    <input type="text" class="rf-stop-name" placeholder="Stop Name (e.g. Indiranagar)" value="${name ? name.replace(/"/g, '&quot;') : ''}" required style="padding:7px;border-radius:6px;border:1px solid var(--border);font-size:0.82rem;" />
+    <input type="text" class="rf-stop-time" placeholder="Time (07:30 AM)" value="${time ? time.replace(/"/g, '&quot;') : ''}" style="padding:7px;border-radius:6px;border:1px solid var(--border);font-size:0.82rem;" />
+    <input type="number" step="any" class="rf-stop-lat" placeholder="Latitude" value="${defaultLat}" required style="padding:7px;border-radius:6px;border:1px solid var(--border);font-size:0.82rem;" />
+    <input type="number" step="any" class="rf-stop-lng" placeholder="Longitude" value="${defaultLng}" required style="padding:7px;border-radius:6px;border:1px solid var(--border);font-size:0.82rem;" />
+    <button type="button" class="btn" style="padding:6px;color:#ef4444;border-color:#fca5a5;display:flex;align-items:center;justify-content:center;" onclick="removeStopRow(this)" title="Remove Stop">
+      <i class="fa fa-trash"></i>
+    </button>
+  `;
+
+  container.appendChild(row);
+  reindexStopRows();
+}
+
+function removeStopRow(btn) {
+  const container = document.getElementById('rfStopsContainer');
+  const rows = container.querySelectorAll('.rf-stop-row');
+  if (rows.length <= 1) {
+    alert('A route must have at least one stop.');
+    return;
+  }
+  btn.closest('.rf-stop-row').remove();
+  reindexStopRows();
+}
+
+function reindexStopRows() {
+  const container = document.getElementById('rfStopsContainer');
+  if (!container) return;
+  const rows = container.querySelectorAll('.rf-stop-row');
+  rows.forEach((r, idx) => {
+    const badge = r.querySelector('.rf-stop-order');
+    if (badge) badge.textContent = idx + 1;
+  });
+}
+
+async function submitRouteForm() {
+  const routeId = document.getElementById('rfRouteId').value.trim();
+  const routeNumber = document.getElementById('rfRouteNumber').value.trim();
+  const routeName = document.getElementById('rfRouteName').value.trim();
+  const startPoint = document.getElementById('rfStartPoint').value.trim();
+  const endPoint = document.getElementById('rfEndPoint').value.trim();
+  const assignBusNumber = document.getElementById('rfAssignBusSelect').value;
+
+  if (!routeNumber || !routeName) {
+    alert('Please enter Route Code and Route Name.');
+    return;
+  }
+
+  const rows = document.querySelectorAll('#rfStopsContainer .rf-stop-row');
+  const stops = [];
+  rows.forEach((row, idx) => {
+    const name = row.querySelector('.rf-stop-name').value.trim();
+    const time = row.querySelector('.rf-stop-time').value.trim();
+    const lat = parseFloat(row.querySelector('.rf-stop-lat').value);
+    const lng = parseFloat(row.querySelector('.rf-stop-lng').value);
+
+    if (name) {
+      stops.push({
+        order: idx + 1,
+        stopName: name,
+        scheduledTime: time || '',
+        lat: isNaN(lat) ? 12.9716 : lat,
+        lng: isNaN(lng) ? 77.5946 : lng
+      });
+    }
+  });
+
+  if (stops.length === 0) {
+    alert('Please add at least one stop to the route.');
+    return;
+  }
+
+  const payload = {
+    routeId: routeId || undefined,
+    routeNumber,
+    routeName,
+    startPoint: startPoint || (stops[0] ? stops[0].stopName : 'Origin'),
+    endPoint: endPoint || (stops[stops.length - 1] ? stops[stops.length - 1].stopName : 'Campus Gate'),
+    stops,
+    assignBusNumber: assignBusNumber || undefined
+  };
+
+  try {
+    await req('POST', '/api/bus-routes', payload);
+    toast(routeId ? 'Route & stops updated!' : 'New route & stops created!', 'ok');
+    closeRouteModal();
+    await loadAdminRoutes();
+    await loadAdminBuses();
+  } catch (err) {
+    toast('Error saving route: ' + err.message, 'err');
+  }
+}
+
+async function deleteRoute(routeId, routeName) {
+  if (!confirm(`Are you sure you want to delete route "${routeName}"?\n\nAny buses assigned to this route will become unassigned.`)) {
+    return;
+  }
+  try {
+    await req('DELETE', '/api/bus-routes/' + routeId);
+    toast('Route deleted successfully.', 'ok');
+    await loadAdminRoutes();
+    await loadAdminBuses();
+  } catch (err) {
+    toast('Failed to delete route: ' + err.message, 'err');
+  }
+}
+
+async function reseedDemoBuses() {
+  if (!confirm('Re-seed demo bus fleet and Bangalore route coordinates?')) return;
+  try {
+    await req('POST', '/api/buses/seed-demo', {});
+    toast('Demo buses and routes re-seeded!', 'ok');
+    await loadAdminBuses();
+    await loadAdminRoutes();
+  } catch (err) {
+    toast('Re-seed failed: ' + err.message, 'err');
+  }
+}
+
+// ── ASSIGN STUDENT MODAL WITH DYNAMIC ROUTE STOPS ──
+async function openAssignBusModal() {
+  try {
+    const studentsRes = await req('GET', '/api/students');
+    const selStu = document.getElementById('assignStudentSelect');
+    selStu.innerHTML = '<option value="">— Select Student —</option>' + (studentsRes || []).map(s => `<option value="${s.studentId}">${s.name} (${s.studentId}) — Class ${s.class}-${s.section}</option>`).join('');
+
+    const selBus = document.getElementById('assignBusSelect');
+    selBus.innerHTML = '<option value="">— Select Bus —</option>' + (adminBusesData || []).map(b => {
+      const rName = b.routeId ? (b.routeId.routeName || b.routeId.routeNumber) : 'Unassigned Route';
+      return `<option value="${b.busNumber}">${b.busNumber} (${rName}) — ${b.driverName}</option>`;
+    }).join('');
+
+    onAssignBusChanged();
+    document.getElementById('assignBusModal').style.display = 'flex';
+  } catch (e) {
+    toast('Could not load modal: ' + e.message, 'err');
+  }
+}
+
+function onAssignBusChanged() {
+  const busNumber = document.getElementById('assignBusSelect').value;
+  const datalist = document.getElementById('assignBusStopsList');
+  const hint = document.getElementById('assignBusStopHint');
+  const stopInput = document.getElementById('assignBusStopInput');
+
+  if (!datalist) return;
+  datalist.innerHTML = '';
+
+  const bus = (adminBusesData || []).find(b => b.busNumber === busNumber);
+  if (bus && bus.routeId && bus.routeId.stops && bus.routeId.stops.length > 0) {
+    bus.routeId.stops.forEach(s => {
+      const opt = document.createElement('option');
+      opt.value = s.stopName;
+      datalist.appendChild(opt);
+    });
+    if (!stopInput.value) {
+      stopInput.value = bus.routeId.stops[0].stopName;
+    }
+    if (hint) hint.innerHTML = `<span style="color:#0284c7;font-weight:600;"><i class="fa fa-check-circle"></i> ${bus.routeId.routeName || 'Assigned Route'}</span>: ${bus.routeId.stops.length} stops loaded into picker!`;
+  } else {
+    if (hint) hint.textContent = 'Select a bus vehicle above to auto-load its configured route stops.';
+  }
+}
+
+function closeAssignBusModal() {
+  document.getElementById('assignBusModal').style.display = 'none';
+}
+
+async function submitAssignBusForm() {
+  const studentId = document.getElementById('assignStudentSelect').value;
+  const busNumber = document.getElementById('assignBusSelect').value;
+  const busStop = document.getElementById('assignBusStopInput').value.trim();
+
+  if (!studentId || !busNumber || !busStop) {
+    alert('Please fill all fields.');
+    return;
+  }
+
+  try {
+    await req('POST', `/api/buses/${busNumber}/assign-student`, { studentId, busStop });
+    toast(`Assigned student ${studentId} to ${busNumber} at "${busStop}"`, 'ok');
+    closeAssignBusModal();
+    loadAdminBuses();
+  } catch (err) {
+    toast('Assignment failed: ' + err.message, 'err');
+  }
+}
 </script>
 </body>
 </html>

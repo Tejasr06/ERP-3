@@ -4,16 +4,24 @@
 // ╚══════════════════════════════════════════════════════════╝
 require('dotenv').config();
 const express   = require('express');
+const http      = require('http');
 const cors      = require('cors');
 const mongoose  = require('mongoose');
 const path      = require('path');
 const fs        = require('fs');
 const bcrypt    = require('bcryptjs');
 const dns       = require('dns');
+const { Server } = require('socket.io');
 const { Payment, Fee, Student } = require('./models');
 const { generateReceiptPDF } = require('./utils/pdfGenerator');
+const { initBusSocket } = require('./utils/busSocket');
 
-const app  = express();
+const app    = express();
+const server = http.createServer(app);
+const io     = new Server(server, { cors: { origin: '*' } });
+app.set('io', io);
+initBusSocket(io);
+
 const PORT = process.env.PORT || 3000;
 
 dns.setServers(['8.8.8.8', '1.1.1.1']);
@@ -89,6 +97,8 @@ mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/educonnect'
   .then(() => {
     seedAdmin().catch(err => console.error('⚠️  Admin seed failed:', err.message));
     seedAuthorizedStaffAccounts().catch(err => console.error('⚠️  Staff seed failed:', err.message));
+    const busRoute = require('./routes/bus');
+    if (busRoute.ensureDemoData) busRoute.ensureDemoData().catch(err => console.error('⚠️  Bus seed failed:', err.message));
   })
   .catch(err => console.error('❌ MongoDB initial connection failed:', err.message));
 
@@ -100,6 +110,7 @@ app.use('/api',               require('./routes/notifications')); // In-app noti
 app.use('/api',               require('./routes/achievements'));
 app.use('/api',               require('./routes/assignments'));
 app.use('/api',               require('./routes/events'));
+app.use('/api',               require('./routes/bus'));           // Live Bus Tracking routes
 app.use('/api/import',        require('./routes/import'));
 
 // ── Frontend pages ────────────────────────────────────
@@ -110,6 +121,8 @@ app.get('/achievement-wall.html', (_, res) => res.sendFile(path.join(__dirname, 
 app.get('/achievement-wall', (_, res) => res.redirect('/achievement-wall.html'));
 app.get('/fees',          (_, res) => res.sendFile(path.join(__dirname, '../frontend/fees.html')));
 app.get('/admin/fees',    (_, res) => res.sendFile(path.join(__dirname, '../frontend/admin-fees.html')));
+app.get('/bus-driver',    (_, res) => res.sendFile(path.join(__dirname, '../frontend/bus-driver.html')));
+app.get('/bus-driver.html', (_, res) => res.sendFile(path.join(__dirname, '../frontend/bus-driver.html')));
 app.get('/set-password.html', (_, res) => res.sendFile(path.join(__dirname, '../frontend/set-password.html')));
 
 // ── 404 ───────────────────────────────────────────────
@@ -154,9 +167,10 @@ async function seedAuthorizedStaffAccounts() {
   }
 }
 
-const server = app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log(`\n🚀 EduConnect running → http://localhost:${PORT}`);
   console.log(`📁 API Base          → http://localhost:${PORT}/api`);
+  console.log(`🚍 Bus Tracking     → http://localhost:${PORT}/bus-driver`);
   console.log(`💳 Razorpay Key Set  → ${!!process.env.RAZORPAY_KEY_ID}`);
 });
 server.on('error', err => {

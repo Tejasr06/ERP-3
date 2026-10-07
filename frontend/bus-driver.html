@@ -1,0 +1,1663 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title id="pageTitle">EduConnect — Live Bus Tracking</title>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="/socket.io/socket.io.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Outfit', sans-serif; }
+    :root {
+      --bg: #090e1a;
+      --card: #131b2e;
+      --card-border: rgba(255, 255, 255, 0.08);
+      --accent: #2563eb;
+      --accent-glow: rgba(37, 99, 235, 0.35);
+      --teal: #06b6d4;
+      --green: #10b981;
+      --amber: #f59e0b;
+      --red: #ef4444;
+      --text: #f8fafc;
+      --muted: #94a3b8;
+    }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    header {
+      background: rgba(19, 27, 46, 0.92);
+      backdrop-filter: blur(14px);
+      border-bottom: 1px solid var(--card-border);
+      padding: 12px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .brand-icon {
+      width: 42px;
+      height: 42px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, #2563eb, #06b6d4);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.25rem;
+      color: #fff;
+      box-shadow: 0 4px 14px var(--accent-glow);
+    }
+    .brand-title {
+      font-size: 1.15rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+    .brand-sub {
+      font-size: 0.72rem;
+      color: var(--teal);
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    /* Mode Switcher segmented control */
+    .mode-switcher {
+      display: flex;
+      align-items: center;
+      background: rgba(0, 0, 0, 0.4);
+      padding: 4px;
+      border-radius: 999px;
+      border: 1px solid var(--card-border);
+      box-shadow: inset 0 2px 4px rgba(0,0,0,0.3);
+    }
+    .mode-btn {
+      padding: 7px 16px;
+      border-radius: 999px;
+      border: none;
+      background: transparent;
+      color: var(--muted);
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      transition: all 0.25s ease;
+    }
+    .mode-btn.active {
+      background: linear-gradient(135deg, #2563eb, #06b6d4);
+      color: #ffffff;
+      box-shadow: 0 2px 10px rgba(37, 99, 235, 0.45);
+    }
+    .mode-btn:hover:not(.active) {
+      color: #ffffff;
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    .header-links {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+    .btn-link {
+      padding: 7px 14px;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--card-border);
+      color: var(--muted);
+      text-decoration: none;
+      font-size: 0.82rem;
+      font-weight: 500;
+      transition: all 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .btn-link:hover {
+      background: rgba(255, 255, 255, 0.12);
+      color: #fff;
+    }
+    .conn-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.76rem;
+      padding: 5px 12px;
+      border-radius: 999px;
+      background: rgba(16, 185, 129, 0.12);
+      color: var(--green);
+      border: 1px solid rgba(16, 185, 129, 0.25);
+      font-weight: 600;
+    }
+    .conn-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: currentColor;
+      box-shadow: 0 0 8px currentColor;
+    }
+
+    /* Layout */
+    .container {
+      display: grid;
+      grid-template-columns: 410px 1fr;
+      flex: 1;
+      height: calc(100vh - 69px);
+    }
+    @media (max-width: 960px) {
+      .container { grid-template-columns: 1fr; height: auto; }
+    }
+
+    /* Sidebar */
+    .sidebar {
+      background: var(--card);
+      border-right: 1px solid var(--card-border);
+      padding: 18px 20px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .section-title {
+      font-size: 0.74rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .card-box {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--card-border);
+      border-radius: 14px;
+      padding: 16px;
+    }
+
+    /* Form elements */
+    .field {
+      margin-bottom: 12px;
+    }
+    .field label {
+      display: block;
+      font-size: 0.72rem;
+      color: var(--muted);
+      margin-bottom: 6px;
+      font-weight: 500;
+    }
+    .field select, .field input {
+      width: 100%;
+      padding: 10px 12px;
+      border-radius: 8px;
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px solid var(--card-border);
+      color: var(--text);
+      font-size: 0.85rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .field select:focus, .field input:focus {
+      border-color: var(--teal);
+    }
+    .field select option {
+      background: var(--card);
+      color: #fff;
+    }
+
+    /* Status buttons for Driver */
+    .status-btn-group {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 8px;
+    }
+    .status-btn {
+      padding: 9px 8px;
+      border-radius: 8px;
+      border: 1px solid var(--card-border);
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--muted);
+      font-size: 0.76rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+    }
+    .status-btn.active-idle {
+      background: rgba(245, 158, 11, 0.15);
+      border-color: var(--amber);
+      color: var(--amber);
+    }
+    .status-btn.active-onroute {
+      background: rgba(16, 185, 129, 0.2);
+      border-color: var(--green);
+      color: var(--green);
+      box-shadow: 0 0 12px rgba(16, 185, 129, 0.25);
+    }
+    .status-btn.active-completed {
+      background: rgba(37, 99, 235, 0.2);
+      border-color: var(--accent);
+      color: #60a5fa;
+    }
+
+    /* Primary Action Buttons */
+    .btn-act {
+      width: 100%;
+      padding: 12px 14px;
+      border-radius: 10px;
+      border: none;
+      font-weight: 700;
+      font-size: 0.9rem;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: all 0.25s ease;
+    }
+    .btn-start-gps {
+      background: linear-gradient(135deg, #059669, #10b981);
+      color: #fff;
+      box-shadow: 0 4px 14px rgba(16, 185, 129, 0.35);
+    }
+    .btn-start-gps:hover {
+      background: linear-gradient(135deg, #10b981, #34d399);
+      transform: translateY(-1px);
+    }
+    .btn-stop-gps {
+      background: linear-gradient(135deg, #dc2626, #ef4444);
+      color: #fff;
+      box-shadow: 0 4px 14px rgba(239, 68, 68, 0.35);
+    }
+
+    /* GPS Live Pill */
+    .gps-status-pill {
+      margin-top: 10px;
+      padding: 8px 12px;
+      border-radius: 8px;
+      background: rgba(0, 0, 0, 0.25);
+      border: 1px solid var(--card-border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.76rem;
+    }
+
+    /* Telemetry grid */
+    .tele-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .tele-tile {
+      background: rgba(0, 0, 0, 0.22);
+      border: 1px solid rgba(255, 255, 255, 0.04);
+      border-radius: 10px;
+      padding: 10px 12px;
+    }
+    .tele-val {
+      font-size: 1.15rem;
+      font-weight: 700;
+      font-family: 'JetBrains Mono', monospace;
+      color: #fff;
+      margin-top: 2px;
+    }
+    .tele-lbl {
+      font-size: 0.68rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    /* ==============================================================
+       PARENT-SPECIFIC HERO AND PROGRESS STYLES
+       ============================================================== */
+    .parent-hero-eta {
+      background: linear-gradient(135deg, rgba(37, 99, 235, 0.18), rgba(6, 182, 212, 0.15));
+      border: 1px solid rgba(6, 182, 212, 0.35);
+      border-radius: 14px;
+      padding: 18px;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+    }
+    .parent-hero-eta::after {
+      content: '';
+      position: absolute;
+      top: -30px;
+      right: -30px;
+      width: 100px;
+      height: 100px;
+      background: radial-gradient(circle, rgba(6, 182, 212, 0.25) 0%, transparent 70%);
+      border-radius: 50%;
+      pointer-events: none;
+    }
+    .hero-eta-label {
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      color: var(--teal);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .hero-eta-big {
+      font-size: 2.2rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      color: #ffffff;
+      margin: 4px 0;
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+    }
+    .hero-eta-sub {
+      font-size: 0.8rem;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    /* Geofence Alert Banner */
+    .proximity-alert-banner {
+      margin-top: 12px;
+      padding: 11px 14px;
+      border-radius: 10px;
+      background: rgba(16, 185, 129, 0.16);
+      border: 1px solid rgba(16, 185, 129, 0.4);
+      color: #34d399;
+      font-size: 0.8rem;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      animation: alertGlow 2s infinite ease-in-out;
+    }
+    @keyframes alertGlow {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.35); }
+      50% { box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
+    }
+
+    /* Timeline in Parent Mode */
+    .parent-timeline {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      max-height: 250px;
+      overflow-y: auto;
+      padding-right: 4px;
+    }
+    .parent-timeline::-webkit-scrollbar {
+      width: 5px;
+    }
+    .parent-timeline::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 999px;
+    }
+    .tl-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 9px 12px;
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--card-border);
+      transition: all 0.2s ease;
+    }
+    .tl-item.tl-current {
+      background: rgba(37, 99, 235, 0.15);
+      border-color: rgba(37, 99, 235, 0.4);
+      box-shadow: 0 0 12px rgba(37, 99, 235, 0.15);
+    }
+    .tl-item.tl-target {
+      background: rgba(245, 158, 11, 0.12);
+      border-color: rgba(245, 158, 11, 0.4);
+    }
+    .tl-icon {
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.72rem;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+    .tl-icon-passed {
+      background: rgba(16, 185, 129, 0.2);
+      color: #10b981;
+      border: 1px solid #10b981;
+    }
+    .tl-icon-current {
+      background: #2563eb;
+      color: #fff;
+      box-shadow: 0 0 10px #2563eb;
+    }
+    .tl-icon-target {
+      background: #f59e0b;
+      color: #000;
+      box-shadow: 0 0 10px #f59e0b;
+    }
+    .tl-icon-future {
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--muted);
+      border: 1px solid var(--card-border);
+    }
+
+    /* Driver contact buttons */
+    .contact-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 10px;
+    }
+    .btn-contact {
+      padding: 9px 12px;
+      border-radius: 8px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: all 0.2s;
+    }
+    .btn-call {
+      background: rgba(16, 185, 129, 0.15);
+      color: #10b981;
+      border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+    .btn-call:hover {
+      background: rgba(16, 185, 129, 0.28);
+      color: #fff;
+    }
+    .btn-wa {
+      background: rgba(37, 211, 102, 0.15);
+      color: #25d366;
+      border: 1px solid rgba(37, 211, 102, 0.3);
+    }
+    .btn-wa:hover {
+      background: rgba(37, 211, 102, 0.28);
+      color: #fff;
+    }
+
+    /* Status badge pill */
+    .status-pill-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 0.72rem;
+      font-weight: 700;
+    }
+    .status-pill-onroute {
+      background: rgba(16, 185, 129, 0.15);
+      color: var(--green);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+    .status-pill-idle {
+      background: rgba(245, 158, 11, 0.15);
+      color: var(--amber);
+      border: 1px solid rgba(245, 158, 11, 0.3);
+    }
+    .status-pill-completed {
+      background: rgba(37, 99, 235, 0.15);
+      color: #60a5fa;
+      border: 1px solid rgba(37, 99, 235, 0.3);
+    }
+
+    /* Terminal Log */
+    .term-box {
+      background: #000;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 10px;
+      padding: 10px 12px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.72rem;
+      height: 120px;
+      overflow-y: auto;
+      color: #38bdf8;
+    }
+    .term-line {
+      margin-bottom: 4px;
+      line-height: 1.4;
+      word-break: break-all;
+    }
+    .term-time {
+      color: var(--muted);
+    }
+
+    /* Map container */
+    #map {
+      width: 100%;
+      height: 100%;
+      background: #111827;
+      position: relative;
+    }
+    .map-overlay-tip {
+      position: absolute;
+      top: 14px;
+      right: 14px;
+      z-index: 999;
+      background: rgba(19, 27, 46, 0.92);
+      backdrop-filter: blur(10px);
+      padding: 8px 14px;
+      border-radius: 10px;
+      font-size: 0.76rem;
+      color: var(--muted);
+      border: 1px solid var(--card-border);
+      box-shadow: 0 4px 14px rgba(0,0,0,0.3);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      max-width: 480px;
+    }
+
+    /* Custom Leaflet Map styling */
+    .bus-marker-icon {
+      background: #2563eb;
+      border: 3px solid #ffffff;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #ffffff;
+      font-size: 17px;
+      box-shadow: 0 0 20px rgba(37, 99, 235, 0.8), 0 4px 12px rgba(0,0,0,0.5);
+      position: relative;
+      cursor: pointer;
+    }
+    .bus-marker-pulse {
+      position: absolute;
+      inset: -6px;
+      border-radius: 50%;
+      border: 2px solid #38bdf8;
+      animation: pulseRipple 1.8s infinite ease-out;
+      pointer-events: none;
+    }
+    @keyframes pulseRipple {
+      0% { transform: scale(0.9); opacity: 1; }
+      100% { transform: scale(1.6); opacity: 0; }
+    }
+
+    .stop-marker-icon {
+      background: #ffffff;
+      border: 2px solid #0f172a;
+      border-radius: 50%;
+      width: 24px;
+      height: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #0f172a;
+      font-size: 11px;
+      font-weight: 800;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+    }
+    .stop-marker-active {
+      background: #10b981;
+      color: #fff;
+      border-color: #fff;
+      box-shadow: 0 0 10px #10b981;
+    }
+    .stop-marker-target {
+      background: #f59e0b;
+      color: #000;
+      border: 2px solid #ffffff;
+      box-shadow: 0 0 14px #f59e0b;
+      transform: scale(1.2);
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="brand">
+      <div class="brand-icon"><i class="fa fa-bus"></i></div>
+      <div>
+        <div class="brand-title" id="headerTitle">EduConnect Bus Tracker</div>
+        <div class="brand-sub" id="headerSub">Real-Time School Bus Tracking & Stop ETA</div>
+      </div>
+    </div>
+
+    <!-- Mode Switcher: Parent View vs Driver Console -->
+    <div class="mode-switcher">
+      <button class="mode-btn active" id="btnModeParent" onclick="switchMode('parent')">
+        <i class="fa fa-user-shield"></i> Parent Live View
+      </button>
+      <button class="mode-btn" id="btnModeDriver" onclick="switchMode('driver')">
+        <i class="fa fa-id-badge"></i> Driver Console
+      </button>
+    </div>
+
+    <div class="header-links">
+      <div class="conn-badge" id="connStatus">
+        <span class="conn-dot"></span> <span id="connText">Connected</span>
+      </div>
+      <a href="/dashboard" class="btn-link" target="_blank">
+        <i class="fa fa-home"></i> Parent Portal
+      </a>
+      <a href="/admin" class="btn-link" target="_blank">
+        <i class="fa fa-shield-alt"></i> Admin Panel
+      </a>
+    </div>
+  </header>
+
+  <div class="container">
+    <!-- SIDEBAR CONTROLS -->
+    <div class="sidebar">
+
+      <!-- COMMON: Vehicle & Route Details -->
+      <div>
+        <div class="section-title"><i class="fa fa-truck-moving"></i> Vehicle & Route Details</div>
+        <div class="card-box">
+          <div class="field">
+            <label>Assigned Vehicle</label>
+            <select id="busSelector" onchange="onBusChanged()">
+              <option value="">Loading fleet...</option>
+            </select>
+          </div>
+          <div style="font-size:0.78rem;color:var(--muted);display:flex;justify-content:space-between;margin-top:6px;">
+            <span>Driver: <strong id="drvName" style="color:#fff;">—</strong></span>
+            <span>Plate: <strong id="vehPlate" style="color:#fff;">—</strong></span>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;">
+            <div style="font-size:0.75rem;color:var(--teal);" id="routeNameDisplay">Route: —</div>
+            <span id="busStatusBadge" class="status-pill-badge status-pill-onroute">On Route</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ======================================================= -->
+      <!-- PARENT VIEW ONLY CONTROLS                               -->
+      <!-- ======================================================= -->
+      <div id="parentOnlySection">
+        <!-- 1. Designated Child Stop ETA (Hero Card) -->
+        <div style="margin-bottom:16px;">
+          <div class="section-title"><i class="fa fa-star" style="color:var(--amber);"></i> Your Pickup / Drop Stop</div>
+          <div class="parent-hero-eta">
+            <div class="field" style="margin-bottom:10px;">
+              <label style="color:#cbd5e1;">Select / Confirm Your Stop:</label>
+              <select id="parentStopSelector" onchange="onParentStopSelected()">
+                <option value="">Detecting stop...</option>
+              </select>
+            </div>
+            <div class="hero-eta-label">Estimated Time to Reach Your Stop</div>
+            <div class="hero-eta-big" id="pYourStopEta">
+              ~6 mins
+            </div>
+            <div class="hero-eta-sub">
+              <span><i class="fa fa-route" style="color:var(--teal);"></i> <strong id="pYourStopDist" style="color:#fff;">Calculating...</strong></span>
+              <span>•</span>
+              <span><i class="fa fa-flag-checkered" style="color:var(--amber);"></i> <strong id="pYourStopRemaining" style="color:#fff;">—</strong></span>
+            </div>
+
+            <!-- Proximity Geofence Alert -->
+            <div id="pGeofenceAlert" class="proximity-alert-banner" style="display:none;">
+              <i class="fa fa-bell" style="font-size:1.1rem;"></i>
+              <div><b>Proximity Alert!</b> Bus is approaching your stop (within 1 km). Please head to the pickup point.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 2. Next Upcoming Stop Quick Telemetry -->
+        <div style="margin-bottom:16px;">
+          <div class="section-title"><i class="fa fa-forward"></i> Next Upcoming Stop</div>
+          <div class="card-box">
+            <div class="tele-grid">
+              <div class="tele-tile">
+                <div class="tele-lbl">Next Stop</div>
+                <div class="tele-val" id="pNextStopName" style="font-size:0.86rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">—</div>
+              </div>
+              <div class="tele-tile">
+                <div class="tele-lbl">Time to Next Stop</div>
+                <div class="tele-val" id="pNextStopEta" style="font-size:0.95rem;color:var(--teal);">—</div>
+              </div>
+              <div class="tele-tile">
+                <div class="tele-lbl">Distance to Next</div>
+                <div class="tele-val" id="pNextStopDist" style="font-size:0.86rem;">—</div>
+              </div>
+              <div class="tele-tile">
+                <div class="tele-lbl">Live Bus Speed</div>
+                <div class="tele-val"><span id="pLiveSpeed">0</span> <small style="font-size:0.65rem;color:var(--muted)">km/h</small></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 3. Driver Contact Details -->
+        <div style="margin-bottom:16px;">
+          <div class="section-title"><i class="fa fa-id-card"></i> Driver Contact</div>
+          <div class="card-box">
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;">
+              <div style="width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,#2563eb,#06b6d4);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:1.1rem;" id="pDriverAvatar">D</div>
+              <div>
+                <div style="font-weight:700;font-size:0.95rem;" id="pDriverNameText">Ramesh Kumar</div>
+                <div style="font-size:0.75rem;color:var(--muted);" id="pDriverPhoneText">+91 98765 43210</div>
+              </div>
+            </div>
+            <div class="contact-row">
+              <a href="tel:+919876543210" id="pCallDriverBtn" class="btn-contact btn-call">
+                <i class="fa fa-phone"></i> Call Driver
+              </a>
+              <a href="https://wa.me/919876543210" id="pWaDriverBtn" target="_blank" class="btn-contact btn-wa">
+                <i class="fab fa-whatsapp"></i> WhatsApp
+              </a>
+            </div>
+          </div>
+        </div>
+
+        <!-- 4. Route Journey Progress Timeline -->
+        <div>
+          <div class="section-title"><i class="fa fa-map-signs"></i> Route Stops Progress</div>
+          <div class="card-box" style="padding:12px;">
+            <div class="parent-timeline" id="pTimelineList">
+              <div style="font-size:0.75rem;color:var(--muted);text-align:center;padding:12px;">Loading route stops…</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ======================================================= -->
+      <!-- DRIVER ONLY CONTROLS (Console, GPS, Status Changes)      -->
+      <!-- ======================================================= -->
+      <div id="driverOnlySection" style="display:none;flex-direction:column;gap:16px;">
+        <!-- Trip Status Controls -->
+        <div>
+          <div class="section-title"><i class="fa fa-traffic-light"></i> Operational Status</div>
+          <div class="card-box">
+            <div class="status-btn-group">
+              <button class="status-btn active-idle" id="btnStatusIdle" onclick="changeStatus('Idle')">
+                <i class="fa fa-pause-circle"></i> Idle / Garage
+              </button>
+              <button class="status-btn" id="btnStatusOnRoute" onclick="changeStatus('On Route')">
+                <i class="fa fa-route"></i> On Route
+              </button>
+              <button class="status-btn" id="btnStatusCompleted" onclick="changeStatus('Completed')">
+                <i class="fa fa-check-circle"></i> Completed
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Live GPS Tracking Broadcaster -->
+        <div>
+          <div class="section-title"><i class="fa fa-satellite-dish"></i> Live GPS Tracking</div>
+          <div class="card-box">
+            <button class="btn-act btn-start-gps" id="btnGpsToggle" onclick="toggleGpsTracking()">
+              <i class="fa fa-location-arrow"></i> Start Live GPS Tracking
+            </button>
+
+            <div class="gps-status-pill">
+              <span>Status: <strong id="gpsStatusText" style="color:var(--amber);">Standby</strong></span>
+              <span id="gpsAccuracyText" style="color:var(--muted);">Accuracy: —</span>
+            </div>
+
+            <div style="margin-top:10px;font-size:0.74rem;color:var(--muted);display:flex;justify-content:space-between;">
+              <span>GPS Fix: <strong id="gpsFixCoords" style="color:#fff;font-family:'JetBrains Mono',monospace;">—</strong></span>
+              <span id="gpsStreamPulse" style="display:none;color:var(--green);font-weight:600;"><i class="fa fa-circle" style="font-size:0.6rem;"></i> Streaming</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Driver Live Telemetry Readout -->
+        <div>
+          <div class="section-title"><i class="fa fa-tachometer-alt"></i> Live Telemetry Feed</div>
+          <div class="card-box">
+            <div class="tele-grid">
+              <div class="tele-tile">
+                <div class="tele-lbl">Speed</div>
+                <div class="tele-val"><span id="teleSpeed">0</span> <small style="font-size:0.65rem;color:var(--muted)">km/h</small></div>
+              </div>
+              <div class="tele-tile">
+                <div class="tele-lbl">Next Stop</div>
+                <div class="tele-val" id="teleStop" style="font-size:0.85rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">—</div>
+              </div>
+              <div class="tele-tile">
+                <div class="tele-lbl">Est. Arrival (ETA)</div>
+                <div class="tele-val" id="teleEta" style="font-size:0.95rem;">—</div>
+              </div>
+              <div class="tele-tile">
+                <div class="tele-lbl">Distance to Stop</div>
+                <div class="tele-val" id="teleDist" style="font-size:0.85rem;">—</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Real-Time WebSocket Transmission Log -->
+        <div>
+          <div class="section-title"><i class="fa fa-terminal"></i> WebSocket Transmissions</div>
+          <div class="term-box" id="termLog">
+            <div class="term-line"><span class="term-time">[Init]</span> Initializing driver GPS socket module...</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- MAP VIEW -->
+    <div id="map">
+      <div class="map-overlay-tip" id="mapOverlayTip">
+        <i class="fa fa-satellite-dish" style="color:var(--teal);"></i>
+        <span id="mapOverlayTipText">Live bus tracking active. Real-time updates streaming from driver's GPS.</span>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let socket;
+    let map;
+    let busMarker;
+    let routePolyline;
+    let stopMarkers = [];
+    let buses = [];
+    let currentBus = null;
+    let currentRoute = null;
+
+    // Current Mode: 'parent' or 'driver'
+    let currentMode = 'parent';
+    let selectedParentStopName = '';
+
+    // GPS tracking state for driver
+    let isTracking = false;
+    let watchId = null;
+    let lastLat = null;
+    let lastLng = null;
+    let lastTimestamp = null;
+    let broadcastCount = 0;
+
+    // Haversine distance in km
+    function getDistanceKm(lat1, lon1, lat2, lon2) {
+      const R = 6371;
+      const dLat = (lat2 - lat1) * Math.PI / 180;
+      const dLon = (lon2 - lon1) * Math.PI / 180;
+      const a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+        Math.sin(dLon / 2) * Math.sin(dLon / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      return R * c;
+    }
+
+    // Determine initial mode from URL or session
+    function determineInitialMode() {
+      const params = new URLSearchParams(window.location.search);
+      const modeParam = params.get('mode');
+      if (modeParam === 'driver') return 'driver';
+      if (modeParam === 'parent') return 'parent';
+
+      try {
+        const userStr = sessionStorage.getItem('user');
+        if (userStr) {
+          const user = JSON.parse(userStr);
+          if (user.role === 'admin' || user.role === 'driver') {
+            return 'driver';
+          }
+        }
+      } catch (e) {}
+
+      // Default to parent mode
+      return 'parent';
+    }
+
+    // Switch between Parent View and Driver Console
+    function switchMode(newMode) {
+      currentMode = newMode;
+
+      // Update URL without full reload
+      const url = new URL(window.location.href);
+      url.searchParams.set('mode', newMode);
+      window.history.replaceState({}, '', url.toString());
+
+      const btnParent = document.getElementById('btnModeParent');
+      const btnDriver = document.getElementById('btnModeDriver');
+      const parentSec = document.getElementById('parentOnlySection');
+      const driverSec = document.getElementById('driverOnlySection');
+      const headerTitle = document.getElementById('headerTitle');
+      const headerSub = document.getElementById('headerSub');
+      const pageTitle = document.getElementById('pageTitle');
+      const tipText = document.getElementById('mapOverlayTipText');
+
+      if (newMode === 'parent') {
+        btnParent.classList.add('active');
+        btnDriver.classList.remove('active');
+        parentSec.style.display = 'block';
+        driverSec.style.display = 'none';
+
+        headerTitle.textContent = 'EduConnect Bus Tracker';
+        headerSub.textContent = 'Real-Time School Bus Tracking & Stop ETA';
+        pageTitle.textContent = 'EduConnect — Live Bus Tracker (Parent View)';
+        tipText.textContent = 'Live bus tracking active. Position and arrival times update in real-time.';
+
+        // Disable dragging in parent mode
+        if (busMarker && busMarker.dragging) {
+          busMarker.dragging.disable();
+        }
+
+        // If driver tracking was on, stop it
+        if (isTracking) {
+          stopLiveGps();
+        }
+      } else {
+        btnDriver.classList.add('active');
+        btnParent.classList.remove('active');
+        parentSec.style.display = 'none';
+        driverSec.style.display = 'flex';
+
+        headerTitle.textContent = 'EduConnect Driver Console';
+        headerSub.textContent = 'Real-Time Vehicle GPS Telemetry & Live Tracking';
+        pageTitle.textContent = 'EduConnect — Driver Live GPS Console';
+        tipText.textContent = 'Live GPS active. You can also drag the bus marker or click the route on map to update position manually.';
+
+        // Enable dragging in driver mode
+        if (busMarker && busMarker.dragging) {
+          busMarker.dragging.enable();
+        }
+      }
+
+      // Re-render telemetry with current location
+      if (currentBus && currentBus.currentLocation && currentBus.currentLocation.lat) {
+        onLocationChanged(
+          currentBus.currentLocation.lat,
+          currentBus.currentLocation.lng,
+          currentBus.currentLocation.speed || 0,
+          'initial'
+        );
+      }
+    }
+
+    // Initialize Map
+    function initMap() {
+      map = L.map('map', {
+        zoomControl: true,
+        attributionControl: false
+      }).setView([12.9716, 77.5946], 13);
+
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19
+      }).addTo(map);
+
+      // Bus marker with radar pulse
+      const busDivIcon = L.divIcon({
+        className: 'custom-bus-icon-wrapper',
+        html: `
+          <div class="bus-marker-icon" id="busIconEl">
+            <span class="bus-marker-pulse"></span>
+            <i class="fa fa-bus"></i>
+          </div>`,
+        iconSize: [40, 40],
+        iconAnchor: [20, 20]
+      });
+
+      busMarker = L.marker([12.9716, 77.5946], {
+        icon: busDivIcon,
+        draggable: currentMode === 'driver'
+      }).addTo(map);
+
+      // Manual repositioning for driver mode only
+      busMarker.on('dragend', function (e) {
+        if (currentMode !== 'driver') return;
+        const coord = e.target.getLatLng();
+        onLocationChanged(coord.lat, coord.lng, 0, 'manual');
+        logTerm(`📍 Marker manually moved to [${coord.lat.toFixed(5)}, ${coord.lng.toFixed(5)}]`);
+      });
+
+      // Allow clicking map to reposition bus ONLY in driver mode
+      map.on('click', function (e) {
+        if (currentMode === 'driver' && !isTracking) {
+          busMarker.setLatLng(e.latlng);
+          onLocationChanged(e.latlng.lat, e.latlng.lng, 0, 'manual');
+          logTerm(`📍 Set bus location via map click: [${e.latlng.lat.toFixed(5)}, ${e.latlng.lng.toFixed(5)}]`);
+        }
+      });
+    }
+
+    // Connect WebSocket
+    function initSocket() {
+      socket = io();
+
+      socket.on('connect', () => {
+        logTerm('✅ Connected to WebSocket Server (ID: ' + socket.id + ')');
+        document.getElementById('connStatus').style.background = 'rgba(16, 185, 129, 0.12)';
+        document.getElementById('connStatus').style.color = '#10b981';
+        document.getElementById('connText').textContent = 'Connected';
+        if (currentBus) {
+          socket.emit('join_bus', currentBus.busNumber);
+        }
+      });
+
+      socket.on('disconnect', () => {
+        logTerm('❌ WebSocket Disconnected. Reconnecting...');
+        document.getElementById('connStatus').style.background = 'rgba(239, 68, 68, 0.15)';
+        document.getElementById('connStatus').style.color = '#ef4444';
+        document.getElementById('connText').textContent = 'Offline';
+      });
+
+      // Listen for remote live GPS broadcasts from driver
+      socket.on('bus_location_update', (data) => {
+        if (!currentBus || data.busNumber !== currentBus.busNumber) return;
+
+        // If we are not the driver currently broadcasting device GPS
+        if (!isTracking) {
+          const { lat, lng, speed } = data.currentLocation;
+          if (busMarker) {
+            busMarker.setLatLng([lat, lng]);
+          }
+          if (currentMode === 'parent' && map) {
+            map.panTo([lat, lng]);
+          }
+
+          if (data.status) {
+            currentBus.status = data.status;
+            updateStatusUI(data.status);
+          }
+
+          onLocationChanged(lat, lng, speed, 'remote');
+        }
+      });
+
+      // Listen for status changes
+      socket.on('bus_status_change', (data) => {
+        if (!currentBus || data.busNumber !== currentBus.busNumber) return;
+        currentBus.status = data.status;
+        updateStatusUI(data.status);
+        if (currentBus.currentLocation && currentBus.currentLocation.lat) {
+          onLocationChanged(currentBus.currentLocation.lat, currentBus.currentLocation.lng, currentBus.currentLocation.speed || 0, 'status');
+        }
+      });
+    }
+
+    // Fetch Fleet Data
+    async function loadFleet() {
+      try {
+        logTerm('Fetching bus fleet from /api/buses...');
+        const res = await fetch('/api/buses');
+        buses = await res.json();
+        const sel = document.getElementById('busSelector');
+        sel.innerHTML = '';
+        buses.forEach(b => {
+          const opt = document.createElement('option');
+          opt.value = b.busNumber;
+          opt.textContent = `${b.busNumber} — ${b.routeId ? b.routeId.routeName : 'Default Route'} (${b.vehicleNumber})`;
+          sel.appendChild(opt);
+        });
+
+        if (buses.length > 0) {
+          // Check if parent has student-assigned bus
+          let assignedBusNumber = buses[0].busNumber;
+          try {
+            const studentStr = sessionStorage.getItem('student');
+            if (studentStr) {
+              const student = JSON.parse(studentStr);
+              if (student.busId) assignedBusNumber = student.busId;
+            }
+          } catch (e) {}
+
+          const exists = buses.find(b => b.busNumber === assignedBusNumber);
+          selectBus(exists ? assignedBusNumber : buses[0].busNumber);
+        }
+      } catch (err) {
+        logTerm('⚠️ Error loading fleet: ' + err.message);
+      }
+    }
+
+    function onBusChanged() {
+      const selVal = document.getElementById('busSelector').value;
+      selectBus(selVal);
+    }
+
+    function selectBus(busNumber) {
+      currentBus = buses.find(b => b.busNumber === busNumber);
+      if (!currentBus) return;
+
+      document.getElementById('drvName').textContent = currentBus.driverName || '—';
+      document.getElementById('vehPlate').textContent = currentBus.vehicleNumber || '—';
+      currentRoute = currentBus.routeId;
+      document.getElementById('routeNameDisplay').textContent = currentRoute
+        ? `Route: ${currentRoute.routeName}`
+        : 'Route: Default Route';
+
+      // Driver profile details in Parent View
+      document.getElementById('pDriverNameText').textContent = currentBus.driverName || 'Driver';
+      document.getElementById('pDriverAvatar').textContent = (currentBus.driverName || 'D')[0].toUpperCase();
+      document.getElementById('pDriverPhoneText').textContent = currentBus.driverPhone || '—';
+      if (currentBus.driverPhone) {
+        document.getElementById('pCallDriverBtn').href = `tel:${currentBus.driverPhone}`;
+        const clean = currentBus.driverPhone.replace(/[^0-9]/g, '');
+        document.getElementById('pWaDriverBtn').href = `https://wa.me/${clean}`;
+      }
+
+      // Populate Parent designated stop selector
+      populateParentStopSelector();
+
+      // Update active status UI
+      updateStatusUI(currentBus.status || 'On Route');
+
+      // Join socket room
+      if (socket && socket.connected) {
+        socket.emit('join_bus', currentBus.busNumber);
+      }
+
+      drawRoute(currentRoute);
+
+      // Set initial marker location
+      if (currentBus.currentLocation && currentBus.currentLocation.lat) {
+        const cLat = currentBus.currentLocation.lat;
+        const cLng = currentBus.currentLocation.lng;
+        busMarker.setLatLng([cLat, cLng]);
+        map.panTo([cLat, cLng]);
+        onLocationChanged(cLat, cLng, currentBus.currentLocation.speed || 0, 'initial');
+      }
+
+      logTerm(`Selected ${currentBus.busNumber} (${currentBus.driverName}) on Route ${currentRoute ? currentRoute.routeNumber : 'N/A'}`);
+    }
+
+    // Populate Parent designated stop dropdown
+    function populateParentStopSelector() {
+      const sel = document.getElementById('parentStopSelector');
+      if (!sel) return;
+      sel.innerHTML = '';
+
+      if (!currentRoute || !currentRoute.stops || currentRoute.stops.length === 0) {
+        sel.innerHTML = '<option value="">No stops in route</option>';
+        return;
+      }
+
+      // Check student's pre-configured stop if available
+      let defaultStop = '';
+      try {
+        const studentStr = sessionStorage.getItem('student');
+        if (studentStr) {
+          const student = JSON.parse(studentStr);
+          if (student.busStop) defaultStop = student.busStop;
+        }
+      } catch (e) {}
+
+      // If no student stop saved, choose 3rd or 2nd stop as default
+      if (!defaultStop) {
+        defaultStop = currentRoute.stops[Math.min(2, currentRoute.stops.length - 1)].stopName;
+      }
+      selectedParentStopName = defaultStop;
+
+      currentRoute.stops.forEach((s, idx) => {
+        const opt = document.createElement('option');
+        opt.value = s.stopName;
+        opt.textContent = `Stop #${idx + 1}: ${s.stopName} (${s.scheduledTime || 'N/A'})`;
+        if (s.stopName.toLowerCase().includes(defaultStop.toLowerCase()) || defaultStop.toLowerCase().includes(s.stopName.toLowerCase())) {
+          opt.selected = true;
+          selectedParentStopName = s.stopName;
+        }
+        sel.appendChild(opt);
+      });
+    }
+
+    function onParentStopSelected() {
+      selectedParentStopName = document.getElementById('parentStopSelector').value;
+      if (currentBus && currentBus.currentLocation && currentBus.currentLocation.lat) {
+        onLocationChanged(
+          currentBus.currentLocation.lat,
+          currentBus.currentLocation.lng,
+          currentBus.currentLocation.speed || 0,
+          'stop-select'
+        );
+      }
+      // Re-style map pins
+      drawRoute(currentRoute);
+    }
+
+    // Draw route & stop markers on Leaflet
+    function drawRoute(route) {
+      if (!route) return;
+
+      stopMarkers.forEach(m => map.removeLayer(m));
+      stopMarkers = [];
+      if (routePolyline) map.removeLayer(routePolyline);
+
+      const path = route.pathCoordinates || [];
+      if (path.length > 0) {
+        routePolyline = L.polyline(path, {
+          color: '#2563eb',
+          weight: 5,
+          opacity: 0.85,
+          smoothFactor: 1
+        }).addTo(map);
+
+        map.fitBounds(routePolyline.getBounds(), { padding: [50, 50] });
+      }
+
+      // Add Stop Pins
+      if (route.stops && route.stops.length > 0) {
+        route.stops.forEach((s, idx) => {
+          const isYourStop = selectedParentStopName && (
+            s.stopName.toLowerCase().includes(selectedParentStopName.toLowerCase()) ||
+            selectedParentStopName.toLowerCase().includes(s.stopName.toLowerCase())
+          );
+
+          const stopIcon = L.divIcon({
+            className: 'stop-pin',
+            html: `<div class="stop-marker-icon ${isYourStop ? 'stop-marker-target' : ''}" id="stopPin_${idx}">
+                     ${isYourStop ? '⭐' : (idx + 1)}
+                   </div>`,
+            iconSize: isYourStop ? [28, 28] : [24, 24],
+            iconAnchor: isYourStop ? [14, 14] : [12, 12]
+          });
+
+          const marker = L.marker([s.lat, s.lng], { icon: stopIcon }).addTo(map);
+          marker.bindPopup(`
+            <div style="font-family:'Outfit',sans-serif;font-size:0.85rem;">
+              <b style="color:#001f54;">${isYourStop ? '⭐ YOUR DESIGNATED STOP' : 'Stop #' + (s.order || idx + 1)}</b><br/>
+              <strong>${s.stopName}</strong><br/>
+              Scheduled: ${s.scheduledTime || 'N/A'}
+            </div>
+          `);
+          stopMarkers.push(marker);
+        });
+      }
+    }
+
+    // Trip Status Control (Driver Console)
+    function changeStatus(newStatus) {
+      if (!currentBus) return;
+      currentBus.status = newStatus;
+      updateStatusUI(newStatus);
+      if (socket && socket.connected) {
+        socket.emit('driver_status_change', { busNumber: currentBus.busNumber, status: newStatus });
+      }
+      logTerm(`Status changed to: ${newStatus}`);
+    }
+
+    function updateStatusUI(status) {
+      // 1. Driver status buttons
+      ['Idle', 'On Route', 'Completed'].forEach(s => {
+        const id = 'btnStatus' + s.replace(/\s+/g, '');
+        const el = document.getElementById(id);
+        if (el) el.classList.remove('active-idle', 'active-onroute', 'active-completed');
+      });
+
+      if (status === 'Idle') {
+        const el = document.getElementById('btnStatusIdle');
+        if (el) el.classList.add('active-idle');
+      } else if (status === 'On Route') {
+        const el = document.getElementById('btnStatusOnRoute');
+        if (el) el.classList.add('active-onroute');
+      } else if (status === 'Completed') {
+        const el = document.getElementById('btnStatusCompleted');
+        if (el) el.classList.add('active-completed');
+      }
+
+      // 2. Status Badge in header/sidebar
+      const badge = document.getElementById('busStatusBadge');
+      if (badge) {
+        badge.className = 'status-pill-badge';
+        if (status === 'On Route') {
+          badge.classList.add('status-pill-onroute');
+          badge.innerHTML = '<span class="conn-dot"></span> On Route';
+        } else if (status === 'Completed') {
+          badge.classList.add('status-pill-completed');
+          badge.innerHTML = '<span class="conn-dot"></span> Completed';
+        } else {
+          badge.classList.add('status-pill-idle');
+          badge.innerHTML = '<span class="conn-dot"></span> Idle / Garage';
+        }
+      }
+    }
+
+    // Live Device GPS Tracking Toggle (Driver Console only)
+    function toggleGpsTracking() {
+      if (!isTracking) {
+        startLiveGps();
+      } else {
+        stopLiveGps();
+      }
+    }
+
+    function startLiveGps() {
+      if (!('geolocation' in navigator)) {
+        alert('Geolocation is not supported by your browser.');
+        logTerm('❌ Geolocation API not available.');
+        return;
+      }
+
+      isTracking = true;
+      const btn = document.getElementById('btnGpsToggle');
+      btn.className = 'btn-act btn-stop-gps';
+      btn.innerHTML = '<i class="fa fa-stop-circle"></i> Stop GPS Tracking';
+
+      document.getElementById('gpsStatusText').textContent = 'Acquiring Fix…';
+      document.getElementById('gpsStatusText').style.color = 'var(--teal)';
+      document.getElementById('gpsStreamPulse').style.display = 'inline-flex';
+
+      changeStatus('On Route');
+      logTerm('📡 Requesting high-accuracy device GPS stream...');
+
+      watchId = navigator.geolocation.watchPosition(
+        (pos) => {
+          const lat = pos.coords.latitude;
+          const lng = pos.coords.longitude;
+          const accuracy = Math.round(pos.coords.accuracy || 0);
+
+          let speedKmh = 0;
+          if (pos.coords.speed !== null && pos.coords.speed !== undefined && !isNaN(pos.coords.speed)) {
+            speedKmh = Math.round(pos.coords.speed * 3.6);
+          } else if (lastLat !== null && lastTimestamp !== null) {
+            const distKm = getDistanceKm(lastLat, lastLng, lat, lng);
+            const dtHours = (pos.timestamp - lastTimestamp) / 3600000;
+            if (dtHours > 0) speedKmh = Math.round(distKm / dtHours);
+          }
+          if (speedKmh > 120) speedKmh = 0;
+
+          lastLat = lat;
+          lastLng = lng;
+          lastTimestamp = pos.timestamp;
+
+          document.getElementById('gpsStatusText').textContent = 'Broadcasting Live';
+          document.getElementById('gpsStatusText').style.color = 'var(--green)';
+          document.getElementById('gpsAccuracyText').textContent = `Accuracy: ±${accuracy}m`;
+          document.getElementById('gpsFixCoords').textContent = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+
+          busMarker.setLatLng([lat, lng]);
+          map.panTo([lat, lng]);
+
+          onLocationChanged(lat, lng, speedKmh, 'gps');
+        },
+        (err) => {
+          logTerm('⚠️ GPS Warning: ' + err.message);
+          document.getElementById('gpsStatusText').textContent = 'GPS Warning';
+          document.getElementById('gpsStatusText').style.color = 'var(--amber)';
+          document.getElementById('gpsAccuracyText').textContent = err.message;
+        },
+        {
+          enableHighAccuracy: true,
+          maximumAge: 1500,
+          timeout: 10000
+        }
+      );
+    }
+
+    function stopLiveGps() {
+      isTracking = false;
+      if (watchId !== null) {
+        navigator.geolocation.clearWatch(watchId);
+        watchId = null;
+      }
+
+      const btn = document.getElementById('btnGpsToggle');
+      if (btn) {
+        btn.className = 'btn-act btn-start-gps';
+        btn.innerHTML = '<i class="fa fa-location-arrow"></i> Start Live GPS Tracking';
+      }
+
+      const txt = document.getElementById('gpsStatusText');
+      if (txt) {
+        txt.textContent = 'Standby';
+        txt.style.color = 'var(--amber)';
+      }
+      const streamPulse = document.getElementById('gpsStreamPulse');
+      if (streamPulse) streamPulse.style.display = 'none';
+
+      logTerm('🛑 Live GPS Tracking stopped.');
+    }
+
+    // Process new coordinates & update telemetry for both modes
+    function onLocationChanged(lat, lng, speed, source) {
+      if (!currentBus) return;
+
+      const stops = (currentRoute && currentRoute.stops) ? currentRoute.stops : [];
+      let nextStopName = 'EduConnect Campus';
+      let nextStopIdx = 0;
+      let distToNextStopKm = 0;
+
+      if (stops.length > 0) {
+        let closestIdx = 0;
+        let minDistanceKm = 999999;
+        stops.forEach((s, idx) => {
+          const d = getDistanceKm(lat, lng, s.lat, s.lng);
+          if (d < minDistanceKm) {
+            minDistanceKm = d;
+            closestIdx = idx;
+          }
+        });
+
+        // If very close to a stop (< 200m), next stop is index + 1
+        if (minDistanceKm < 0.25 && closestIdx < stops.length - 1) {
+          nextStopIdx = closestIdx + 1;
+        } else {
+          nextStopIdx = closestIdx;
+        }
+        nextStopName = stops[nextStopIdx].stopName;
+        distToNextStopKm = getDistanceKm(lat, lng, stops[nextStopIdx].lat, stops[nextStopIdx].lng);
+
+        // Highlight passed stops pins on map
+        for (let i = 0; i < stops.length; i++) {
+          const pin = document.getElementById('stopPin_' + i);
+          if (pin) {
+            if (i < nextStopIdx) pin.classList.add('stop-marker-active');
+            else pin.classList.remove('stop-marker-active');
+          }
+        }
+      }
+
+      // Compute estimated arrival for NEXT STOP
+      const effectiveSpeed = Math.max(speed, 22); // average 22 km/h
+      const etaMinutesNext = Math.max(1, Math.round((distToNextStopKm / effectiveSpeed) * 60));
+      const etaNextStr = distToNextStopKm < 0.2 ? 'Arriving now' : (distToNextStopKm < 0.6 ? 'Approaching (~1 min)' : `~${etaMinutesNext} mins`);
+      const distNextStr = distToNextStopKm > 0 ? `${distToNextStopKm.toFixed(1)} km` : 'At stop';
+
+      // 1. Update Driver Console Telemetry Cards
+      const elSp = document.getElementById('teleSpeed');
+      if (elSp) elSp.textContent = speed;
+      const elSt = document.getElementById('teleStop');
+      if (elSt) elSt.textContent = nextStopName;
+      const elEta = document.getElementById('teleEta');
+      if (elEta) elEta.textContent = etaNextStr;
+      const elDist = document.getElementById('teleDist');
+      if (elDist) elDist.textContent = distNextStr;
+      const elCoords = document.getElementById('gpsFixCoords');
+      if (elCoords) elCoords.textContent = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+
+      // 2. Update Parent View Telemetry & Stop ETA
+      updateParentView(lat, lng, speed, stops, nextStopIdx, nextStopName, distToNextStopKm, etaNextStr);
+
+      // 3. Emit via WebSocket if we are the active broadcaster
+      if (source === 'gps' || source === 'manual') {
+        const payload = {
+          busNumber: currentBus.busNumber,
+          lat: Number(lat.toFixed(6)),
+          lng: Number(lng.toFixed(6)),
+          speed: speed,
+          heading: 0,
+          status: currentBus.status || 'On Route',
+          currentStopIndex: nextStopIdx,
+          nextStop: nextStopName,
+          estimatedArrival: etaNextStr
+        };
+
+        if (socket && socket.connected) {
+          socket.emit('driver_location_update', payload);
+        }
+
+        broadcastCount++;
+        if (broadcastCount % 3 === 1 || source === 'manual') {
+          logTerm(`📡 [${source.toUpperCase()}] ${currentBus.busNumber} → (${payload.lat}, ${payload.lng}) @ ${speed}km/h | Next: ${nextStopName}`);
+        }
+      }
+    }
+
+    // Update Parent View with Next Stop ETA and YOUR Stop ETA
+    function updateParentView(lat, lng, speed, stops, nextStopIdx, nextStopName, distToNextStopKm, etaNextStr) {
+      // Next Stop card
+      document.getElementById('pNextStopName').textContent = nextStopName;
+      document.getElementById('pNextStopEta').textContent = etaNextStr;
+      document.getElementById('pNextStopDist').textContent = distToNextStopKm > 0 ? `${distToNextStopKm.toFixed(1)} km` : 'At stop';
+      document.getElementById('pLiveSpeed').textContent = speed;
+
+      // Your Designated Stop ETA Calculation
+      const targetStopName = selectedParentStopName || (stops[2] ? stops[2].stopName : (stops[0] ? stops[0].stopName : ''));
+      let targetIdx = -1;
+      if (stops && stops.length > 0) {
+        targetIdx = stops.findIndex(s =>
+          s.stopName.toLowerCase().includes(targetStopName.toLowerCase()) ||
+          targetStopName.toLowerCase().includes(s.stopName.toLowerCase())
+        );
+      }
+
+      const pYourStopEtaEl = document.getElementById('pYourStopEta');
+      const pYourStopDistEl = document.getElementById('pYourStopDist');
+      const pYourStopRemEl = document.getElementById('pYourStopRemaining');
+      const geofenceAlertEl = document.getElementById('pGeofenceAlert');
+
+      if (targetIdx === -1 || stops.length === 0) {
+        pYourStopEtaEl.textContent = '—';
+        pYourStopDistEl.textContent = 'Stop not selected';
+        pYourStopRemEl.textContent = '—';
+        geofenceAlertEl.style.display = 'none';
+      } else if (currentBus.status === 'Completed') {
+        pYourStopEtaEl.textContent = 'Trip Completed';
+        pYourStopDistEl.textContent = 'Journey finished';
+        pYourStopRemEl.textContent = '0 stops away';
+        geofenceAlertEl.style.display = 'none';
+      } else if (targetIdx < nextStopIdx) {
+        // Bus has already passed your stop
+        pYourStopEtaEl.textContent = 'Bus Passed';
+        pYourStopDistEl.textContent = 'Departed your stop';
+        pYourStopRemEl.textContent = '0 stops away';
+        geofenceAlertEl.style.display = 'none';
+      } else if (targetIdx === nextStopIdx) {
+        // Bus is heading directly to your stop now!
+        pYourStopEtaEl.textContent = etaNextStr;
+        pYourStopDistEl.textContent = `${distToNextStopKm.toFixed(1)} km away`;
+        pYourStopRemEl.textContent = 'Next Stop!';
+
+        if (distToNextStopKm <= 1.0) {
+          geofenceAlertEl.style.display = 'flex';
+        } else {
+          geofenceAlertEl.style.display = 'none';
+        }
+      } else {
+        // Bus is several stops away: accumulate distance along route
+        let totalDistToTargetKm = distToNextStopKm;
+        for (let k = nextStopIdx; k < targetIdx; k++) {
+          totalDistToTargetKm += getDistanceKm(stops[k].lat, stops[k].lng, stops[k+1].lat, stops[k+1].lng);
+        }
+
+        const effectiveSpeed = Math.max(speed, 22);
+        const etaMinsTarget = Math.max(2, Math.round((totalDistToTargetKm / effectiveSpeed) * 60));
+        const remainingStops = targetIdx - nextStopIdx;
+
+        pYourStopEtaEl.textContent = `~${etaMinsTarget} mins`;
+        pYourStopDistEl.textContent = `${totalDistToTargetKm.toFixed(1)} km away`;
+        pYourStopRemEl.textContent = `${remainingStops} stop${remainingStops > 1 ? 's' : ''} away`;
+
+        if (totalDistToTargetKm <= 1.0 || etaMinsTarget <= 3) {
+          geofenceAlertEl.style.display = 'flex';
+        } else {
+          geofenceAlertEl.style.display = 'none';
+        }
+      }
+
+      // Render Parent Timeline
+      renderParentTimeline(stops, nextStopIdx, targetIdx);
+    }
+
+    // Render journey progress stops timeline in Parent View
+    function renderParentTimeline(stops, nextStopIdx, targetIdx) {
+      const container = document.getElementById('pTimelineList');
+      if (!container) return;
+
+      if (!stops || stops.length === 0) {
+        container.innerHTML = '<div style="font-size:0.75rem;color:var(--muted);text-align:center;padding:12px;">No stops data available.</div>';
+        return;
+      }
+
+      container.innerHTML = stops.map((s, idx) => {
+        const isPassed = idx < nextStopIdx;
+        const isCurrent = idx === nextStopIdx;
+        const isTarget = idx === targetIdx;
+
+        let iconHtml = '';
+        let itemClass = 'tl-item';
+
+        if (isPassed) {
+          iconHtml = '<div class="tl-icon tl-icon-passed"><i class="fa fa-check"></i></div>';
+        } else if (isTarget) {
+          itemClass += ' tl-target';
+          iconHtml = '<div class="tl-icon tl-icon-target"><i class="fa fa-star"></i></div>';
+        } else if (isCurrent) {
+          itemClass += ' tl-current';
+          iconHtml = '<div class="tl-icon tl-icon-current"><i class="fa fa-bus"></i></div>';
+        } else {
+          iconHtml = `<div class="tl-icon tl-icon-future">${idx + 1}</div>`;
+        }
+
+        let badgeTag = '';
+        if (isTarget) {
+          badgeTag = '<span style="background:rgba(245,158,11,0.2);color:#f59e0b;padding:2px 6px;border-radius:4px;font-size:0.65rem;font-weight:700;margin-left:6px;">⭐ YOUR STOP</span>';
+        } else if (isCurrent) {
+          badgeTag = '<span style="background:rgba(37,99,235,0.25);color:#38bdf8;padding:2px 6px;border-radius:4px;font-size:0.65rem;font-weight:700;margin-left:6px;">NEXT STOP</span>';
+        }
+
+        return `
+          <div class="${itemClass}">
+            ${iconHtml}
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:0.82rem;font-weight:${isCurrent || isTarget ? '700' : '500'};color:${isCurrent || isTarget ? '#fff' : 'var(--text)'};display:flex;align-items:center;flex-wrap:wrap;">
+                ${s.stopName} ${badgeTag}
+              </div>
+              <div style="font-size:0.7rem;color:var(--muted);margin-top:2px;">
+                Scheduled: ${s.scheduledTime || 'N/A'}
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function logTerm(msg) {
+      const box = document.getElementById('termLog');
+      if (!box) return;
+      const time = new Date().toLocaleTimeString();
+      const div = document.createElement('div');
+      div.className = 'term-line';
+      div.innerHTML = `<span class="term-time">[${time}]</span> ${msg}`;
+      box.appendChild(div);
+      box.scrollTop = box.scrollHeight;
+    }
+
+    // Boot
+    window.addEventListener('DOMContentLoaded', () => {
+      const initM = determineInitialMode();
+      initMap();
+      initSocket();
+      loadFleet();
+      switchMode(initM);
+    });
+  </script>
+</body>
+</html>

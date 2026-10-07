@@ -221,8 +221,25 @@ async function buildAttendanceReportData(params) {
     };
   });
 
-  // ── MODE B: SUBJECT-WISE SUMMARY ──
-  // For each student, compute percentage in each subject
+  // ── MODE B: SUBJECT-WISE / INSTITUTIONAL SUMMARY ──
+  // Calculate total classes conducted per subject
+  const subjectConductedMap = {};
+  sortedSubjects.forEach(sub => {
+    // Unique session timestamps/periods for this subject
+    const subSessions = new Set(
+      records.filter(r => r.subject === sub).map(r => `${r.date}|${r.period || 0}`)
+    );
+    let maxMarked = 0;
+    students.forEach(stu => {
+      const cnt = records.filter(r => r.studentId === stu.studentId && r.subject === sub).length;
+      if (cnt > maxMarked) maxMarked = cnt;
+    });
+    subjectConductedMap[sub] = Math.max(subSessions.size, maxMarked);
+  });
+
+  const totalConductedAllSubjects = Object.values(subjectConductedMap).reduce((a, b) => a + b, 0);
+
+  // For each student, compute attendance in each subject
   const subjectStudentRows = students.map((stu, idx) => {
     const stuRecords = records.filter(r => r.studentId === stu.studentId);
     const subjectStats = {};
@@ -233,28 +250,74 @@ async function buildAttendanceReportData(params) {
       const subRecs = stuRecords.filter(r => r.subject === sub);
       const p = subRecs.filter(r => r.status === 'Present' || r.status === 'Late').length;
       const a = subRecs.filter(r => r.status === 'Absent').length;
+      const conducted = subjectConductedMap[sub] != null ? subjectConductedMap[sub] : (p + a);
       const tot = p + a;
-      const pct = tot > 0 ? (Math.round((p / tot) * 10000) / 100).toFixed(1) + '%' : '-';
-      subjectStats[sub] = { present: p, absent: a, total: tot, percentage: pct };
+
+      let pctVal = 0;
+      let pctFormatted = '-';
+      let pctWithSign = '-';
+
+      // Attendance percentage calculated strictly on the basis of: (Classes Attended / Classes Taken) * 100
+      if (conducted > 0) {
+        if (tot > 0) {
+          pctVal = Math.round((p / conducted) * 10000) / 100;
+          pctFormatted = (pctVal % 1 === 0 ? pctVal.toString() : parseFloat(pctVal.toFixed(2)).toString());
+          pctWithSign = (pctVal % 1 === 0 ? `${pctVal}.0%` : `${pctVal.toFixed(1)}%`);
+        } else {
+          // If classes were conducted but no attendance sessions recorded for this student
+          pctVal = 0;
+          pctFormatted = '-';
+          pctWithSign = '-';
+        }
+      } else if (tot > 0) {
+        pctVal = Math.round((p / tot) * 10000) / 100;
+        pctFormatted = (pctVal % 1 === 0 ? pctVal.toString() : parseFloat(pctVal.toFixed(2)).toString());
+        pctWithSign = (pctVal % 1 === 0 ? `${pctVal}.0%` : `${pctVal.toFixed(1)}%`);
+      }
+
+      subjectStats[sub] = {
+        present: p,
+        absent: a,
+        attended: p,
+        conducted,
+        classesAttended: p,
+        classesTaken: conducted,
+        total: tot,
+        percentage: pctWithSign,
+        pctFormatted,
+        rawPct: pctVal
+      };
       stuTotalP += p;
       stuTotalA += a;
     });
 
     const grandStuTot = stuTotalP + stuTotalA;
-    const overallPct = grandStuTot > 0 ? (Math.round((stuTotalP / grandStuTot) * 10000) / 100).toFixed(1) + '%' : '-';
+    const overallVal = grandStuTot > 0 ? Math.round((stuTotalP / grandStuTot) * 10000) / 100 : 0;
+    const overallPctFormatted = (overallVal % 1 === 0 ? overallVal.toString() : parseFloat(overallVal.toFixed(2)).toString());
+    const overallPctWithSign = grandStuTot > 0 ? (overallVal % 1 === 0 ? `${overallVal}.0%` : `${overallVal.toFixed(1)}%`) : '-';
 
     return {
       index: idx + 1,
+      sNo: idx + 1,
       studentId: stu.studentId,
+      usn: stu.studentId,
       name: stu.name,
       rollNumber: stu.rollNumber || '',
       class: stu.class,
       section: stu.section,
       subjects: subjectStats,
+      classesAttended: stuTotalP,
+      classesTaken: grandStuTot,
+      totalClassesAttended: stuTotalP,
+      totalClassesTaken: grandStuTot,
       totalPresent: stuTotalP,
+      totalAttended: stuTotalP,
       totalAbsent: stuTotalA,
-      overallPercentage: overallPct,
-      rawOverallPercentage: grandStuTot > 0 ? Math.round((stuTotalP / grandStuTot) * 10000) / 100 : 0
+      totalConducted: totalConductedAllSubjects,
+      attAvg: overallPctFormatted,
+      rawAttAvg: overallVal,
+      overallPercentage: overallPctWithSign,
+      rawOverallPercentage: overallVal
     };
   });
 
@@ -338,6 +401,8 @@ async function buildAttendanceReportData(params) {
     },
     subjectWise: {
       subjects: sortedSubjects,
+      conductedMap: subjectConductedMap,
+      totalConducted: totalConductedAllSubjects,
       rows: subjectStudentRows,
     },
     dateWise: {
@@ -349,82 +414,130 @@ async function buildAttendanceReportData(params) {
 /**
  * Generate formatted Excel (.xlsx) buffer
  */
+/**
+ * Generate formatted Excel (.xlsx) buffer
+ */
 function generateExcelReport(reportData) {
   const wb = XLSX.utils.book_new();
   const { meta, summary, dailyGrid, subjectWise, dateWise } = reportData;
+  const subjects = subjectWise.subjects || [];
+  const conductedMap = subjectWise.conductedMap || {};
 
-  // Sheet 1: Daily Attendance Grid
-  const gridAoa = [];
-  gridAoa.push(['EduConnect — Attendance Report']);
-  gridAoa.push([]);
-  gridAoa.push(['Class:', meta.class, 'Section:', meta.section, 'Subject:', meta.subject]);
-  gridAoa.push(['Period:', meta.period, 'Date Range:', meta.dateRange, 'Generated On:', meta.generatedDate]);
-  gridAoa.push([]);
-  gridAoa.push([
-    'Total Students:', summary.totalStudents,
-    'Total Classes:', summary.totalClassesConducted,
-    'Total Present:', summary.totalPresent,
-    'Total Absent:', summary.totalAbsent,
-    'Overall Attendance:', summary.overallPercentage
-  ]);
-  gridAoa.push([]);
+  // ═════════════════════════════════════════════════════════════════════
+  // SHEET 1: CONSOLIDATED INSTITUTIONAL ATTENDANCE REPORT
+  // Matches exact academic department specification (image layout):
+  // Row 0: Subject Code (A1:C1 merged) | Sub1 (2 cols) | Sub2 (2 cols) | ... | Att Avg
+  // Row 1: No. of Classes Conducted (A2:C2 merged) | C1 (2 cols) | C2 (2 cols) | ... | ""
+  // Row 2: S. No. | USN | Name of the Student | Attended | Att % | Attended | Att % | ... | Att Avg
+  // Rows 3+: Student rows: 1 | 1SB23IS001 | ADITYA . | 23 | 76.67 | ... | 73.39
+  // ═════════════════════════════════════════════════════════════════════
+  const consAoa = [];
+  const merges = [];
+  const colWidths = [
+    { wch: 6 },  // S. No.
+    { wch: 16 }, // USN
+    { wch: 30 }, // Name of the Student
+  ];
 
-  // Table header
-  const headerRow = ['#', 'Student ID', 'Student Name'];
-  dailyGrid.columns.forEach(c => headerRow.push(c.label));
-  headerRow.push('Present', 'Absent', 'Total', 'Attendance %');
-  gridAoa.push(headerRow);
+  const row0 = ['Subject Code', '', ''];
+  const row1 = ['No. of Classes Taken', '', ''];
+  const row2 = ['S. No.', 'USN', 'Name of the Student'];
 
-  // Rows
-  dailyGrid.rows.forEach(r => {
-    const row = [r.index, r.studentId, r.name];
-    dailyGrid.columns.forEach(c => row.push(r.attendance[c.key] || '-'));
-    row.push(r.presentCount, r.absentCount, r.totalMarked, r.percentage);
-    gridAoa.push(row);
+  merges.push({ s: { r: 0, c: 0 }, e: { r: 0, c: 2 } });
+  merges.push({ s: { r: 1, c: 0 }, e: { r: 1, c: 2 } });
+
+  subjects.forEach((sub, i) => {
+    const colIdx = 3 + (i * 2);
+    row0.push(sub, '');
+    merges.push({ s: { r: 0, c: colIdx }, e: { r: 0, c: colIdx + 1 } });
+
+    const conducted = conductedMap[sub] != null ? conductedMap[sub] : 0;
+    row1.push(conducted, '');
+    merges.push({ s: { r: 1, c: colIdx }, e: { r: 1, c: colIdx + 1 } });
+
+    row2.push('Attended', 'Att %');
+    colWidths.push({ wch: 10 }, { wch: 10 });
   });
 
-  const wsGrid = XLSX.utils.aoa_to_sheet(gridAoa);
+  const lastColIdx = 3 + (subjects.length * 2);
+  row0.push('Att Avg');
+  row1.push('');
+  row2.push('Att Avg');
+  merges.push({ s: { r: 0, c: lastColIdx }, e: { r: 1, c: lastColIdx } });
+  colWidths.push({ wch: 12 });
 
-  // Set widths
-  const colWidths = [{ wch: 4 }, { wch: 14 }, { wch: 22 }];
-  dailyGrid.columns.forEach(() => colWidths.push({ wch: 10 }));
-  colWidths.push({ wch: 9 }, { wch: 9 }, { wch: 9 }, { wch: 14 });
-  wsGrid['!cols'] = colWidths;
+  consAoa.push(row0);
+  consAoa.push(row1);
+  consAoa.push(row2);
 
-  XLSX.utils.book_append_sheet(wb, wsGrid, 'Daily Attendance');
+  // Student data rows
+  subjectWise.rows.forEach((r, idx) => {
+    const row = [
+      idx + 1,
+      r.usn || r.studentId,
+      r.name
+    ];
+    subjects.forEach(sub => {
+      const sInfo = r.subjects && r.subjects[sub];
+      row.push(sInfo ? sInfo.present : 0);
+      if (!sInfo || sInfo.pctFormatted === '-') {
+        row.push('-');
+      } else {
+        row.push(sInfo.rawPct);
+      }
+    });
+    row.push(r.rawAttAvg != null ? r.rawAttAvg : 0);
+    consAoa.push(row);
+  });
 
-  // Sheet 2: Subject-Wise Summary (if multiple subjects exist)
-  if (subjectWise.subjects && subjectWise.subjects.length > 0) {
-    const subAoa = [];
-    subAoa.push(['EduConnect — Subject-Wise Attendance Summary']);
-    subAoa.push([]);
-    subAoa.push(['Class:', meta.class, 'Section:', meta.section, 'Date Range:', meta.dateRange]);
-    subAoa.push([]);
-    const subHeader = ['#', 'Student ID', 'Student Name'];
-    subjectWise.subjects.forEach(s => subHeader.push(`${s} %`));
-    subHeader.push('Overall %');
-    subAoa.push(subHeader);
+  const wsCons = XLSX.utils.aoa_to_sheet(consAoa);
+  wsCons['!merges'] = merges;
+  wsCons['!cols'] = colWidths;
+  XLSX.utils.book_append_sheet(wb, wsCons, 'Attendance Report');
 
-    subjectWise.rows.forEach(r => {
+  // ═════════════════════════════════════════════════════════════════════
+  // SHEET 2: DAILY ATTENDANCE GRID (Session-by-session log)
+  // ═════════════════════════════════════════════════════════════════════
+  if (dailyGrid && dailyGrid.columns && dailyGrid.columns.length > 0) {
+    const gridAoa = [];
+    gridAoa.push(['EduConnect — Daily Attendance Grid']);
+    gridAoa.push([]);
+    gridAoa.push(['Class:', meta.class, 'Section:', meta.section, 'Subject:', meta.subject]);
+    gridAoa.push(['Period:', meta.period, 'Date Range:', meta.dateRange, 'Generated On:', meta.generatedDate]);
+    gridAoa.push([]);
+    gridAoa.push([
+      'Total Students:', summary.totalStudents,
+      'Total Classes:', summary.totalClassesConducted,
+      'Total Present:', summary.totalPresent,
+      'Total Absent:', summary.totalAbsent,
+      'Overall Attendance:', summary.overallPercentage
+    ]);
+    gridAoa.push([]);
+
+    const headerRow = ['#', 'USN', 'Student Name'];
+    dailyGrid.columns.forEach(c => headerRow.push(c.label));
+    headerRow.push('Present', 'Absent', 'Total', 'Attendance %');
+    gridAoa.push(headerRow);
+
+    dailyGrid.rows.forEach(r => {
       const row = [r.index, r.studentId, r.name];
-      subjectWise.subjects.forEach(s => {
-        row.push(r.subjects[s]?.percentage || '-');
-      });
-      row.push(r.overallPercentage);
-      subAoa.push(row);
+      dailyGrid.columns.forEach(c => row.push(r.attendance[c.key] || '-'));
+      row.push(r.presentCount, r.absentCount, r.totalMarked, r.percentage);
+      gridAoa.push(row);
     });
 
-    const wsSub = XLSX.utils.aoa_to_sheet(subAoa);
-    const subColWidths = [{ wch: 4 }, { wch: 14 }, { wch: 22 }];
-    subjectWise.subjects.forEach(() => subColWidths.push({ wch: 16 }));
-    subColWidths.push({ wch: 14 });
-    wsSub['!cols'] = subColWidths;
-
-    XLSX.utils.book_append_sheet(wb, wsSub, 'Subject-Wise Summary');
+    const wsGrid = XLSX.utils.aoa_to_sheet(gridAoa);
+    const dWidths = [{ wch: 4 }, { wch: 14 }, { wch: 22 }];
+    dailyGrid.columns.forEach(() => dWidths.push({ wch: 10 }));
+    dWidths.push({ wch: 9 }, { wch: 9 }, { wch: 9 }, { wch: 14 });
+    wsGrid['!cols'] = dWidths;
+    XLSX.utils.book_append_sheet(wb, wsGrid, 'Daily Grid');
   }
 
-  // Sheet 3: Date-Wise Summary
-  if (dateWise.rows && dateWise.rows.length > 0) {
+  // ═════════════════════════════════════════════════════════════════════
+  // SHEET 3: DATE-WISE SUMMARY (if sessions exist)
+  // ═════════════════════════════════════════════════════════════════════
+  if (dateWise && dateWise.rows && dateWise.rows.length > 0) {
     const dateAoa = [];
     dateAoa.push(['EduConnect — Date-Wise Attendance Summary']);
     dateAoa.push([]);
@@ -443,278 +556,467 @@ function generateExcelReport(reportData) {
 }
 
 /**
+ * Helper to split date session into concise non-wrapping lines for PDF headers
+ */
+function getPdfDateHeader(col, colW) {
+  let dayStr = '';
+  let monthStr = '';
+  let periodStr = '';
+
+  if (col.date) {
+    const parts = col.date.split('-');
+    if (parts.length === 3) {
+      dayStr = parts[2];
+      const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      monthStr = months[parseInt(parts[1], 10) - 1] || '';
+    }
+  }
+
+  if (!dayStr && col.label) {
+    const m = col.label.match(/^(\d{1,2})\s*([A-Za-z]{3})?/);
+    if (m) {
+      dayStr = m[1];
+      monthStr = m[2] || '';
+    } else {
+      dayStr = col.label.slice(0, 4);
+    }
+  }
+
+  if (col.period) {
+    periodStr = `P${col.period}`;
+  } else if (col.label) {
+    const pm = col.label.match(/\(P(\d+)\)/);
+    if (pm) periodStr = `P${pm[1]}`;
+  }
+
+  if (colW >= 34) {
+    return {
+      line1: `${dayStr} ${monthStr}`.trim(),
+      line2: periodStr
+    };
+  }
+
+  return {
+    line1: dayStr || col.label.slice(0, 3),
+    line2: periodStr || monthStr
+  };
+}
+
+/**
  * Generate printable PDF report using PDFKit
  */
 function generatePdfReport(reportData, res) {
   const { meta, summary, dailyGrid, subjectWise, dateWise } = reportData;
+  const subjects = subjectWise.subjects || [];
+  const conductedMap = subjectWise.conductedMap || {};
 
-  // Use landscape orientation if column count is large (> 6 dates) or viewMode is daily with many dates
-  const isLandscape = dailyGrid.columns.length > 5 || meta.viewMode === 'daily';
+  const margin = 20;
   const doc = new PDFDocument({
-    margin: 36,
+    margin,
     size: 'A4',
-    layout: isLandscape ? 'landscape' : 'portrait'
+    layout: 'landscape'
   });
 
   doc.pipe(res);
 
-  const pageWidth = isLandscape ? 841.89 : 595.28;
-  const pageHeight = isLandscape ? 595.28 : 841.89;
-  const margin = 36;
-  const contentWidth = pageWidth - (margin * 2);
+  const pageWidth = 841.89;
+  const pageHeight = 595.28;
+  const contentWidth = pageWidth - (margin * 2); // 801.89 pt
 
-  // ── HEADER BANNER ──
-  doc.rect(margin, margin, contentWidth, 54).fill('#001f54');
-  doc.fillColor('#ffffff').font('Helvetica-Bold').fontSize(18)
-     .text('EduConnect', margin + 14, margin + 10);
-  doc.font('Helvetica').fontSize(10).fillColor('#93c5fd')
-     .text('ATTENDANCE REPORT', margin + 14, margin + 32);
+  // ── INSTITUTION HEADER BANNER ──
+  const instName = process.env.SCHOOL_NAME || meta.institutionName || 'Sri Sairam International School';
+  doc.rect(margin, margin, contentWidth, 38).fill('#001f54');
+  doc.fillColor('#ffffff').font('Helvetica-Bold').fontSize(14)
+     .text(instName.toUpperCase(), margin + 12, margin + 7);
+  doc.font('Helvetica-Bold').fontSize(8.5).fillColor('#93c5fd')
+     .text('ATTENDANCE REPORT — CONSOLIDATED SUBJECT MATRIX', margin + 12, margin + 24);
 
-  doc.font('Helvetica').fontSize(9).fillColor('#e2e8f0')
-     .text(`Generated: ${meta.generatedDate}`, margin + contentWidth - 160, margin + 22, { width: 145, align: 'right' });
+  doc.font('Helvetica').fontSize(7.5).fillColor('#e2e8f0')
+     .text(`Generated: ${meta.generatedDate}`, margin + contentWidth - 160, margin + 14, { width: 150, align: 'right' });
 
-  let y = margin + 64;
+  let y = margin + 44;
 
-  // ── FILTER METADATA BLOCK ──
-  doc.rect(margin, y, contentWidth, 34).fill('#f8fafc').stroke('#cbd5e1');
-  doc.fillColor('#334155').font('Helvetica-Bold').fontSize(9);
+  // ── METADATA BAR ──
+  doc.rect(margin, y, contentWidth, 20).fill('#f8fafc').stroke('#cbd5e1');
+  doc.fillColor('#334155').font('Helvetica-Bold').fontSize(7.5);
+  const metaColW = contentWidth / 4;
+  doc.text(`Class: ${meta.class} (${meta.section})`, margin + 6, y + 6, { width: metaColW - 10 });
+  doc.text(`Subject Filter: ${meta.subject}`, margin + 6 + metaColW, y + 6, { width: metaColW - 10 });
+  doc.text(`Date Range: ${meta.dateRange}`, margin + 6 + (metaColW * 2), y + 6, { width: metaColW - 10 });
+  doc.text(`Total Students: ${summary.totalStudents}  |  Avg: ${summary.overallPercentage}`, margin + 6 + (metaColW * 3), y + 6, { width: metaColW - 10 });
 
-  const colW = contentWidth / 4;
-  doc.text(`Class: ${meta.class} (${meta.section})`, margin + 8, y + 6);
-  doc.text(`Subject: ${meta.subject}`, margin + 8 + colW, y + 6);
-  doc.text(`Period: ${meta.period}`, margin + 8 + (colW * 2), y + 6);
-  doc.text(`Date Range: ${meta.dateRange}`, margin + 8 + (colW * 3), y + 6, { width: colW - 12 });
+  y += 26;
 
-  y += 42;
+  // Check if we should render institutional multi-subject format
+  // Render institutional multi-subject format by default or whenever subjectWise exists
+  const useInstitutional = (meta.viewMode === 'subject' || subjects.length > 0) && meta.viewMode !== 'date';
 
-  // ── SUMMARY CARDS ROW ──
-  const cardW = (contentWidth - 36) / 5;
-  const cardH = 38;
-  const cards = [
-    { label: 'TOTAL STUDENTS', val: summary.totalStudents, color: '#0284c7' },
-    { label: 'CLASSES CONDUCTED', val: summary.totalClassesConducted, color: '#7c3aed' },
-    { label: 'TOTAL PRESENT', val: summary.totalPresent, color: '#16a34a' },
-    { label: 'TOTAL ABSENT', val: summary.totalAbsent, color: '#dc2626' },
-    { label: 'OVERALL ATTENDANCE', val: summary.overallPercentage, color: '#0f766e' },
-  ];
+  if (useInstitutional && subjects.length > 0) {
+    // ═════════════════════════════════════════════════════════════════════
+    // INSTITUTIONAL MULTI-SUBJECT ATTENDANCE TABLE (Image Match)
+    // ═════════════════════════════════════════════════════════════════════
+    const colSNoW = 26;
+    const colUsnW = 68;
+    const colNameW = 110;
+    const colAvgW = 42;
+    const fixedW = colSNoW + colUsnW + colNameW + colAvgW; // 246 pt
+    const remW = contentWidth - fixedW; // ~555.89 pt
 
-  cards.forEach((c, i) => {
-    const cx = margin + (i * (cardW + 9));
-    doc.rect(cx, y, cardW, cardH).fill('#ffffff').stroke('#e2e8f0');
-    doc.rect(cx, y, cardW, 3).fill(c.color);
-    doc.fillColor(c.color).font('Helvetica-Bold').fontSize(13)
-       .text(String(c.val), cx + 6, y + 7, { width: cardW - 12, align: 'center' });
-    doc.fillColor('#64748b').font('Helvetica').fontSize(6.5)
-       .text(c.label, cx + 2, y + 24, { width: cardW - 4, align: 'center' });
-  });
+    const N = subjects.length;
+    const subW = Math.max(34, remW / N);
+    const attW = Math.floor(subW / 2);
+    const pctW = subW - attW;
+    const tableW = Math.min(contentWidth, colSNoW + colUsnW + colNameW + (N * subW) + colAvgW);
 
-  y += 50;
+    const hdrH1 = 18;
+    const hdrH2 = 18;
+    const hdrH3 = 18;
+    const totalHdrH = hdrH1 + hdrH2 + hdrH3;
+    const rowH = 14;
 
-  // ── CHOSEN VIEW TABLE ──
-  if (meta.viewMode === 'subject' && subjectWise.subjects.length > 0) {
-    // Subject-Wise Table
-    doc.fillColor('#0f172a').font('Helvetica-Bold').fontSize(11).text('Subject-Wise Attendance Percentage', margin, y);
-    y += 16;
+    const drawTableHeader = (curY) => {
+      // ── Header Row 1: Subject Code ──
+      const mergedLeftW = colSNoW + colUsnW + colNameW;
+      doc.rect(margin, curY, mergedLeftW, hdrH1).fillAndStroke('#f1f5f9', '#000000');
+      doc.fillColor('#000000').font('Helvetica-Bold').fontSize(8)
+         .text('Subject Code', margin, curY + 5, { width: mergedLeftW, align: 'center' });
 
-    const subCols = subjectWise.subjects;
-    const sNameW = 140;
-    const sIdW = 70;
-    const remW = contentWidth - sNameW - sIdW;
-    const subColW = Math.max(50, remW / (subCols.length + 1));
-
-    // Header
-    doc.rect(margin, y, contentWidth, 18).fill('#0f172a');
-    doc.fillColor('#ffffff').font('Helvetica-Bold').fontSize(8);
-    doc.text('Student ID', margin + 4, y + 5, { width: sIdW - 6 });
-    doc.text('Student Name', margin + sIdW, y + 5, { width: sNameW - 6 });
-    subCols.forEach((sc, i) => {
-      doc.text(sc.slice(0, 10), margin + sIdW + sNameW + (i * subColW), y + 5, { width: subColW - 4, align: 'center' });
-    });
-    doc.text('Overall', margin + sIdW + sNameW + (subCols.length * subColW), y + 5, { width: subColW - 4, align: 'center' });
-    y += 18;
-
-    subjectWise.rows.forEach((r, idx) => {
-      const rowBg = idx % 2 === 0 ? '#f8fafc' : '#ffffff';
-      doc.rect(margin, y, contentWidth, 16).fill(rowBg).stroke('#f1f5f9');
-      doc.fillColor('#1e293b').font('Helvetica').fontSize(7.5);
-      doc.text(r.studentId, margin + 4, y + 4, { width: sIdW - 6 });
-      doc.font('Helvetica-Bold').text(r.name, margin + sIdW, y + 4, { width: sNameW - 6 });
-
-      doc.font('Helvetica');
-      subCols.forEach((sc, i) => {
-        const pct = r.subjects[sc]?.percentage || '-';
-        doc.text(pct, margin + sIdW + sNameW + (i * subColW), y + 4, { width: subColW - 4, align: 'center' });
+      subjects.forEach((sub, i) => {
+        const cx = margin + mergedLeftW + (i * subW);
+        doc.rect(cx, curY, subW, hdrH1).fillAndStroke('#f1f5f9', '#000000');
+        doc.fillColor('#000000').font('Helvetica-Bold').fontSize(6.5)
+           .text(sub, cx + 1, curY + 5, { width: subW - 2, align: 'center' });
       });
-      doc.font('Helvetica-Bold').fillColor('#0284c7')
-         .text(r.overallPercentage, margin + sIdW + sNameW + (subCols.length * subColW), y + 4, { width: subColW - 4, align: 'center' });
 
-      y += 16;
+      const avgX = margin + mergedLeftW + (N * subW);
+      doc.rect(avgX, curY, colAvgW, hdrH1 + hdrH2).fillAndStroke('#f1f5f9', '#000000');
+      doc.fillColor('#000000').font('Helvetica-Bold').fontSize(7.5)
+         .text('Att\nAvg', avgX, curY + 8, { width: colAvgW, align: 'center' });
+
+      // ── Header Row 2: No. of Classes Taken ──
+      const curY2 = curY + hdrH1;
+      doc.rect(margin, curY2, mergedLeftW, hdrH2).fillAndStroke('#ffffff', '#000000');
+      doc.fillColor('#000000').font('Helvetica-Bold').fontSize(8)
+         .text('No. of Classes Taken', margin, curY2 + 5, { width: mergedLeftW, align: 'center' });
+
+      subjects.forEach((sub, i) => {
+        const cx = margin + mergedLeftW + (i * subW);
+        const conducted = conductedMap[sub] != null ? conductedMap[sub] : 0;
+        doc.rect(cx, curY2, subW, hdrH2).fillAndStroke('#ffffff', '#000000');
+        doc.fillColor('#000000').font('Helvetica-Bold').fontSize(7.5)
+           .text(String(conducted), cx, curY2 + 5, { width: subW, align: 'center' });
+      });
+
+      // ── Header Row 3: Sub-headers ──
+      const curY3 = curY2 + hdrH2;
+      doc.rect(margin, curY3, colSNoW, hdrH3).fillAndStroke('#f8fafc', '#000000');
+      doc.fillColor('#000000').font('Helvetica-Bold').fontSize(6.5)
+         .text('S. No.', margin, curY3 + 5, { width: colSNoW, align: 'center' });
+
+      doc.rect(margin + colSNoW, curY3, colUsnW, hdrH3).fillAndStroke('#f8fafc', '#000000');
+      doc.fillColor('#000000').font('Helvetica-Bold').fontSize(6.5)
+         .text('USN', margin + colSNoW, curY3 + 5, { width: colUsnW, align: 'center' });
+
+      doc.rect(margin + colSNoW + colUsnW, curY3, colNameW, hdrH3).fillAndStroke('#f8fafc', '#000000');
+      doc.fillColor('#000000').font('Helvetica-Bold').fontSize(6.5)
+         .text('Name of the Student', margin + colSNoW + colUsnW + 3, curY3 + 5, { width: colNameW - 6, align: 'left' });
+
+      subjects.forEach((sub, i) => {
+        const cx = margin + mergedLeftW + (i * subW);
+        doc.rect(cx, curY3, attW, hdrH3).fillAndStroke('#f8fafc', '#000000');
+        doc.fillColor('#000000').font('Helvetica-Bold').fontSize(6)
+           .text('Attended', cx, curY3 + 5, { width: attW, align: 'center' });
+
+        doc.rect(cx + attW, curY3, pctW, hdrH3).fillAndStroke('#f8fafc', '#000000');
+        doc.fillColor('#000000').font('Helvetica-Bold').fontSize(6)
+           .text('Att %', cx + attW, curY3 + 5, { width: pctW, align: 'center' });
+      });
+
+      doc.rect(avgX, curY3, colAvgW, hdrH3).fillAndStroke('#f8fafc', '#000000');
+      doc.fillColor('#000000').font('Helvetica-Bold').fontSize(6.5)
+         .text('Att Avg', avgX, curY3 + 5, { width: colAvgW, align: 'center' });
+    };
+
+    drawTableHeader(y);
+    y += totalHdrH;
+
+    // ── Student Rows ──
+    subjectWise.rows.forEach((r, idx) => {
+      if (y + rowH > pageHeight - margin - 20) {
+        doc.addPage({ margin, size: 'A4', layout: 'landscape' });
+        y = margin;
+        drawTableHeader(y);
+        y += totalHdrH;
+      }
+
+      const rowBg = idx % 2 === 0 ? '#ffffff' : '#fbfcfe';
+      let curX = margin;
+
+      // S. No.
+      doc.rect(curX, y, colSNoW, rowH).fillAndStroke(rowBg, '#000000');
+      doc.fillColor('#000000').font('Helvetica').fontSize(6.5)
+         .text(String(idx + 1), curX, y + 4, { width: colSNoW, align: 'center' });
+      curX += colSNoW;
+
+      // USN
+      doc.rect(curX, y, colUsnW, rowH).fillAndStroke(rowBg, '#000000');
+      doc.fillColor('#000000').font('Helvetica-Bold').fontSize(6.5)
+         .text(r.usn || r.studentId, curX, y + 4, { width: colUsnW, align: 'center' });
+      curX += colUsnW;
+
+      // Name
+      doc.rect(curX, y, colNameW, rowH).fillAndStroke(rowBg, '#000000');
+      doc.fillColor('#000000').font('Helvetica').fontSize(6.5)
+         .text(r.name, curX + 3, y + 4, { width: colNameW - 6, align: 'left' });
+      curX += colNameW;
+
+      // Subjects
+      subjects.forEach(sub => {
+        const sInfo = r.subjects && r.subjects[sub];
+        const att = sInfo ? sInfo.present : 0;
+        const pct = sInfo && sInfo.pctFormatted !== '-' ? sInfo.pctFormatted : '-';
+
+        doc.rect(curX, y, attW, rowH).fillAndStroke(rowBg, '#000000');
+        doc.fillColor('#000000').font('Helvetica').fontSize(6.5)
+           .text(String(att), curX, y + 4, { width: attW, align: 'center' });
+        curX += attW;
+
+        doc.rect(curX, y, pctW, rowH).fillAndStroke(rowBg, '#000000');
+        doc.fillColor('#000000').font('Helvetica').fontSize(6.5)
+           .text(String(pct), curX, y + 4, { width: pctW, align: 'center' });
+        curX += pctW;
+      });
+
+      // Att Avg
+      doc.rect(curX, y, colAvgW, rowH).fillAndStroke(rowBg, '#000000');
+      doc.fillColor('#000000').font('Helvetica-Bold').fontSize(6.5)
+         .text(String(r.attAvg != null ? r.attAvg : '-'), curX, y + 4, { width: colAvgW, align: 'center' });
+
+      y += rowH;
     });
 
-  } else if (meta.viewMode === 'date' && dateWise.rows.length > 0) {
+  } else if (meta.viewMode === 'date' && dateWise && dateWise.rows && dateWise.rows.length > 0) {
     // Date-Wise Table
     doc.fillColor('#0f172a').font('Helvetica-Bold').fontSize(11).text('Date-Wise Attendance Sessions', margin, y);
     y += 16;
 
     const cols = ['Date', 'Subject', 'Period', 'Present', 'Absent', 'Total', 'Attendance %'];
-    const wList = [90, 140, 90, 60, 60, 60, 90];
-    const totalW = wList.reduce((a, b) => a + b, 0);
+    const wList = [95, 140, 90, 65, 65, 65, 95];
+    const totalW = Math.min(contentWidth, wList.reduce((a, b) => a + b, 0));
 
-    doc.rect(margin, y, totalW, 18).fill('#0f172a');
+    doc.rect(margin, y, totalW, 20).fill('#0f172a');
     doc.fillColor('#ffffff').font('Helvetica-Bold').fontSize(8);
     let curX = margin;
     cols.forEach((col, i) => {
-      doc.text(col, curX + 4, y + 5, { width: wList[i] - 8, align: i >= 3 ? 'center' : 'left' });
+      doc.text(col, curX + 4, y + 6, { width: wList[i] - 8, align: i >= 3 ? 'center' : 'left' });
       curX += wList[i];
     });
-    y += 18;
+    y += 20;
 
     dateWise.rows.forEach((r, idx) => {
+      if (y + 16 > pageHeight - margin - 20) {
+        doc.addPage({ margin, size: 'A4', layout: 'landscape' });
+        y = margin;
+      }
       const rowBg = idx % 2 === 0 ? '#f8fafc' : '#ffffff';
-      doc.rect(margin, y, totalW, 16).fill(rowBg).stroke('#f1f5f9');
-      doc.fillColor('#1e293b').font('Helvetica').fontSize(8);
+      doc.rect(margin, y, totalW, 16).fill(rowBg);
+      doc.rect(margin, y + 15.5, totalW, 0.5).fill('#e2e8f0');
+
+      doc.fillColor('#1e293b').font('Helvetica').fontSize(7.5);
       let cx = margin;
       doc.text(r.formattedDate, cx + 4, y + 4, { width: wList[0] - 8 }); cx += wList[0];
       doc.text(r.subject, cx + 4, y + 4, { width: wList[1] - 8 }); cx += wList[1];
       doc.text(r.period, cx + 4, y + 4, { width: wList[2] - 8 }); cx += wList[2];
-      doc.fillColor('#16a34a').text(String(r.present), cx + 4, y + 4, { width: wList[3] - 8, align: 'center' }); cx += wList[3];
+      doc.fillColor('#059669').font('Helvetica-Bold').text(String(r.present), cx + 4, y + 4, { width: wList[3] - 8, align: 'center' }); cx += wList[3];
       doc.fillColor('#dc2626').text(String(r.absent), cx + 4, y + 4, { width: wList[4] - 8, align: 'center' }); cx += wList[4];
-      doc.fillColor('#1e293b').text(String(r.total), cx + 4, y + 4, { width: wList[5] - 8, align: 'center' }); cx += wList[5];
-      doc.font('Helvetica-Bold').fillColor('#0284c7').text(r.percentage, cx + 4, y + 4, { width: wList[6] - 8, align: 'center' });
+      doc.fillColor('#64748b').font('Helvetica').text(String(r.total), cx + 4, y + 4, { width: wList[5] - 8, align: 'center' }); cx += wList[5];
+      doc.font('Helvetica-Bold').fillColor('#001f54').text(r.percentage, cx + 4, y + 4, { width: wList[6] - 8, align: 'center' });
       y += 16;
     });
 
   } else {
-    // Daily Grid Table (Default)
+    // Daily Grid Fallback
     doc.fillColor('#0f172a').font('Helvetica-Bold').fontSize(11).text('Daily Attendance Records', margin, y);
     y += 16;
 
-    const idColW = 70;
-    const nameColW = 120;
-    const statColW = 40; // Present, Absent, %
-    const fixedW = idColW + nameColW + (statColW * 3);
-    const dateColW = dailyGrid.columns.length > 0 ? Math.min(48, Math.max(26, (contentWidth - fixedW) / dailyGrid.columns.length)) : 30;
-    const totalTableW = idColW + nameColW + (dailyGrid.columns.length * dateColW) + (statColW * 3);
+    const idColW = 60;
+    const nameColW = 95;
+    const statPColW = 24;
+    const statAColW = 24;
+    const statTColW = 24;
+    const statPctColW = 32;
+    const summaryW = statPColW + statAColW + statTColW + statPctColW;
 
-    // Header
-    doc.rect(margin, y, totalTableW, 18).fill('#0f172a');
-    doc.fillColor('#ffffff').font('Helvetica-Bold').fontSize(7.5);
-    doc.text('Student ID', margin + 4, y + 5, { width: idColW - 6 });
-    doc.text('Student Name', margin + idColW, y + 5, { width: nameColW - 6 });
+    const totalSessions = dailyGrid.columns.length;
+    const MAX_COLS_PER_PAGE = 24;
+    const columnChunks = [];
+    if (totalSessions <= MAX_COLS_PER_PAGE) {
+      columnChunks.push(dailyGrid.columns);
+    } else {
+      for (let i = 0; i < totalSessions; i += MAX_COLS_PER_PAGE) {
+        columnChunks.push(dailyGrid.columns.slice(i, i + MAX_COLS_PER_PAGE));
+      }
+    }
 
-    dailyGrid.columns.forEach((col, i) => {
-      doc.text(col.label, margin + idColW + nameColW + (i * dateColW), y + 5, { width: dateColW, align: 'center' });
-    });
+    columnChunks.forEach((chunkCols, chunkIdx) => {
+      const isFirstChunk = chunkIdx === 0;
+      const isLastChunk = chunkIdx === columnChunks.length - 1;
 
-    const statStartX = margin + idColW + nameColW + (dailyGrid.columns.length * dateColW);
-    doc.text('Pres', statStartX, y + 5, { width: statColW, align: 'center' });
-    doc.text('Abs', statStartX + statColW, y + 5, { width: statColW, align: 'center' });
-    doc.text('%', statStartX + (statColW * 2), y + 5, { width: statColW, align: 'center' });
-    y += 18;
-
-    dailyGrid.rows.forEach((r, idx) => {
-      // Auto page break if needed
-      if (y + 20 > pageHeight - margin) {
-        doc.addPage({ margin, size: 'A4', layout: isLandscape ? 'landscape' : 'portrait' });
+      if (!isFirstChunk) {
+        doc.addPage({ margin, size: 'A4', layout: 'landscape' });
         y = margin;
+        doc.fillColor('#0f172a').font('Helvetica-Bold').fontSize(11)
+           .text(`Daily Attendance Records (Part ${chunkIdx + 1} of ${columnChunks.length})`, margin, y);
+        y += 16;
       }
 
-      const rowBg = idx % 2 === 0 ? '#f8fafc' : '#ffffff';
-      doc.rect(margin, y, totalTableW, 16).fill(rowBg).stroke('#f1f5f9');
-      doc.fillColor('#1e293b').font('Helvetica').fontSize(7);
-      doc.text(r.studentId, margin + 4, y + 4, { width: idColW - 6 });
-      doc.font('Helvetica-Bold').text(r.name, margin + idColW, y + 4, { width: nameColW - 6 });
+      const hasSummary = isLastChunk;
+      const fixedW = idColW + nameColW + (hasSummary ? summaryW : 0);
+      const remainingForDates = contentWidth - fixedW;
+      const dateColW = chunkCols.length > 0 ? Math.min(48, Math.max(18, remainingForDates / chunkCols.length)) : 24;
+      const tableW = idColW + nameColW + (chunkCols.length * dateColW) + (hasSummary ? summaryW : 0);
 
-      dailyGrid.columns.forEach((col, i) => {
-        const val = r.attendance[col.key] || '-';
-        const cx = margin + idColW + nameColW + (i * dateColW);
-        if (val === 'P') {
-          doc.fillColor('#16a34a').font('Helvetica-Bold').text('P', cx, y + 4, { width: dateColW, align: 'center' });
-        } else if (val === 'A') {
-          doc.fillColor('#dc2626').font('Helvetica-Bold').text('A', cx, y + 4, { width: dateColW, align: 'center' });
-        } else {
-          doc.fillColor('#94a3b8').font('Helvetica').text('-', cx, y + 4, { width: dateColW, align: 'center' });
+      const headerHeight = 24;
+      const rowHeight = 15;
+
+      const drawHeader = (curY) => {
+        doc.rect(margin, curY, tableW, headerHeight).fill('#0f172a');
+        doc.fillColor('#ffffff').font('Helvetica-Bold').fontSize(7);
+        doc.text('Student ID', margin + 3, curY + 8, { width: idColW - 6 });
+        doc.text('Student Name', margin + idColW, curY + 8, { width: nameColW - 6 });
+
+        chunkCols.forEach((col, i) => {
+          const cx = margin + idColW + nameColW + (i * dateColW);
+          const hdr = getPdfDateHeader(col, dateColW);
+          doc.fillColor('#ffffff').font('Helvetica-Bold').fontSize(6);
+          doc.text(hdr.line1, cx, curY + 4, { width: dateColW, align: 'center' });
+          if (hdr.line2) {
+            doc.fillColor('#93c5fd').font('Helvetica-Bold').fontSize(5.5);
+            doc.text(hdr.line2, cx, curY + 13, { width: dateColW, align: 'center' });
+          }
+        });
+
+        if (hasSummary) {
+          const sX = margin + idColW + nameColW + (chunkCols.length * dateColW);
+          doc.fillColor('#4ade80').font('Helvetica-Bold').fontSize(6.5).text('Pres', sX, curY + 8, { width: statPColW, align: 'center' });
+          doc.fillColor('#f87171').font('Helvetica-Bold').fontSize(6.5).text('Abs', sX + statPColW, curY + 8, { width: statAColW, align: 'center' });
+          doc.fillColor('#cbd5e1').font('Helvetica-Bold').fontSize(6.5).text('Tot', sX + statPColW + statAColW, curY + 8, { width: statTColW, align: 'center' });
+          doc.fillColor('#38bdf8').font('Helvetica-Bold').fontSize(6.5).text('%', sX + statPColW + statAColW + statTColW, curY + 8, { width: statPctColW, align: 'center' });
         }
+      };
+
+      drawHeader(y);
+      y += headerHeight;
+
+      dailyGrid.rows.forEach((r, idx) => {
+        if (y + rowHeight > pageHeight - margin - 20) {
+          doc.addPage({ margin, size: 'A4', layout: 'landscape' });
+          y = margin;
+          drawHeader(y);
+          y += headerHeight;
+        }
+
+        const rowBg = idx % 2 === 0 ? '#f8fafc' : '#ffffff';
+        doc.rect(margin, y, tableW, rowHeight).fill(rowBg);
+        doc.rect(margin, y + rowHeight - 0.5, tableW, 0.5).fill('#e2e8f0');
+
+        doc.fillColor('#1e293b').font('Helvetica').fontSize(6.5);
+        doc.text(r.studentId, margin + 3, y + 4, { width: idColW - 6 });
+        doc.font('Helvetica-Bold').text(r.name, margin + idColW, y + 4, { width: nameColW - 6 });
+
+        chunkCols.forEach((col, i) => {
+          const val = r.attendance[col.key] || '-';
+          const cx = margin + idColW + nameColW + (i * dateColW);
+          if (val === 'P') {
+            doc.fillColor('#059669').font('Helvetica-Bold').fontSize(7).text('P', cx, y + 4, { width: dateColW, align: 'center' });
+          } else if (val === 'A') {
+            doc.fillColor('#dc2626').font('Helvetica-Bold').fontSize(7).text('A', cx, y + 4, { width: dateColW, align: 'center' });
+          } else {
+            doc.fillColor('#cbd5e1').font('Helvetica').fontSize(6.5).text('—', cx, y + 4, { width: dateColW, align: 'center' });
+          }
+        });
+
+        if (hasSummary) {
+          const sX = margin + idColW + nameColW + (chunkCols.length * dateColW);
+          doc.font('Helvetica-Bold').fontSize(6.5);
+          doc.fillColor('#059669').text(String(r.presentCount), sX, y + 4, { width: statPColW, align: 'center' });
+          doc.fillColor('#dc2626').text(String(r.absentCount), sX + statPColW, y + 4, { width: statAColW, align: 'center' });
+          doc.fillColor('#64748b').text(String(r.totalMarked), sX + statPColW + statAColW, y + 4, { width: statTColW, align: 'center' });
+          doc.fillColor('#001f54').text(r.percentage, sX + statPColW + statAColW + statTColW, y + 4, { width: statPctColW, align: 'center' });
+        }
+
+        y += rowHeight;
       });
-
-      doc.font('Helvetica-Bold').fillColor('#16a34a').text(String(r.presentCount), statStartX, y + 4, { width: statColW, align: 'center' });
-      doc.fillColor('#dc2626').text(String(r.absentCount), statStartX + statColW, y + 4, { width: statColW, align: 'center' });
-      doc.fillColor('#0284c7').text(r.percentage, statStartX + (statColW * 2), y + 4, { width: statColW, align: 'center' });
-
-      y += 16;
     });
   }
 
   // ── FOOTER ──
-  doc.fontSize(7).fillColor('#94a3b8').font('Helvetica')
-     .text(`EduConnect Attendance System • Generated on ${new Date().toLocaleString('en-IN')}`, margin, pageHeight - margin + 10, { width: contentWidth, align: 'center' });
+  doc.fontSize(7).fillColor('#64748b').font('Helvetica')
+     .text(`EduConnect Attendance System • Institutional Report Export • Generated on ${new Date().toLocaleString('en-IN')}`, margin, pageHeight - margin + 8, { width: contentWidth, align: 'center' });
 
   doc.end();
 }
 
 /**
  * Generate standard CSV string with UTF-8 BOM
+ * Formats matching institutional multi-subject attendance layout
  */
 function generateCsvReport(reportData) {
-  const { meta, summary, dailyGrid, subjectWise, dateWise } = reportData;
+  const { meta, summary, subjectWise } = reportData;
+  const subjects = subjectWise.subjects || [];
+  const conductedMap = subjectWise.conductedMap || {};
   const lines = [];
 
-  // Helper to escape CSV values
   function esc(val) {
     if (val === undefined || val === null) return '""';
     const s = String(val).replace(/"/g, '""');
     return `"${s}"`;
   }
 
-  // Header metadata
+  // Header Metadata block
   lines.push([esc('EduConnect Attendance Report')].join(','));
-  lines.push([esc('Class:'), esc(meta.class), esc('Section:'), esc(meta.section), esc('Subject:'), esc(meta.subject)].join(','));
-  lines.push([esc('Period:'), esc(meta.period), esc('Date Range:'), esc(meta.dateRange), esc('Generated Date:'), esc(meta.generatedDate)].join(','));
-  lines.push([]);
-  lines.push([
-    esc('Total Students:'), esc(summary.totalStudents),
-    esc('Classes Conducted:'), esc(summary.totalClassesConducted),
-    esc('Total Present:'), esc(summary.totalPresent),
-    esc('Total Absent:'), esc(summary.totalAbsent),
-    esc('Overall Attendance:'), esc(summary.overallPercentage)
-  ].join(','));
+  lines.push([esc('Class:'), esc(meta.class), esc('Section:'), esc(meta.section), esc('Date Range:'), esc(meta.dateRange)].join(','));
   lines.push([]);
 
-  if (meta.viewMode === 'subject' && subjectWise.subjects.length > 0) {
-    // Subject-Wise Mode
-    const headers = ['#', 'Student ID', 'Student Name'];
-    subjectWise.subjects.forEach(s => headers.push(`${s} %`));
-    headers.push('Overall %');
-    lines.push(headers.map(esc).join(','));
+  // ── Row 1: Subject Code ──
+  const r1 = [esc('Subject Code'), '', ''];
+  subjects.forEach(s => {
+    r1.push(esc(s), '');
+  });
+  r1.push(esc('Att Avg'));
+  lines.push(r1.join(','));
 
-    subjectWise.rows.forEach(r => {
-      const row = [r.index, r.studentId, r.name];
-      subjectWise.subjects.forEach(s => row.push(r.subjects[s]?.percentage || '-'));
-      row.push(r.overallPercentage);
-      lines.push(row.map(esc).join(','));
+  // ── Row 2: No. of Classes Taken ──
+  const r2 = [esc('No. of Classes Taken'), '', ''];
+  subjects.forEach(s => {
+    r2.push(esc(conductedMap[s] != null ? conductedMap[s] : 0), '');
+  });
+  r2.push('');
+  lines.push(r2.join(','));
+
+  // ── Row 3: Column Sub-Headers ──
+  const r3 = [esc('S. No.'), esc('USN'), esc('Name of the Student')];
+  subjects.forEach(() => {
+    r3.push(esc('Attended'), esc('Att %'));
+  });
+  r3.push(esc('Att Avg'));
+  lines.push(r3.join(','));
+
+  // ── Data Rows ──
+  subjectWise.rows.forEach((r, idx) => {
+    const row = [
+      esc(idx + 1),
+      esc(r.usn || r.studentId),
+      esc(r.name)
+    ];
+    subjects.forEach(s => {
+      const sInfo = r.subjects && r.subjects[s];
+      row.push(esc(sInfo ? sInfo.present : 0));
+      row.push(esc(sInfo && sInfo.pctFormatted !== '-' ? sInfo.pctFormatted : '-'));
     });
-
-  } else if (meta.viewMode === 'date' && dateWise.rows.length > 0) {
-    // Date-Wise Mode
-    lines.push(['#', 'Date', 'Subject', 'Period', 'Present', 'Absent', 'Total', 'Attendance %'].map(esc).join(','));
-    dateWise.rows.forEach(r => {
-      lines.push([r.index, r.formattedDate, r.subject, r.period, r.present, r.absent, r.total, r.percentage].map(esc).join(','));
-    });
-
-  } else {
-    // Daily Grid Mode
-    const headers = ['#', 'Student ID', 'Student Name'];
-    dailyGrid.columns.forEach(c => headers.push(c.label));
-    headers.push('Present', 'Absent', 'Total Classes', 'Attendance %');
-    lines.push(headers.map(esc).join(','));
-
-    dailyGrid.rows.forEach(r => {
-      const row = [r.index, r.studentId, r.name];
-      dailyGrid.columns.forEach(c => row.push(r.attendance[c.key] || '-'));
-      row.push(r.presentCount, r.absentCount, r.totalMarked, r.percentage);
-      lines.push(row.map(esc).join(','));
-    });
-  }
+    row.push(esc(r.attAvg != null ? r.attAvg : 0));
+    lines.push(row.join(','));
+  });
 
   // Prepend UTF-8 BOM for Excel compatibility
   return '\uFEFF' + lines.join('\r\n');
