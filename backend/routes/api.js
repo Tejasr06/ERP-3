@@ -361,7 +361,7 @@ router.post('/attendance', auth, adminOnly, async (req, res) => {
 
 // POST /api/attendance/finalize — finalize face recognition attendance session
 router.post('/attendance/finalize', auth, adminOnly, async (req, res) => {
-  const { date, period, subject, presentStudentIds, confirm } = req.body;
+  const { date, period, subject, presentStudentIds, absentStudentIds: reqAbsentStudentIds, confirm } = req.body;
   const className = req.body.class || req.body.className;
   const section = req.body.section;
 
@@ -411,12 +411,18 @@ router.post('/attendance/finalize', auth, adminOnly, async (req, res) => {
     presentStudentIds.forEach(id => {
       if (id) presentSet.add(String(id).trim());
     });
+  } else {
+    existingRecords.forEach(r => {
+      if (r.status === 'Present') {
+        presentSet.add(String(r.studentId).trim());
+      }
+    });
   }
-  existingRecords.forEach(r => {
-    if (r.status === 'Present') {
-      presentSet.add(String(r.studentId).trim());
-    }
-  });
+  if (Array.isArray(reqAbsentStudentIds)) {
+    reqAbsentStudentIds.forEach(id => {
+      if (id) presentSet.delete(String(id).trim());
+    });
+  }
 
   // 4. Build bulk operations for each student in the roster
   const markedBy = req.body.markedBy || req.user.email || req.user.name || 'Face Recognition';
