@@ -26,12 +26,18 @@ function autoUpdateOverdue(fees) {
 
 function normalizeFeeBalance(fee) {
   const paid = fee.amountPaid || 0;
-  const isPaid = String(fee.status || '').toLowerCase() === 'paid';
+  const isPaid = String(fee.status || '').toLowerCase() === 'paid' && paid >= fee.amount;
   if (isPaid) {
     fee.balance = 0;
   } else {
     const owed = Math.max(0, fee.amount - paid);
-    fee.balance = (fee.balance != null && fee.balance > 0) ? fee.balance : owed;
+    fee.balance = owed;
+    if (paid > 0 && owed > 0) {
+      fee.status = 'Partially Paid';
+    } else if (owed <= 0 && fee.amount > 0) {
+      fee.status = 'Paid';
+      fee.balance = 0;
+    }
   }
   return fee;
 }
@@ -52,6 +58,7 @@ router.get('/fees/my-fees', auth, async (req, res) => {
     // Auto-mark overdue
     const now = new Date();
     for (const fee of fees) {
+      normalizeFeeBalance(fee);
       if (fee.status !== 'Paid' && fee.dueDate && new Date(fee.dueDate) < now && fee.status !== 'Overdue') {
         fee.status = 'Overdue';
         await fee.save();
@@ -105,28 +112,46 @@ router.get('/fees/receipt/:receiptId', auth, async (req, res) => {
 // POST /api/fees/create-order — Create Razorpay order
 router.post('/fees/create-order', auth, async (req, res) => {
   try {
-    const { feeId } = req.body;
+    const { feeId, amount: requestedAmount } = req.body;
     if (!feeId) return res.status(400).json({ error: 'Fee ID required.' });
 
     const fee = await Fee.findById(feeId);
     if (!fee) return res.status(404).json({ error: 'Fee not found.' });
 
-    if (req.user.role === 'parent' && req.user.studentId !== fee.studentId) {
+    if (req.user.role === 'parent' && req.user.studentId && fee.studentId && req.user.studentId !== fee.studentId) {
       return res.status(403).json({ error: 'Access denied.' });
     }
 
-    if (String(fee.status || '').toLowerCase() === 'paid') return res.status(400).json({ error: 'Fee is already paid.' });
-
     normalizeFeeBalance(fee);
-    const amount = fee.balance;
+
+    if (fee.balance <= 0 && fee.amountPaid >= fee.amount) {
+      return res.status(400).json({ error: 'Fee is already fully paid.' });
+    }
+
+    let amount = fee.balance;
+    if (requestedAmount && !isNaN(requestedAmount) && Number(requestedAmount) > 0) {
+      amount = Math.min(Number(requestedAmount), fee.balance);
+    }
+
     if (amount <= 0) return res.status(400).json({ error: 'No balance due on this fee.' });
+
+    const keyId = process.env.RAZORPAY_KEY_ID || '';
+    if (!keyId || !process.env.RAZORPAY_KEY_SECRET) {
+      return res.status(500).json({ error: 'Razorpay keys are not configured on the server.' });
+    }
 
     const order  = await createOrder(amount, `FEE_${feeId}`, `Fee Payment — ${fee.term}`);
 
-    res.json({ orderId: order.id, amount: order.amount / 100, currency: order.currency, feeId });
+    res.json({
+      orderId: order.id,
+      amount: order.amount / 100,
+      currency: order.currency,
+      feeId,
+      key: keyId
+    });
   } catch (err) {
     console.error('create-order error:', err);
-    res.status(500).json({ error: 'Failed to create payment order.' });
+    res.status(500).json({ error: err.message || 'Failed to create payment order.' });
   }
 });
 
@@ -143,13 +168,27 @@ router.post('/fees/verify-payment', auth, async (req, res) => {
     const valid = verifyPaymentSignature(razorpayOrderId, razorpayPaymentId, razorpaySignature);
     if (!valid) return res.status(400).json({ error: 'Invalid payment signature. Possible fraud.' });
 
-    // 2. Fetch payment amount from Razorpay
-    const rpPayment = await getPaymentDetails(razorpayPaymentId);
-    const amount    = rpPayment.amount / 100;
+    // 2. Fetch payment amount from Razorpay (with fallback)
+    let amount = 0;
+    try {
+      const rpPayment = await getPaymentDetails(razorpayPaymentId);
+      if (rpPayment && rpPayment.amount) {
+        amount = rpPayment.amount / 100;
+      }
+    } catch (rpErr) {
+      console.warn('Could not fetch payment details from Razorpay API, using order fallback:', rpErr.message);
+    }
 
     // 3. Update fee record
     const fee = await Fee.findById(feeId);
     if (!fee) return res.status(404).json({ error: 'Fee record not found.' });
+
+    normalizeFeeBalance(fee);
+
+    // If amount was not fetched from Razorpay API, fallback to fee balance
+    if (!amount || isNaN(amount) || amount <= 0) {
+      amount = fee.balance || fee.amount;
+    }
 
     fee.amountPaid = (fee.amountPaid || 0) + amount;
     fee.balance    = Math.max(0, fee.amount - fee.amountPaid);
@@ -165,6 +204,7 @@ router.post('/fees/verify-payment', auth, async (req, res) => {
     const method = allowedMethods.includes(paymentMethod) ? paymentMethod : 'Card';
 
     const transactionId = `TXN_${Date.now()}`;
+    const userEmail = req.user?.email || student?.parentEmail || 'parent@school.edu';
     const payment = await Payment.create({
       studentId:         fee.studentId,
       feeId:             feeId,
@@ -176,7 +216,7 @@ router.post('/fees/verify-payment', auth, async (req, res) => {
       status:            'success',
       transactionId,
       paymentDate:       new Date(),
-      email:             req.user.email,
+      email:             userEmail,
       notes:             `Payment for ${fee.term} fees`,
     });
 
@@ -212,7 +252,8 @@ router.post('/fees/verify-payment', auth, async (req, res) => {
 
     // 7. Send email to parent
     try {
-      await sendMailToParentWithOptions(student?.parentEmail || req.user.email, {
+      const targetEmail = student?.parentEmail || userEmail;
+      await sendMailToParentWithOptions(targetEmail, {
         subject:        'Fee Payment Successful — EduConnect',
         studentName:    student?.name || 'Student',
         parentName:     student?.parentName || 'Parent',
@@ -227,13 +268,26 @@ router.post('/fees/verify-payment', auth, async (req, res) => {
     }
 
     // 8. Create in-app notification
-    await Notification.create({
-      targetEmail: req.user.email,
-      type:        'success',
-      title:       'Payment Successful ✅',
-      message:     `₹${amount.toFixed(2)} received for ${fee.term} fees. TXN: ${transactionId}`,
-      sentEmail:   true,
-    });
+    try {
+      await Notification.create({
+        targetEmail: userEmail,
+        type:        'success',
+        title:       'Payment Successful ✅',
+        message:     `₹${amount.toFixed(2)} received for ${fee.term} fees. TXN: ${transactionId}`,
+        sentEmail:   true,
+      });
+      if (student?.parentEmail && student.parentEmail !== userEmail) {
+        await Notification.create({
+          targetEmail: student.parentEmail,
+          type:        'success',
+          title:       'Payment Successful ✅',
+          message:     `₹${amount.toFixed(2)} received for ${fee.term} fees. TXN: ${transactionId}`,
+          sentEmail:   true,
+        });
+      }
+    } catch (notifErr) {
+      console.error('Notification creation failed:', notifErr.message);
+    }
 
     res.json({
       success:       true,
@@ -257,6 +311,33 @@ router.post('/fees/verify-payment', auth, async (req, res) => {
 router.get('/razorpay/key', (_req, res) => {
   res.json({ key: process.env.RAZORPAY_KEY_ID || '' });
 });
+
+// GET /api/fees/:studentId — View fees for a student
+router.get('/fees/:studentId', auth, async (req, res) => {
+  try {
+    const reserved = ['payment-history', 'my-fees', 'statistics', 'structures', 'track-payments', 'transactions', 'report', 'razorpay'];
+    if (reserved.includes(req.params.studentId)) {
+      return res.status(404).json({ error: 'Route not found.' });
+    }
+    if (req.user.role === 'parent' && req.user.studentId && req.user.studentId !== req.params.studentId) {
+      return res.status(403).json({ error: 'Access denied.' });
+    }
+
+    const feesRaw = await Fee.find({ studentId: req.params.studentId }).populate('feeStructureId').sort({ dueDate: 1 });
+    const fees = feesRaw.map(f => normalizeFeeBalance(f.toObject ? f.toObject() : f));
+    const totalDue = fees.reduce((s, f) => s + (f.balance || 0), 0);
+
+    const payments = await Payment.find({ studentId: req.params.studentId, status: 'success' })
+      .populate('feeId')
+      .sort({ paymentDate: -1 });
+
+    res.json({ fees, totalDue, payments });
+  } catch (err) {
+    console.error('student fees error:', err);
+    res.status(500).json({ error: 'Failed to fetch student fees.' });
+  }
+});
+
 
 // ═══════════════════════════════════════════════════════════════
 // ADMIN SIDE

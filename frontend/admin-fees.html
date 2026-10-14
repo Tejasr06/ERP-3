@@ -441,8 +441,8 @@
 </div>
 
 <script>
-const API = 'http://localhost:3000/api';
-const token = localStorage.getItem('token');
+const API = '/api';
+const token = sessionStorage.getItem('token') || localStorage.getItem('token');
 if (!token) window.location.href = '/';
 
 let allTrackingRows = [];

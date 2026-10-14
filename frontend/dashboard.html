@@ -11,6 +11,7 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="/socket.io/socket.io.js"></script>
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;}
 :root{
@@ -2182,20 +2183,33 @@ async function processPayment() {
   }
 
   try {
+    if (typeof Razorpay === 'undefined') {
+      throw new Error('Razorpay payment gateway failed to load. Please check your internet connection.');
+    }
+
     // Create order on server
-    const orderRes = await req('POST', '/api/fees/create-order', { feeId: __payFeeId });
+    const orderRes = await req('POST', '/api/fees/create-order', { feeId: __payFeeId, amount: val });
 
     // Get Razorpay key
-    const keyRes = await req('GET', '/api/razorpay/key');
-    const rzpKey = keyRes.key;
+    let rzpKey = orderRes.key;
+    if (!rzpKey) {
+      const keyRes = await req('GET', '/api/razorpay/key');
+      rzpKey = keyRes.key;
+    }
+    if (!rzpKey) throw new Error('Razorpay public key is missing.');
 
     const options = {
       key: rzpKey,
       amount: Math.round((orderRes.amount || 0) * 100), // in paise
       currency: orderRes.currency || 'INR',
-      name: document.title || 'School',
+      name: document.title || 'EduConnect School',
       description: `Payment for ${__payTerm}`,
       order_id: orderRes.orderId,
+      prefill: {
+        name: STUDENT?.name || USER?.name || '',
+        email: USER?.email || STUDENT?.parentEmail || '',
+        contact: STUDENT?.parentPhone || ''
+      },
       handler: async function (response) {
         try {
           const verify = await req('POST', '/api/fees/verify-payment', {
@@ -2218,6 +2232,9 @@ async function processPayment() {
     };
 
     const rzp = new Razorpay(options);
+    rzp.on('payment.failed', function(resp) {
+      alert('Payment failed: ' + (resp.error?.description || 'Transaction declined.'));
+    });
     rzp.open();
   } catch (e) { console.error(e); alert(e.message || 'Payment failed to initialize.'); }
 }
@@ -2527,6 +2544,5 @@ function getDistanceBetween(lat1, lon1, lat2, lon2) {
 
 setup();
 </script>
-<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 </body>
 </html>

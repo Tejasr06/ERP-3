@@ -814,12 +814,14 @@ router.get('/fees/:studentId', auth, async (req, res) => {
   const fees = feesRaw.map(f => {
     const obj = f.toObject ? f.toObject() : f;
     const paid = obj.amountPaid || 0;
-    const isPaid = String(obj.status || '').toLowerCase() === 'paid';
+    const isPaid = String(obj.status || '').toLowerCase() === 'paid' && paid >= obj.amount;
     if (isPaid) {
       obj.balance = 0;
     } else {
       const owed = Math.max(0, obj.amount - paid);
-      obj.balance = (obj.balance != null && obj.balance > 0) ? obj.balance : owed;
+      obj.balance = owed;
+      if (paid > 0 && owed > 0) obj.status = 'Partially Paid';
+      else if (owed <= 0 && obj.amount > 0) obj.status = 'Paid';
     }
     return obj;
   });

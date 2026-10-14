@@ -216,6 +216,8 @@ const eventRegistrationSchema = new mongoose.Schema({
   section:      { type: String, default: '' },
   registeredAt: { type: Date, default: Date.now },
 }, { timestamps: true });
+eventRegistrationSchema.index({ eventId: 1, studentId: 1 }, { unique: true });
+
 
 const busRouteSchema = new mongoose.Schema({
   routeName:       { type: String, required: true },
