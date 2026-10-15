@@ -4887,6 +4887,11 @@ async function submitFee() {
   try {
     await req('POST','/api/fees',{studentId,term,amount,dueDate,paidDate,status});
     toast('✅ Fee record saved!','ok');
+    const viewFeeStudentEl = document.getElementById('viewFeeStudent');
+    if (viewFeeStudentEl) {
+      viewFeeStudentEl.value = studentId;
+      viewStudentFees();
+    }
   } catch(e) { toast(e.message,'err'); }
 }
 
@@ -4898,9 +4903,10 @@ async function viewStudentFees() {
     const d = await req('GET',`/api/fees/${sid}`);
     setHtml('feeView', d.fees.length ? d.fees.map(f=>{
       const cls=f.status==='Paid'?'s-paid':f.status==='Due'?'s-due':'s-overdue';
+      const formattedDue = f.dueDate ? (typeof f.dueDate === 'string' && f.dueDate.length === 10 ? f.dueDate : new Date(f.dueDate).toLocaleDateString('en-IN')) : '—';
       return `<div style="padding:12px;border:1px solid var(--border);border-radius:9px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
-        <div><div style="font-size:.83rem;font-weight:500">${f.term}</div><div style="font-size:.73rem;color:var(--muted)">Due: ${f.dueDate||'—'}</div></div>
-        <div style="text-align:right"><div style="font-family:var(--font-display);font-size:1.2rem">₹${f.amount.toLocaleString('en-IN')}</div><span class="badge-s ${cls}">${f.status}</span></div>
+        <div><div style="font-size:.83rem;font-weight:500">${f.term}</div><div style="font-size:.73rem;color:var(--muted)">Due: ${formattedDue}</div></div>
+        <div style="text-align:right"><div style="font-family:var(--font-display);font-size:1.2rem">₹${(f.amount || 0).toLocaleString('en-IN')}</div><span class="badge-s ${cls}">${f.status}</span></div>
       </div>`;
     }).join('') + (d.totalDue?`<div style="padding:10px 12px;background:rgba(248,113,113,.07);border:1px solid rgba(248,113,113,.2);border-radius:9px;font-size:.82rem;color:var(--coral)">Total Pending: ₹${d.totalDue.toLocaleString('en-IN')}</div>`:'') : '<div style="color:var(--muted);font-size:.82rem;">No fee records.</div>');
   } catch(e) { toast(e.message,'err'); }
