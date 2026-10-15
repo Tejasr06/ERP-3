@@ -1151,8 +1151,6 @@ router.get('/attendance/subject-wise/:studentId', auth, async (req, res) => {
   });
 });
 
-module.exports = router;
-
 
 // POST /api/fees/add — admin adds/updates fee record
 router.post('/fees/add', auth, adminOnly, async (req, res) => {
@@ -1258,3 +1256,6 @@ router.post('/fees/pay', auth, async (req, res) => {
 
   res.json({ message: 'Payment recorded.', fee });
 });
+
+module.exports = router;
+

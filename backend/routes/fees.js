@@ -313,11 +313,11 @@ router.get('/razorpay/key', (_req, res) => {
 });
 
 // GET /api/fees/:studentId — View fees for a student
-router.get('/fees/:studentId', auth, async (req, res) => {
+router.get('/fees/:studentId', auth, async (req, res, next) => {
   try {
-    const reserved = ['payment-history', 'my-fees', 'statistics', 'structures', 'track-payments', 'transactions', 'report', 'razorpay'];
+    const reserved = ['payment-history', 'my-fees', 'statistics', 'structures', 'track-payments', 'transactions', 'report', 'razorpay', 'add', 'pay'];
     if (reserved.includes(req.params.studentId)) {
-      return res.status(404).json({ error: 'Route not found.' });
+      return next();
     }
     if (req.user.role === 'parent' && req.user.studentId && req.user.studentId !== req.params.studentId) {
       return res.status(403).json({ error: 'Access denied.' });
@@ -337,6 +337,124 @@ router.get('/fees/:studentId', auth, async (req, res) => {
     res.status(500).json({ error: 'Failed to fetch student fees.' });
   }
 });
+
+// POST /api/fees & POST /api/fees/add — Admin adds/updates individual fee record
+const saveFeeRecord = async (req, res) => {
+  try {
+    const { studentId, term, amount, dueDate, paidDate, status } = req.body;
+    if (!studentId || !term || amount == null || isNaN(Number(amount))) {
+      return res.status(400).json({ error: 'Student ID, term, and valid amount are required.' });
+    }
+
+    const numAmount = Number(amount);
+    let stat = status || 'Due';
+    let amtPaid = 0;
+    let bal = numAmount;
+    let pDate = paidDate ? new Date(paidDate) : null;
+    let dDate = dueDate ? new Date(dueDate) : null;
+
+    if (stat === 'Paid') {
+      amtPaid = numAmount;
+      bal = 0;
+      if (!pDate) pDate = new Date();
+    } else if (stat === 'Partially Paid') {
+      amtPaid = Math.min(numAmount, Number(req.body.amountPaid) || 0);
+      bal = Math.max(0, numAmount - amtPaid);
+    } else {
+      // Due, Overdue, or Pending
+      if (dDate && dDate < new Date() && stat === 'Due') {
+        stat = 'Overdue';
+      }
+      amtPaid = 0;
+      bal = numAmount;
+    }
+
+    const cleanSid = String(studentId).trim();
+    const cleanTerm = String(term).trim();
+    const existing = await Fee.findOne({ studentId: cleanSid, term: cleanTerm });
+    let fee;
+    if (existing) {
+      existing.amount = numAmount;
+      if (dDate) existing.dueDate = dDate;
+      if (pDate) existing.paidDate = pDate;
+      existing.status = stat;
+      existing.amountPaid = amtPaid;
+      existing.balance = bal;
+      if (req.body.feeStructureId) existing.feeStructureId = req.body.feeStructureId;
+      await existing.save();
+      fee = existing;
+    } else {
+      fee = await Fee.create({
+        studentId: cleanSid,
+        term: cleanTerm,
+        feeStructureId: req.body.feeStructureId || undefined,
+        amount: numAmount,
+        amountPaid: amtPaid,
+        balance: bal,
+        dueDate: dDate,
+        paidDate: pDate,
+        status: stat,
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Fee record saved.',
+      fee,
+    });
+  } catch (err) {
+    console.error('save fee error:', err);
+    res.status(500).json({ error: err.message || 'Failed to save fee record.' });
+  }
+};
+
+router.post('/fees', auth, adminOnly, saveFeeRecord);
+router.post('/fees/add', auth, adminOnly, saveFeeRecord);
+
+// POST /api/fees/pay — Record manual payment (admin or parent)
+router.post('/fees/pay', auth, async (req, res) => {
+  try {
+    const { studentId, term, amount: paidAmount, paymentMethod } = req.body;
+    if (!studentId || !term || paidAmount == null || isNaN(Number(paidAmount))) {
+      return res.status(400).json({ error: 'studentId, term, amount required.' });
+    }
+
+    if (req.user.role === 'parent' && req.user.studentId && req.user.studentId !== studentId) {
+      return res.status(403).json({ error: 'Access denied.' });
+    }
+
+    const fee = await Fee.findOne({ studentId: String(studentId).trim(), term: String(term).trim() });
+    if (!fee) return res.status(404).json({ error: 'Fee record not found.' });
+
+    normalizeFeeBalance(fee);
+    const payVal = Number(paidAmount);
+    fee.amountPaid = (fee.amountPaid || 0) + payVal;
+    fee.balance = Math.max(0, fee.amount - fee.amountPaid);
+    fee.status = fee.balance <= 0 ? 'Paid' : 'Partially Paid';
+    if (fee.status === 'Paid') fee.paidDate = new Date();
+    await fee.save();
+
+    const transactionId = `TXN_${Date.now()}`;
+    const userEmail = req.user?.email || 'parent@school.edu';
+    await Payment.create({
+      studentId: fee.studentId,
+      feeId: fee._id,
+      amount: payVal,
+      paymentMethod: paymentMethod || 'Manual',
+      status: 'success',
+      transactionId,
+      paymentDate: new Date(),
+      email: userEmail,
+      notes: `Manual payment for ${term}`,
+    });
+
+    res.json({ success: true, message: 'Payment recorded.', fee });
+  } catch (err) {
+    console.error('manual pay error:', err);
+    res.status(500).json({ error: err.message || 'Failed to record payment.' });
+  }
+});
+
 
 
 // ═══════════════════════════════════════════════════════════════
